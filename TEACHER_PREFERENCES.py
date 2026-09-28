@@ -6,7 +6,7 @@ import streamlit as st
 st.set_page_config(
     page_title="Faculty Teaching Preferences Form",
     page_icon="🎓",
-    layout="centered"
+    layout="wide"
 )
 
 CSV_FILE = "teacher_preferences.csv"
@@ -217,49 +217,76 @@ COURSE_DATABASE = {
 
 st.divider()
 
-# Create a popup container at the bottom
-with st.popover("💬 Need help? Ask Course AI Assistant"):
-    st.subheader("🤖 Course & Curriculum AI Assistant")
-    st.caption("Ask questions about course codes or form instructions.")
+# Create a 2-column layout: Form on Left (75%), AI Assistant on Right (25%)
+col_main, col_side = st.columns([3, 1])
 
-    # Initialize chat history in Streamlit session state
+# ==========================================
+# LEFT COLUMN: PREFERENCES FORM
+# ==========================================
+with col_main:
+    st.title("Faculty Teaching Preferences Form")
+
+    # --- PUT YOUR EXISTING FORM CODE HERE ---
+    # (e.g., st.text_input, st.selectbox, st.button for preferences submission)
+
+
+# ==========================================
+# RIGHT COLUMN: SIDEBAR AI ASSISTANT
+# ==========================================
+with col_side:
+    st.subheader("🤖 Course AI Assistant")
+    st.caption("Search course codes, levels (e.g. 3000s), or ask form questions.")
+
     if "chat_messages" not in st.session_state:
         st.session_state.chat_messages = [
-            {"role": "assistant", "content": "Hello! I can help you find course codes or answer questions about your preferences submission. What are you looking for?"}
+            {"role": "assistant", "content": "Hello! I can help you find course codes or answer form questions."}
         ]
 
-    # Display chat history
-    for msg in st.session_state.chat_messages:
-        with st.chat_message(msg["role"]):
-            st.write(msg["content"])
+    # Container to keep chat readable on the side
+    chat_container = st.container(height=400)
+    with chat_container:
+        for msg in st.session_state.chat_messages:
+            with st.chat_message(msg["role"]):
+                st.write(msg["content"])
 
-    # Chat input box
-    if prompt := st.chat_input("Ask a question or search for a course..."):
-        # Store user query
+    if prompt := st.chat_input("Ask AI assistant..."):
         st.session_state.chat_messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.write(prompt)
 
-        # Generate response logic
         response_text = ""
         query_lower = prompt.lower()
+        words = query_lower.split()
 
-        # 1. Course Lookup Matching
-        matches = [f"**{code}**: {title}" for code, title in COURSE_DATABASE.items() if query_lower in code.lower() or query_lower in title.lower()]
+        ignore_words = {"what", "are", "the", "show", "me", "list", "all", "courses", "course", "of", "for", "in", "is", "a", "an"}
+        keywords = [w for w in words if w not in ignore_words]
+
+        matches = []
+        for code, title in COURSE_DATABASE.items():
+            combined_text = f"{code} {title}".lower()
+
+            for kw in keywords:
+                if kw in ["1000", "1000s", "level 1", "freshman"] and code.startswith("ECON 1"):
+                    matches.append(f"**{code}**: {title}")
+                elif kw in ["2000", "2000s", "level 2", "sophomore"] and code.startswith("ECON 2"):
+                    matches.append(f"**{code}**: {title}")
+                elif kw in ["3000", "3000s", "level 3", "junior"] and code.startswith("ECON 3"):
+                    matches.append(f"**{code}**: {title}")
+                elif kw in ["4000", "4000s", "level 4", "senior"] and code.startswith("ECON 4"):
+                    matches.append(f"**{code}**: {title}")
+                elif len(kw) >= 3 and kw in combined_text:
+                    matches.append(f"**{code}**: {title}")
+
+        matches = list(dict.fromkeys(matches))
 
         if matches:
-            response_text = "Here are the matching Northeastern Economics courses:\n\n" + "\n".join(f"- {m}" for m in matches)
-        # 2. General Query Handling
+            response_text = "Matching courses:\n\n" + "\n".join(f"- {m}" for m in matches)
         elif "password" in query_lower or "admin" in query_lower:
-            response_text = "The Admin Portal at the bottom of the page requires administrator credentials to view and download all submitted preferences."
+            response_text = "The Admin Portal requires administrator credentials to view all submitted preferences."
         elif "rank" in query_lower or "preference" in query_lower:
-            response_text = "Please select your top course preferences using Rank 1 through Rank 6 in the form above. Duplicate course selections across ranks are automatically highlighted."
-        elif "load" in query_lower or "courses per year" in query_lower:
-            response_text = "Select your anticipated total teaching load (number of course sections) for both the Fall and Spring terms."
+            response_text = "Select your top course preferences using Rank 1 through Rank 6 in the main form."
+        elif "load" in query_lower or "section" in query_lower:
+            response_text = "Select your total teaching load (course sections) for Fall and Spring."
         else:
-            response_text = "I couldn't find a direct course match for your query. Try searching with a subject keyword (e.g., 'macro', 'micro', 'labor', 'health') or entering a course number like '1116'."
+            response_text = "No direct course match found. Try searching topics like 'macro', 'micro', 'labor', or level like '3000s'."
 
-        # Append assistant response
         st.session_state.chat_messages.append({"role": "assistant", "content": response_text})
-        with st.chat_message("assistant"):
-            st.write(response_text)
+        st.rerun()
