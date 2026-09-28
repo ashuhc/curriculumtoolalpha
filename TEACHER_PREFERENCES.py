@@ -5,7 +5,7 @@ import streamlit as st
 # Page Configuration
 st.set_page_config(
     page_title="Faculty Teaching Preferences Form",
-    page_icon="🎓",
+    page_icon="📋",
     layout="centered"
 )
 
@@ -31,7 +31,7 @@ if "df_responses" not in st.session_state:
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
 
 # Header Section
-st.title("🎓 Faculty Teaching Preferences Form")
+st.title("📋 Faculty Teaching Preferences Form")
 st.markdown(
     """
     Please fill out your teaching preferences for the upcoming academic year.
