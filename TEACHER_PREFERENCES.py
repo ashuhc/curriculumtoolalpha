@@ -8,9 +8,15 @@ COURSES_FILE = "custom_courses.json"
 
 def load_faculty():
     if os.path.exists(FACULTY_FILE):
-        with open(FACULTY_FILE, "r") as f:
-            return json.load(f)
-    return list(FACULTY_NAMES)  # Fallback to default list
+        try:
+            with open(FACULTY_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    
+    # First-time run: write default list to file and return it
+    save_faculty(DEFAULT_FACULTY_NAMES)
+    return list(DEFAULT_FACULTY_NAMES)
 
 def save_faculty(faculty_list):
     with open(FACULTY_FILE, "w") as f:
@@ -25,6 +31,21 @@ def load_courses():
 def save_courses(course_dict):
     with open(COURSES_FILE, "w") as f:
         json.dump(course_dict, f, indent=4)
+
+# --- INITIALIZE LIVE & STAGING STATES ---
+if "faculty_names" not in st.session_state:
+    st.session_state.faculty_names = load_faculty()
+
+# Draft state for uncommitted faculty changes
+if "draft_faculty" not in st.session_state:
+    st.session_state.draft_faculty = list(st.session_state.faculty_names)
+
+if "course_database" not in st.session_state:
+    st.session_state.course_database = load_courses()
+
+# Draft state for uncommitted course changes
+if "draft_courses" not in st.session_state:
+    st.session_state.draft_courses = dict(st.session_state.course_database)
 
 # Page Configuration
 st.set_page_config(
@@ -651,69 +672,127 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     st.session_state.df_responses.to_csv(CSV_FILE, index=False)
                     st.success(f"Successfully wrote {len(st.session_state.df_responses)} records to {CSV_FILE}!")
         with admin_tab2:
-            st.markdown("### Manage Faculty Dropdown List")
+            st.markdown("### Manage Faculty Dropdown List (Staging)")
             
-            # Add Faculty
-            with st.form("add_faculty_form"):
-                new_faculty = st.text_input("Add New Faculty Name (e.g., 'Smith, Jane')")
-                if st.form_submit_button("Add Faculty Member"):
-                    if new_faculty:
-                        if new_faculty not in st.session_state.faculty_names:
-                            st.session_state.faculty_names.append(new_faculty)
-                            save_faculty(st.session_state.faculty_names)  # <--- Save to disk
-                            st.success(f"Added '{new_faculty}'!")
+            # Check if there are uncommitted changes
+            has_faculty_changes = st.session_state.draft_faculty != st.session_state.faculty_names
+            if has_faculty_changes:
+                st.warning("⚠️ You have uncommitted changes in your faculty staging buffer.")
+            
+            col_add, col_remove = st.columns(2)
+            
+            # 1. STAGE ADDITION
+            with col_add:
+                st.markdown("#### Stage Add Faculty")
+                with st.form("stage_add_faculty_form"):
+                    new_fac = st.text_input("New Faculty Name (e.g., 'Smith, Jane')")
+                    if st.form_submit_button("Stage Addition"):
+                        cleaned = new_fac.strip()
+                        if cleaned and cleaned not in st.session_state.draft_faculty:
+                            st.session_state.draft_faculty.append(cleaned)
+                            
+                            # Sort draft list alphabetically
+                            has_select = "Select your name..." in st.session_state.draft_faculty
+                            names_only = [f for f in st.session_state.draft_faculty if f != "Select your name..."]
+                            names_only.sort()
+                            st.session_state.draft_faculty = (
+                                ["Select your name..."] + names_only if has_select else names_only
+                            )
+                            st.info(f"Staged '{cleaned}' for addition.")
                             st.rerun()
-                        else:
-                            st.warning("Faculty member is already in the list.")
+                        elif cleaned in st.session_state.draft_faculty:
+                            st.warning(f"'{cleaned}' is already in draft state.")
+
+            # 2. STAGE REMOVAL
+            with col_remove:
+                st.markdown("#### Stage Remove Faculty")
+                avail_draft_fac = [f for f in st.session_state.draft_faculty if f != "Select your name..."]
+                if avail_draft_fac:
+                    fac_to_stage_remove = st.selectbox("Select Faculty to Remove", options=avail_draft_fac, key="stage_fac_rem")
+                    if st.button("Stage Removal", type="secondary"):
+                        st.session_state.draft_faculty.remove(fac_to_stage_remove)
+                        st.info(f"Staged '{fac_to_stage_remove}' for removal.")
+                        st.rerun()
+                else:
+                    st.caption("No remaining faculty to remove in draft.")
 
             st.divider()
 
-            # Remove Faculty
-            st.markdown("#### Remove Faculty Member")
-            available_faculty = [f for f in st.session_state.faculty_names if f != "Select your name..."]
+            # 3. COMMIT OR DISCARD CONTROLS
+            st.markdown("#### Preview & Commit Changes")
+            st.caption(f"Draft catalog contains {len(st.session_state.draft_faculty)} entries.")
             
-            if available_faculty:
-                fac_to_remove = st.selectbox("Select Faculty to Remove", options=available_faculty)
-                if st.button("🗑️ Remove Selected Faculty", type="primary"):
-                    st.session_state.faculty_names.remove(fac_to_remove)
-                    save_faculty(st.session_state.faculty_names)  # <--- Save to disk
-                    st.success(f"Successfully removed '{fac_to_remove}'!")
+            btn_col1, btn_col2 = st.columns([1, 1])
+            with btn_col1:
+                if st.button("🚀 Commit & Publish Faculty Changes", type="primary", disabled=not has_faculty_changes):
+                    # Apply draft to live state
+                    st.session_state.faculty_names = list(st.session_state.draft_faculty)
+                    # Write to persistent JSON file
+                    save_faculty(st.session_state.faculty_names)
+                    st.success("Successfully committed faculty changes to live catalog!")
                     st.rerun()
-            else:
-                st.info("No editable faculty members remaining.")
+
+            with btn_col2:
+                if st.button("🔄 Discard Draft Changes", disabled=not has_faculty_changes):
+                    # Reset draft to match live state
+                    st.session_state.draft_faculty = list(st.session_state.faculty_names)
+                    st.warning("Discarded uncommitted faculty changes.")
+                    st.rerun()
 
         with admin_tab3:
-            st.markdown("### Manage Course Catalog Dropdown List")
+            st.markdown("### Manage Course Catalog Dropdown List (Staging)")
             
-            # Add Course Form
-            with st.form("add_course_form"):
-                c1, c2 = st.columns(2)
-                with c1:
-                    new_code = st.text_input("Course Code (e.g., 'ECON 3500')")
-                with c2:
-                    new_title = st.text_input("Course Title (e.g., 'Advanced Micro')")
-                
-                if st.form_submit_button("Add Course"):
-                    if new_code and new_title:
-                        code_formatted = new_code.strip().upper()
-                        st.session_state.course_database[code_formatted] = new_title.strip()
-                        save_courses(st.session_state.course_database)  # Persists to custom_courses.json
-                        st.success(f"Added {code_formatted}: {new_title}!")
+            has_course_changes = st.session_state.draft_courses != st.session_state.course_database
+            if has_course_changes:
+                st.warning("⚠️ You have uncommitted changes in your course staging buffer.")
+
+            col_c_add, col_c_rem = st.columns(2)
+
+            # 1. STAGE COURSE ADDITION
+            with col_c_add:
+                st.markdown("#### Stage Add Course")
+                with st.form("stage_add_course_form"):
+                    c_code = st.text_input("Course Code (e.g., 'ECON 3500')")
+                    c_title = st.text_input("Course Title (e.g., 'Advanced Micro')")
+                    if st.form_submit_button("Stage Course"):
+                        if c_code and c_title:
+                            code_clean = c_code.strip().upper()
+                            st.session_state.draft_courses[code_clean] = c_title.strip()
+                            st.info(f"Staged {code_clean}: {c_title}.")
+                            st.rerun()
+
+            # 2. STAGE COURSE REMOVAL
+            with col_c_rem:
+                st.markdown("#### Stage Remove Course")
+                if st.session_state.draft_courses:
+                    c_to_remove = st.selectbox("Select Course to Remove", options=list(st.session_state.draft_courses.keys()), key="stage_course_rem")
+                    if st.button("Stage Removal", key="btn_stage_c_rem"):
+                        del st.session_state.draft_courses[c_to_remove]
+                        st.info(f"Staged removal of '{c_to_remove}'.")
                         st.rerun()
+                else:
+                    st.caption("No courses available to remove in draft.")
 
             st.divider()
 
-            # Remove Course Form
-            st.markdown("#### Remove Course from Catalog")
-            if st.session_state.course_database:
-                course_to_remove = st.selectbox(
-                    "Select Course to Remove",
-                    options=list(st.session_state.course_database.keys())
-                )
-                if st.button("🗑️ Remove Selected Course", type="primary"):
-                    del st.session_state.course_database[course_to_remove]
-                    save_courses(st.session_state.course_database)  # Persists deletion to custom_courses.json
-                    st.warning(f"Removed '{course_to_remove}'.")
+            # 3. COMMIT OR DISCARD CONTROLS
+            st.markdown("#### Preview & Commit Course Changes")
+            btn_cc1, btn_cc2 = st.columns([1, 1])
+            
+            with btn_cc1:
+                if st.button("🚀 Commit & Publish Course Catalog", type="primary", disabled=not has_course_changes):
+                    # Apply draft to live state
+                    st.session_state.course_database = dict(st.session_state.draft_courses)
+                    # Write to persistent JSON file
+                    save_courses(st.session_state.course_database)
+                    st.success("Successfully committed course catalog changes!")
+                    st.rerun()
+
+            with btn_cc2:
+                if st.button("🔄 Discard Course Draft", disabled=not has_course_changes):
+                    # Reset draft to match live state
+                    st.session_state.draft_courses = dict(st.session_state.course_database)
+                    st.warning("Discarded uncommitted course catalog changes.")
                     st.rerun()
 
         # --------------------------------------------------
