@@ -77,6 +77,87 @@ FACULTY_NAMES = [
     "Zhou, Nan"
 ]
 
+# Reference data for Northeastern Economics courses
+COURSE_DATABASE = {
+    # 1000-Level Courses
+    "ECON 1000": "Economics at Northeastern",
+    "ECON 1113": "Data Analysis Tools for Economists",
+    "ECON 1115": "Principles of Macroeconomics",
+    "ECON 1116": "Principles of Microeconomics",
+    "ECON 1125": "Recitation for ECON 1115",
+    "ECON 1126": "Recitation for ECON 1116",
+    "ECON 1230": "Healthcare and Medical Economics",
+    "ECON 1240": "Economics of Crime",
+    "ECON 1245": "Economics of Inequality",
+    "ECON 1260": "Contested Issues in the U.S. Economy",
+    "ECON 1292": "Economic History of the Middle East",
+    "ECON 1711": "Economics of Sustainability",
+    "ECON 1915": "Introductory Selected Topics in Macroeconomics",
+    "ECON 1916": "Introductory Selected Topics in Microeconomics",
+    "ECON 1990": "Elective",
+
+    # 2000-Level Courses
+    "ECON 2315": "Macroeconomic Theory",
+    "ECON 2316": "Microeconomic Theory",
+    "ECON 2350": "Statistics for Economists",
+    "ECON 2560": "Applied Econometrics",
+    "ECON 2990": "Elective",
+
+    # 3000-Level Courses
+    "ECON 3255": "Economics of Financial Market Structure",
+    "ECON 3290": "History of the Global Economy",
+    "ECON 3291": "Development Economics",
+    "ECON 3404": "International Food Policy",
+    "ECON 3405": "A Critique of Capitalism",
+    "ECON 3410": "Labor Economics",
+    "ECON 3412": "Women's Labor and the Economy",
+    "ECON 3413": "Health Economics and Healthcare Policy",
+    "ECON 3416": "Behavioral Economics",
+    "ECON 3420": "Urban Economic Issues",
+    "ECON 3423": "Environmental Economics",
+    "ECON 3424": "Law and Economics",
+    "ECON 3425": "Energy Economics",
+    "ECON 3440": "Public Finance",
+    "ECON 3442": "Money and Banking",
+    "ECON 3460": "Managerial Economics",
+    "ECON 3462": "Bubbles, Busts, and Bailouts: Market and Regulatory Failures in the Financial Crisis",
+    "ECON 3470": "American Economic History",
+    "ECON 3480": "Industrial Organization and Public Policy",
+    "ECON 3481": "Economics of Sports",
+    "ECON 3490": "Public Choice Economics",
+    "ECON 3520": "History of Economic Thought",
+    "ECON 3635": "International Economics",
+    "ECON 3711": "Economics of Race",
+    "ECON 3720": "Economics of Conflict and Peace",
+    "ECON 3915": "Intermediate Selected Topics in Macroeconomics",
+    "ECON 3916": "Intermediate Selected Topics in Microeconomics",
+    "ECON 3990": "Elective",
+
+    # 4000-Level Courses
+    "ECON 4637": "Monetary and Fiscal Policy",
+    "ECON 4640": "Financial Economics",
+    "ECON 4642": "International Trade",
+    "ECON 4644": "International Macroeconomics and Finance",
+    "ECON 4653": "Mathematics for Economics",
+    "ECON 4680": "Competition Policy and Regulation",
+    "ECON 4681": "Information Economics and Game Theory",
+    "ECON 4692": "Senior Economics Seminar",
+    "ECON 4915": "Advanced Selected Topics in Macroeconomics",
+    "ECON 4916": "Advanced Selected Topics in Microeconomics",
+    "ECON 4965": "Undergraduate Teaching Experience",
+    "ECON 4970": "Junior/Senior Honors Project 1",
+    "ECON 4971": "Junior/Senior Honors Project 2",
+    "ECON 4990": "Elective",
+    "ECON 4991": "Research",
+    "ECON 4992": "Directed Study",
+    "ECON 4994": "Internship",
+    "ECON 4996": "Experiential Education Directed Study",
+    "ECON 4997": "Senior Economics Thesis",
+}
+
+# Format COURSE_DATABASE into strings for dropdown menus
+COURSE_OPTIONS = ["Select a course..."] + [f"{code} - {title}" for code, title in COURSE_DATABASE.items()]
+
 # Create dropdown inputs
 rank_1 = st.selectbox("Rank 1 Course", options=COURSE_OPTIONS, key="rank_1")
 rank_2 = st.selectbox("Rank 2 Course", options=COURSE_OPTIONS, key="rank_2")
@@ -263,89 +344,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
 # POPUP AI ASSISTANT (COURSE HELPER)
 # ==========================================
 
-# Reference data for Northeastern Economics courses
-COURSE_DATABASE = {
-    # 1000-Level Courses
-    "ECON 1000": "Economics at Northeastern",
-    "ECON 1113": "Data Analysis Tools for Economists",
-    "ECON 1115": "Principles of Macroeconomics",
-    "ECON 1116": "Principles of Microeconomics",
-    "ECON 1125": "Recitation for ECON 1115",
-    "ECON 1126": "Recitation for ECON 1116",
-    "ECON 1230": "Healthcare and Medical Economics",
-    "ECON 1240": "Economics of Crime",
-    "ECON 1245": "Economics of Inequality",
-    "ECON 1260": "Contested Issues in the U.S. Economy",
-    "ECON 1292": "Economic History of the Middle East",
-    "ECON 1711": "Economics of Sustainability",
-    "ECON 1915": "Introductory Selected Topics in Macroeconomics",
-    "ECON 1916": "Introductory Selected Topics in Microeconomics",
-    "ECON 1990": "Elective",
-
-    # 2000-Level Courses
-    "ECON 2315": "Macroeconomic Theory",
-    "ECON 2316": "Microeconomic Theory",
-    "ECON 2350": "Statistics for Economists",
-    "ECON 2560": "Applied Econometrics",
-    "ECON 2990": "Elective",
-
-    # 3000-Level Courses
-    "ECON 3255": "Economics of Financial Market Structure",
-    "ECON 3290": "History of the Global Economy",
-    "ECON 3291": "Development Economics",
-    "ECON 3404": "International Food Policy",
-    "ECON 3405": "A Critique of Capitalism",
-    "ECON 3410": "Labor Economics",
-    "ECON 3412": "Women's Labor and the Economy",
-    "ECON 3413": "Health Economics and Healthcare Policy",
-    "ECON 3416": "Behavioral Economics",
-    "ECON 3420": "Urban Economic Issues",
-    "ECON 3423": "Environmental Economics",
-    "ECON 3424": "Law and Economics",
-    "ECON 3425": "Energy Economics",
-    "ECON 3440": "Public Finance",
-    "ECON 3442": "Money and Banking",
-    "ECON 3460": "Managerial Economics",
-    "ECON 3462": "Bubbles, Busts, and Bailouts: Market and Regulatory Failures in the Financial Crisis",
-    "ECON 3470": "American Economic History",
-    "ECON 3480": "Industrial Organization and Public Policy",
-    "ECON 3481": "Economics of Sports",
-    "ECON 3490": "Public Choice Economics",
-    "ECON 3520": "History of Economic Thought",
-    "ECON 3635": "International Economics",
-    "ECON 3711": "Economics of Race",
-    "ECON 3720": "Economics of Conflict and Peace",
-    "ECON 3915": "Intermediate Selected Topics in Macroeconomics",
-    "ECON 3916": "Intermediate Selected Topics in Microeconomics",
-    "ECON 3990": "Elective",
-
-    # 4000-Level Courses
-    "ECON 4637": "Monetary and Fiscal Policy",
-    "ECON 4640": "Financial Economics",
-    "ECON 4642": "International Trade",
-    "ECON 4644": "International Macroeconomics and Finance",
-    "ECON 4653": "Mathematics for Economics",
-    "ECON 4680": "Competition Policy and Regulation",
-    "ECON 4681": "Information Economics and Game Theory",
-    "ECON 4692": "Senior Economics Seminar",
-    "ECON 4915": "Advanced Selected Topics in Macroeconomics",
-    "ECON 4916": "Advanced Selected Topics in Microeconomics",
-    "ECON 4965": "Undergraduate Teaching Experience",
-    "ECON 4970": "Junior/Senior Honors Project 1",
-    "ECON 4971": "Junior/Senior Honors Project 2",
-    "ECON 4990": "Elective",
-    "ECON 4991": "Research",
-    "ECON 4992": "Directed Study",
-    "ECON 4994": "Internship",
-    "ECON 4996": "Experiential Education Directed Study",
-    "ECON 4997": "Senior Economics Thesis",
-}
-
-# Format COURSE_DATABASE into strings for dropdown menus
-COURSE_OPTIONS = ["Select a course..."] + [f"{code} - {title}" for code, title in COURSE_DATABASE.items()]
-
 st.divider()
-
 # 1. Custom CSS to float the popover button and style the overlay window
 st.markdown(
     """
