@@ -117,7 +117,7 @@ if submitted:
         st.success("✅ Your teaching preferences have been successfully recorded!")
 
 # -----------------------------------------------------------------------------
-# 3. DIRECT PASSWORD-PROTECTED ADMIN VIEW
+# 3. PASSWORD-PROTECTED ADMIN VIEW
 # -----------------------------------------------------------------------------
 st.markdown("---")
 with st.expander("🔒 Admin Portal (Restricted Access)"):
