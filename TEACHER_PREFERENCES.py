@@ -10,13 +10,15 @@ st.set_page_config(
 )
 
 CSV_FILE = "teacher_preferences.csv"
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+
+# HARDCODED ADMIN PASSWORD
+ADMIN_PASSWORD = "econpassword123"
 
 # Header Section
 st.title("🎓 Faculty Teaching Preferences Form")
 st.markdown(
     """
-    Please fill out your teaching preferences for the upcoming academic year.
+    Please fill out your teaching preferences for the upcoming academic year. 
     Refer to the [Northeastern Undergraduate Economics Course Catalog](https://catalog.northeastern.edu/undergraduate/social-sciences-humanities/economics/#coursestext) for course codes and titles.
     """
 )
@@ -25,7 +27,7 @@ st.markdown(
 # 1. FACULTY FORM
 # -----------------------------------------------------------------------------
 with st.form("preference_form", clear_on_submit=True):
-
+    
     st.subheader("1. Contact Information")
     col1, col2 = st.columns(2)
     with col1:
@@ -60,7 +62,7 @@ with st.form("preference_form", clear_on_submit=True):
 
     st.subheader("4. Teaching Load & Schedule")
     st.write("**Desired course count per semester (ALPHA VERSION: Fall & Spring only):**")
-
+    
     col_fall, col_spring = st.columns(2)
     with col_fall:
         fall_courses = st.number_input("Fall Semester Courses", min_value=0, max_value=5, value=2, step=1)
@@ -117,23 +119,21 @@ if submitted:
         st.success("✅ Your teaching preferences have been successfully recorded!")
 
 # -----------------------------------------------------------------------------
-# 3. PASSWORD-PROTECTED ADMIN VIEW
+# 3. DIRECT HARDCODED ADMIN VIEW
 # -----------------------------------------------------------------------------
 st.markdown("---")
 with st.expander("🔒 Admin Portal (Restricted Access)"):
-    entered_password = st.text_input("Enter Admin Password", type="password", key="admin_pwd_input")
-
+    entered_password = st.text_input("Enter Admin Password", type="password", key="admin_pwd_v2")
+    
     if entered_password:
-        if not ADMIN_PASSWORD:
-            st.error("Admin access is disabled. Set the ADMIN_PASSWORD environment variable.")
-        elif entered_password == ADMIN_PASSWORD:
+        if entered_password == ADMIN_PASSWORD:
             st.success("Access Granted")
-
+            
             if os.path.exists(CSV_FILE):
                 df_data = pd.read_csv(CSV_FILE)
                 st.write(f"**Total Responses Recorded:** {len(df_data)}")
                 st.dataframe(df_data)
-
+                
                 csv_bytes = df_data.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="📥 Download Dataset (.csv)",
@@ -141,10 +141,10 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     file_name="teacher_preferences_export.csv",
                     mime="text/csv"
                 )
-
+                
                 st.markdown("---")
                 st.caption("⚠️ **Danger Zone:** Permanently delete all recorded submissions.")
-
+                
                 if st.button("🗑️ Clear All Data", type="primary"):
                     os.remove(CSV_FILE)
                     st.warning("All submission data has been permanently cleared!")
