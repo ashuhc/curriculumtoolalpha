@@ -50,7 +50,7 @@ with st.form("preference_form", clear_on_submit=True):
     with col1:
         full_name = st.text_input("Full Name*", placeholder="e.g., Dr. Jane Doe")
     with col2:
-        email = st.text_input("Northeastern Email*", placeholder="e.g., j.doe@northeastern.edu")
+        email = st.text_input("Email*", placeholder="e.g., j.doe@northeastern.edu or janedoe@gmail.com")
 
     st.markdown("---")
 
@@ -103,12 +103,73 @@ with st.form("preference_form", clear_on_submit=True):
     # Submit Button
     submitted = st.form_submit_button("Submit Preferences")
 
+# List of unique faculty members extracted from enrollment records
+FACULTY_NAMES = [
+    "Select your name...",
+    "Adams, Brookelyn",
+    "Alam, Mohammad",
+    "Bakkal, Ilter",
+    "Caicedo, Santiago",
+    "Cao, Jianfei",
+    "Cheng, Peiran",
+    "Chowdhury, Pabitra",
+    "Dana, James",
+    "Dew, James",
+    "Diaz Vargas, Dayanara",
+    "Dupree, Jill",
+    "Ellul, Christian",
+    "Garofalo, Pablo",
+    "Georges, Francis",
+    "Gernhardt, Roy",
+    "Gulbiten, Onsel",
+    "Han, Yuling",
+    "Hooker, Mark",
+    "Jakubowski, Aleksandra",
+    "Jung, Jae Wook",
+    "Khanna, Shantanu",
+    "Konan, Martin",
+    "Kwoka, John",
+    "Marks, Mindy",
+    "Mohammed, Abdul Raheem Shariq",
+    "Mughal, Abdul",
+    "Pacheco, Paul Nicholas",
+    "Peng, Shenghao",
+    "Piao, Richeng",
+    "Porter, Gerald",
+    "Prakash, Nishith",
+    "Prina, Silvia",
+    "Richardson, Samuel",
+    "Roble, Benjamin",
+    "Ross, Matthew",
+    "Shabanpour, MuhammadHussian",
+    "Shahidinejad, Andres",
+    "Shi, Xiaolin",
+    "Silva, Mario Rafael",
+    "Stone, Michael",
+    "Tao, Tianyi",
+    "Tardiff, Timothy",
+    "Thompson, Jacob",
+    "Toone, Kalten",
+    "Triest, Robert",
+    "Ulusoy, Veysel",
+    "Unal, Cankutcem",
+    "Venkatesan, Madhavi",
+    "Vicentini, Gustavo",
+    "Wolfe, Sarah",
+    "Zhang, Shuo",
+    "Zhou, Nan"
+]
+
+# --- FORM INPUTS ---
+full_name = st.selectbox("Full Name", options=FACULTY_NAMES)
+email = st.text_input("Email Address")
+
 # -----------------------------------------------------------------------------
 # 2. FORM SUBMISSION PROCESSING
 # -----------------------------------------------------------------------------
 if submitted:
     if not full_name.strip() or not email.strip():
-        st.error("Please provide both your Full Name and Email address before submitting.")
+        st.error("Please select your FULL NAME and enter your EMAIL ADDRESS before submitting.")
     else:
         record = {
             "Timestamp": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
