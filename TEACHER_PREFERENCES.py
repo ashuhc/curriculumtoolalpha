@@ -620,34 +620,34 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     st.session_state.df_responses.to_csv(CSV_FILE, index=False)
                     st.success(f"Successfully wrote {len(st.session_state.df_responses)} records to {CSV_FILE}!")
         with admin_tab2:
-        st.markdown("### Manage Faculty Dropdown List")
-        
-        # Add new faculty member
-        with st.form("add_faculty_form"):
-            new_faculty = st.text_input("Add New Faculty Name (e.g., 'Smith, Jane')")
-            if st.form_submit_button("Add Faculty Member"):
-                if new_faculty:
-                    if new_faculty not in st.session_state.faculty_list:
-                        st.session_state.faculty_list.append(new_faculty)
-                        st.success(f"Added '{new_faculty}'!")
-                        st.rerun()
-                    else:
-                        st.warning("That faculty member is already in the list.")
+            st.markdown("### Manage Faculty Dropdown List")
+            
+            # Add new faculty member
+            with st.form("add_faculty_form"):
+                new_faculty = st.text_input("Add New Faculty Name (e.g., 'Smith, Jane')")
+                if st.form_submit_button("Add Faculty Member"):
+                    if new_faculty:
+                        if new_faculty not in st.session_state.faculty_list:
+                            st.session_state.faculty_list.append(new_faculty)
+                            st.success(f"Added '{new_faculty}'!")
+                            st.rerun()
+                        else:
+                            st.warning("That faculty member is already in the list.")
 
-        st.divider()
+            st.divider()
 
-        # Remove existing faculty member
-        st.markdown("#### Remove Faculty Member")
-        available_faculty = [f for f in st.session_state.faculty_list if f != "Select your name..."]
-        
-        if available_faculty:
-            fac_to_remove = st.selectbox("Select Faculty to Remove", options=available_faculty)
-            if st.button("🗑️ Remove Selected Faculty", type="primary"):
-                st.session_state.faculty_list.remove(fac_to_remove)
-                st.success(f"Successfully removed '{fac_to_remove}'!")
-                st.rerun()
-        else:
-            st.info("No editable faculty members remaining.")
+            # Remove existing faculty member
+            st.markdown("#### Remove Faculty Member")
+            available_faculty = [f for f in st.session_state.faculty_list if f != "Select your name..."]
+            
+            if available_faculty:
+                fac_to_remove = st.selectbox("Select Faculty to Remove", options=available_faculty)
+                if st.button("🗑️ Remove Selected Faculty", type="primary"):
+                    st.session_state.faculty_list.remove(fac_to_remove)
+                    st.success(f"Successfully removed '{fac_to_remove}'!")
+                    st.rerun()
+            else:
+                st.info("No editable faculty members remaining.")
 
         with admin_tab3:
             st.markdown("### Manage Course Catalog Dropdown List")
