@@ -3,50 +3,6 @@ import json
 import pandas as pd
 import streamlit as st
 
-FACULTY_FILE = "custom_faculty.json"
-COURSES_FILE = "custom_courses.json"
-
-def load_faculty():
-    if os.path.exists(FACULTY_FILE):
-        try:
-            with open(FACULTY_FILE, "r") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    
-    # First-time run: write default list to file and return it
-    save_faculty(DEFAULT_FACULTY_NAMES)
-    return list(DEFAULT_FACULTY_NAMES)
-
-def save_faculty(faculty_list):
-    with open(FACULTY_FILE, "w") as f:
-        json.dump(faculty_list, f, indent=4)
-
-def load_courses():
-    if os.path.exists(COURSES_FILE):
-        with open(COURSES_FILE, "r") as f:
-            return json.load(f)
-    return dict(COURSE_DATABASE)  # Fallback to default dict
-
-def save_courses(course_dict):
-    with open(COURSES_FILE, "w") as f:
-        json.dump(course_dict, f, indent=4)
-
-# --- INITIALIZE LIVE & STAGING STATES ---
-if "faculty_names" not in st.session_state:
-    st.session_state.faculty_names = load_faculty()
-
-# Draft state for uncommitted faculty changes
-if "draft_faculty" not in st.session_state:
-    st.session_state.draft_faculty = list(st.session_state.faculty_names)
-
-if "course_database" not in st.session_state:
-    st.session_state.course_database = load_courses()
-
-# Draft state for uncommitted course changes
-if "draft_courses" not in st.session_state:
-    st.session_state.draft_courses = dict(st.session_state.course_database)
-
 # Page Configuration
 st.set_page_config(
     page_title="Faculty Teaching Preferences Form",
@@ -484,6 +440,50 @@ COURSE_DESCRIPTIONS = {
         "description": "Substantial individual research thesis completed under faculty advisor supervision."
     }
 }
+
+FACULTY_FILE = "custom_faculty.json"
+COURSES_FILE = "custom_courses.json"
+
+def load_faculty():
+    if os.path.exists(FACULTY_FILE):
+        try:
+            with open(FACULTY_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    
+    # First-time run: write default list to file and return it
+    save_faculty(DEFAULT_FACULTY_NAMES)
+    return list(DEFAULT_FACULTY_NAMES)
+
+def save_faculty(faculty_list):
+    with open(FACULTY_FILE, "w") as f:
+        json.dump(faculty_list, f, indent=4)
+
+def load_courses():
+    if os.path.exists(COURSES_FILE):
+        with open(COURSES_FILE, "r") as f:
+            return json.load(f)
+    return dict(COURSE_DATABASE)  # Fallback to default dict
+
+def save_courses(course_dict):
+    with open(COURSES_FILE, "w") as f:
+        json.dump(course_dict, f, indent=4)
+
+# --- INITIALIZE LIVE & STAGING STATES ---
+if "faculty_names" not in st.session_state:
+    st.session_state.faculty_names = load_faculty()
+
+# Draft state for uncommitted faculty changes
+if "draft_faculty" not in st.session_state:
+    st.session_state.draft_faculty = list(st.session_state.faculty_names)
+
+if "course_database" not in st.session_state:
+    st.session_state.course_database = load_courses()
+
+# Draft state for uncommitted course changes
+if "draft_courses" not in st.session_state:
+    st.session_state.draft_courses = dict(st.session_state.course_database)
 
 # Format dynamic COURSE_OPTIONS list directly from session state
 COURSE_OPTIONS = ["Select a course..."] + [
