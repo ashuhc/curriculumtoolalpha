@@ -1,6 +1,6 @@
-import streamlit as st
-import pandas as pd
 import os
+import pandas as pd
+import streamlit as st
 
 # Page Configuration
 st.set_page_config(
@@ -117,7 +117,7 @@ if submitted:
         st.success("✅ Your teaching preferences have been successfully recorded!")
 
 # -----------------------------------------------------------------------------
-# 3. PASSWORD-PROTECTED ADMIN VIEW
+# 3. DIRECT PASSWORD-PROTECTED ADMIN VIEW
 # -----------------------------------------------------------------------------
 st.markdown("---")
 with st.expander("🔒 Admin Portal (Restricted Access)"):
@@ -134,7 +134,6 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                 st.write(f"**Total Responses Recorded:** {len(df_data)}")
                 st.dataframe(df_data)
 
-                # Download CSV Option
                 csv_bytes = df_data.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="📥 Download Dataset (.csv)",
@@ -146,7 +145,6 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                 st.markdown("---")
                 st.caption("⚠️ **Danger Zone:** Permanently delete all recorded submissions.")
 
-                # Clear Data Confirmation
                 if st.button("🗑️ Clear All Data", type="primary"):
                     os.remove(CSV_FILE)
                     st.warning("All submission data has been permanently cleared!")
