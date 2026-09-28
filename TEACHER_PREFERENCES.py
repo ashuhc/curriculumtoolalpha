@@ -171,10 +171,10 @@ COURSE_DATABASE = {
     "ECON 1240": "Economics of Crime",
     "ECON 1245": "Economics of Inequality",
     "ECON 1260": "Contested Issues in the U.S. Economy",
-    "ECON 1290": "Topics in Economics",
     "ECON 1292": "Economic History of the Middle East",
-    "ECON 1600": "The Global Economy",
     "ECON 1711": "Economics of Sustainability",
+    "ECON 1915": "Introductory Selected Topics in Macroeconomics",
+    "ECON 1916": "Introductory Selected Topics in Microeconomics",
     "ECON 1990": "Elective",
 
     # 2000-Level Courses
@@ -185,31 +185,52 @@ COURSE_DATABASE = {
     "ECON 2990": "Elective",
 
     # 3000-Level Courses
-    "ECON 3260": "Urban Economics",
-    "ECON 3290": "Health Economics",
+    "ECON 3255": "Economics of Financial Market Structure",
+    "ECON 3290": "History of the Global Economy",
+    "ECON 3291": "Development Economics",
+    "ECON 3404": "International Food Policy",
+    "ECON 3405": "A Critique of Capitalism",
     "ECON 3410": "Labor Economics",
-    "ECON 3420": "Industrial Organization",
-    "ECON 3460": "Public Finance",
+    "ECON 3412": "Women's Labor and the Economy",
+    "ECON 3413": "Health Economics and Healthcare Policy",
+    "ECON 3416": "Behavioral Economics",
+    "ECON 3420": "Urban Economic Issues",
+    "ECON 3423": "Environmental Economics",
+    "ECON 3424": "Law and Economics",
+    "ECON 3425": "Energy Economics",
+    "ECON 3440": "Public Finance",
+    "ECON 3442": "Money and Banking",
+    "ECON 3460": "Managerial Economics",
+    "ECON 3462": "Bubbles, Busts, and Bailouts: Market and Regulatory Failures in the Financial Crisis",
     "ECON 3470": "American Economic History",
-    "ECON 3481": "Development Economics",
-    "ECON 3490": "Economics of Sports",
+    "ECON 3480": "Industrial Organization and Public Policy",
+    "ECON 3481": "Economics of Sports",
+    "ECON 3490": "Public Choice Economics",
     "ECON 3520": "History of Economic Thought",
+    "ECON 3635": "International Economics",
+    "ECON 3711": "Economics of Race",
+    "ECON 3720": "Economics of Conflict and Peace",
+    "ECON 3915": "Intermediate Selected Topics in Macroeconomics",
+    "ECON 3916": "Intermediate Selected Topics in Microeconomics",
     "ECON 3990": "Elective",
 
     # 4000-Level Courses
-    "ECON 4635": "International Economics",
+    "ECON 4637": "Monetary and Fiscal Policy",
     "ECON 4640": "Financial Economics",
-    "ECON 4650": "Behavioral Economics",
-    "ECON 4653": "Mathematical Economics",
-    "ECON 4680": "Environmental Economics",
-    "ECON 4690": "Seminar in Economics",
+    "ECON 4642": "International Trade",
+    "ECON 4644": "International Macroeconomics and Finance",
+    "ECON 4653": "Mathematics for Economics",
+    "ECON 4680": "Competition Policy and Regulation",
+    "ECON 4681": "Information Economics and Game Theory",
     "ECON 4692": "Senior Economics Seminar",
+    "ECON 4915": "Advanced Selected Topics in Macroeconomics",
+    "ECON 4916": "Advanced Selected Topics in Microeconomics",
+    "ECON 4965": "Undergraduate Teaching Experience",
     "ECON 4970": "Junior/Senior Honors Project 1",
     "ECON 4971": "Junior/Senior Honors Project 2",
     "ECON 4990": "Elective",
     "ECON 4991": "Research",
     "ECON 4992": "Directed Study",
-    "ECON 4993": "Independent Study",
     "ECON 4994": "Internship",
     "ECON 4996": "Experiential Education Directed Study",
     "ECON 4997": "Senior Economics Thesis"
@@ -298,7 +319,7 @@ with st.popover("💬 AI Helper"):
         # 1. Full Course Catalog Intent
         all_trigger_words = [
             "all codes", "all course codes", "all courses", "show all",
-            "list all", "every course", "everything", "catalog", "full list"
+            "list all", "every course", "everything", "catalog", "full list", "all"
         ]
 
         # 2. Contact & Email Intent
@@ -346,57 +367,86 @@ with st.popover("💬 AI Helper"):
                 response_text = "Rank your top course choices using Rank #1 through Rank #6."
 
         else:
-            # 4. Strict Stop Words Only (Removes grammatical fluff, preserving ALL subject topics)
-            ignore_words = {
-                "what", "is", "are", "the", "code", "for", "course", "courses", "class", "classes",
-                "show", "me", "list", "of", "in", "a", "an", "and", "or", "to", "econ", "economics",
-                "which", "find", "get", "do", "you", "have", "about", "on", "with"
+            # 4. Stand-out Keyword & Synonym Map directly derived from your COURSE_DATABASE
+            standout_topic_map = {
+                # Specific topics in database
+                "food": ["food", "policy"],
+                "history": ["history", "historical", "thought"],
+                "law": ["law", "legal", "regulation", "court"],
+                "health": ["health", "healthcare", "medical"],
+                "crime": ["crime", "criminal"],
+                "race": ["race", "racial"],
+                "sports": ["sports", "sport"],
+                "money": ["money", "banking", "monetary", "financial", "finance"],
+                "data": ["data", "analysis", "statistics", "econometrics"],
+                "macro": ["macro", "macroeconomics", "macroeconomic"],
+                "micro": ["micro", "microeconomics", "microeconomic"],
+                "labor": ["labor", "women's labor", "employment"],
+                "game": ["game", "game theory", "information"],
+                "peace": ["peace", "conflict"],
+                "sustainability": ["sustainability", "environmental", "energy"],
+                "urban": ["urban", "city"],
+                "math": ["mathematics", "math", "tools"],
+                "thesis": ["thesis", "senior economics seminar", "honors project", "research", "directed study"],
+                "internship": ["internship", "experiential"],
+                "teaching": ["teaching", "undergraduate teaching experience"]
             }
 
-            # Clean punctuation and extract raw search tokens
             clean_query = query_lower.replace("?", "").replace(",", "").replace(".", "").replace("!", "")
             raw_words = clean_query.split()
 
-            # Allow 2+ letter tokens so short course topics ('law', 'art', 'tax', 'food') are retained
-            keywords = [w for w in raw_words if w not in ignore_words and len(w) >= 2]
+            # Remove filler grammatical words only
+            ignore_words = {
+                "what", "is", "are", "the", "code", "for", "course", "courses", "class", "classes",
+                "show", "me", "list", "of", "in", "a", "an", "and", "or", "to", "econ", "economics",
+                "which", "find", "get", "do", "you", "have", "about", "on", "with", "tell"
+            }
+            search_tokens = [w for w in raw_words if w not in ignore_words and len(w) >= 2]
 
             scored_matches = []
+
             for code, title in COURSE_DATABASE.items():
                 title_lower = title.lower()
                 code_lower = code.lower()
                 score = 0
 
-                # Check level filters
-                for w in raw_words:
-                    if w in ["1000", "1000s", "level 1", "intro"] and code.startswith("ECON 1"):
-                        score += 3
-                    elif w in ["2000", "2000s", "level 2", "intermediate"] and code.startswith("ECON 2"):
-                        score += 3
-                    elif w in ["3000", "3000s", "level 3", "advanced"] and code.startswith("ECON 3"):
-                        score += 3
-                    elif w in ["4000", "4000s", "level 4", "senior", "seminar"] and code.startswith("ECON 4"):
-                        score += 3
+                # A. Numeric level checks (e.g. '1000s', '3000')
+                for token in raw_words:
+                    if token in ["1000", "1000s", "1000-level"] and code.startswith("ECON 1"):
+                        score += 10
+                    elif token in ["2000", "2000s", "2000-level"] and code.startswith("ECON 2"):
+                        score += 10
+                    elif token in ["3000", "3000s", "3000-level"] and code.startswith("ECON 3"):
+                        score += 10
+                    elif token in ["4000", "4000s", "4000-level"] and code.startswith("ECON 4"):
+                        score += 10
 
-                # Substring & keyword matching across course titles and codes
-                for kw in keywords:
-                    if kw in title_lower:
-                        score += 5
-                    elif kw in code_lower:
-                        score += 5
+                # B. Direct word & partial token matches against code/title
+                for token in search_tokens:
+                    if token in code_lower:
+                        score += 15
+                    if token in title_lower:
+                        score += 10
+
+                # C. Topic Map Synonym Matches
+                for topic, keywords in standout_topic_map.items():
+                    if topic in clean_query or any(kw in clean_query for kw in keywords):
+                        if any(kw in title_lower for kw in keywords):
+                            score += 8
 
                 if score > 0:
-                    scored_matches.append((score, f"**{code}**: {title}"))
+                    scored_matches.append((score, f"• **{code}**: {title}"))
 
-            # Sort matches by score (highest relevance first)
+            # Rank by relevance score
             scored_matches.sort(key=lambda x: x[0], reverse=True)
             matches = list(dict.fromkeys([item[1] for item in scored_matches]))
 
             if matches:
-                response_text = "Matching courses:\n\n" + "\n".join(f"- {m}" for m in matches[:10])
+                response_text = "Matching courses:\n\n" + "\n".join(matches[:10])
             else:
                 response_text = (
-                    "No direct course match found for that keyword. "
-                    "Try typing **'all codes'**, **'contact'**, or searching topics like **'food'**, **'history'**, **'law'**, **'macro'**, or **'3000s'**."
+                    "No direct course match found for that query. "
+                    "Type **'all'** to see every code, or search stand-out terms like **'food'**, **'history'**, **'law'**, **'crime'**, **'sports'**, **'money'**, or **'3000s'**."
                 )
 
         st.session_state.chat_messages.append({"role": "assistant", "content": response_text})
