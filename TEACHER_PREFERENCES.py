@@ -595,11 +595,19 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
         elif entered_password == ADMIN_PASSWORD:
             st.success("Access Granted")
 
+            # Tabs for Admin Management
+        admin_tab1, admin_tab2, admin_tab3 = st.tabs([
+            "📊 View Submissions", 
+            "👨‍🏫 Manage Faculty Names", 
+            "📚 Manage Course Catalog"
+        ])
+
+        with admin_tab1:
             if os.path.exists(CSV_FILE):
                 df_data = pd.read_csv(CSV_FILE)
                 st.write(f"**Total Responses Recorded:** {len(df_data)}")
                 st.dataframe(df_data)
-
+                
                 csv_bytes = df_data.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="📥 Download Dataset (.csv)",
@@ -607,22 +615,70 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     file_name="teacher_preferences_export.csv",
                     mime="text/csv"
                 )
-                if st.button("💾 Sync All Memory to CSV"):
-                    st.session_state.df_responses.to_csv(CSV_FILE, index=False)
-                    st.success(f"Successfully wrote {len(st.session_state.df_responses)} records to {CSV_FILE}!")
-                
-                st.markdown("---")
-                st.caption("⚠️ **Danger Zone:** Permanently delete all recorded submissions.")
 
-                if st.button("🗑️ Clear All Data", type="primary"):
-                    st.session_state.df_responses = pd.DataFrame(columns=COLUMNS)
-                    st.session_state.df_responses.to_csv(CSV_FILE, index=False)
-                    st.success("✅ All submission data has been permanently cleared!")
+        with admin_tab2:
+            st.markdown("### Manage Faculty Dropdown List")
+            with st.form("add_faculty_form"):
+                new_faculty = st.text_input("Add New Faculty Name (e.g., 'Smith, Jane')")
+                if st.form_submit_button("Add Faculty Member"):
+                    if new_faculty and "FACULTY_LIST" in globals():
+                        if new_faculty not in FACULTY_LIST:
+                            FACULTY_LIST.append(new_faculty)
+                            st.success(f"Added '{new_faculty}'!")
+                            st.rerun()
+
+            if "FACULTY_LIST" in globals():
+                fac_to_remove = st.selectbox(
+                    "Select Faculty to Remove", 
+                    options=[f for f in FACULTY_LIST if f != "Select your name..."]
+                )
+                if st.button("Remove Selected Faculty"):
+                    FACULTY_LIST.remove(fac_to_remove)
+                    st.warning(f"Removed '{fac_to_remove}'.")
                     st.rerun()
-            else:
-                st.info("No submission data exists yet.")
-        else:
-            st.error("Incorrect password. Access denied.")
+
+        with admin_tab3:
+            st.markdown("### Manage Course Catalog Dropdown List")
+            with st.form("add_course_form"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    new_code = st.text_input("Course Code (e.g., 'ECON 3500')")
+                with c2:
+                    new_title = st.text_input("Course Title (e.g., 'Advanced Micro')")
+                
+                if st.form_submit_button("Add Course"):
+                    if new_code and new_title and "COURSE_DATABASE" in globals():
+                        code_formatted = new_code.strip().upper()
+                        COURSE_DATABASE[code_formatted] = new_title.strip()
+                        st.success(f"Added {code_formatted}: {new_title}!")
+                        st.rerun()
+
+            if "COURSE_DATABASE" in globals():
+                course_to_remove = st.selectbox(
+                    "Select Course to Remove",
+                    options=list(COURSE_DATABASE.keys())
+                )
+                if st.button("Remove Selected Course"):
+                    del COURSE_DATABASE[course_to_remove]
+                    st.warning(f"Removed '{course_to_remove}'.")
+                    st.rerun()
+
+        # --------------------------------------------------
+        # Original Data Sync & Danger Zone Actions
+        # --------------------------------------------------
+        st.divider()
+
+        if st.button("💾 Sync All Memory to CSV"):
+            st.session_state.df_responses.to_csv(CSV_FILE, index=False)
+            st.success(f"Successfully wrote {len(st.session_state.df_responses)} records to {CSV_FILE}!")
+
+        st.caption("⚠️ **Danger Zone:** Permanently delete all recorded submissions.")
+
+        if st.button("🗑️ Clear All Data", type="primary"):
+            st.session_state.df_responses = pd.DataFrame(columns=COLUMNS)
+            st.session_state.df_responses.to_csv(CSV_FILE, index=False)
+            st.success("✅ All submission data has been permanently cleared!")
+            st.rerun()
 
 # ==========================================
 # POPUP AI ASSISTANT (COURSE HELPER)
