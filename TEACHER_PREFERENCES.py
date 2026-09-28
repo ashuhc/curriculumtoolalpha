@@ -296,13 +296,22 @@ with st.popover("💬 AI Helper"):
         query_lower = prompt.lower().strip()
 
         # 1. Full Course Catalog Intent
-        all_trigger_words = ["all codes", "all course codes", "all courses", "show all", "list all", "every course", "everything", "catalog"]
+        all_trigger_words = [
+            "all codes", "all course codes", "all courses", "show all",
+            "list all", "every course", "everything", "catalog", "full list"
+        ]
 
         # 2. Contact & Email Intent
-        contact_trigger_words = ["contact", "email", "support", "help desk", "reach out", "who to contact", "admin email", "contact info"]
+        contact_trigger_words = [
+            "contact", "email", "support", "help desk", "reach out",
+            "who to contact", "admin email", "contact info"
+        ]
 
         # 3. Form Rules & Instructions Intent
-        form_trigger_words = ["rank", "preference", "load", "section", "password", "admin", "deadline", "submit", "due"]
+        form_trigger_words = [
+            "rank", "preference", "load", "section", "password",
+            "admin", "deadline", "submit", "due"
+        ]
 
         if any(trigger in query_lower for trigger in all_trigger_words):
             cat_1000 = [f"• **{code}**: {title}" for code, title in COURSE_DATABASE.items() if code.startswith("ECON 1")]
@@ -321,37 +330,43 @@ with st.popover("💬 AI Helper"):
         elif any(trigger in query_lower for trigger in contact_trigger_words):
             response_text = (
                 "**Contact & Support Information:**\n\n"
-                "• **Email Field**: Enter your official Northeastern email (e.g., `j.doe@northeastern.edu`) in Section 1.\n"
-                "• **Department Contact**: For general form or curriculum questions, contact the Economics Department Chair or Program Coordinator.\n"
-                "• **Technical Support**: If you experience technical issues submitting this form, contact Northeastern ITS."
+                "• **Email Field**: Enter your official Northeastern email in Section 1.\n"
+                "• **Department Contact**: Contact the Economics Department Chair or Program Coordinator for course planning questions.\n"
+                "• **Technical Support**: Contact Northeastern ITS if you experience submission bugs."
             )
 
         elif any(trigger in query_lower for trigger in form_trigger_words):
             if "password" in query_lower or "admin" in query_lower:
-                response_text = "The Admin Portal at the bottom requires administrator credentials to view and download submitted preferences."
+                response_text = "The Admin Portal requires administrator credentials to view and download submissions."
             elif "load" in query_lower or "section" in query_lower:
-                response_text = "Select your anticipated total teaching load (number of course sections) for both the Fall and Spring terms in the load section."
+                response_text = "Select your anticipated total teaching load (number of sections) for Fall and Spring."
             elif "deadline" in query_lower or "due" in query_lower or "submit" in query_lower:
                 response_text = "The form does not list a submission deadline. Please confirm the deadline with the Economics Department."
             else:
-                response_text = "Rank your top course choices using Rank #1 through Rank #6. Avoid entering the same course more than once."
+                response_text = "Rank your top course choices using Rank #1 through Rank #6."
 
         else:
-            # 4. Fuzzy Course Search (Fuzzy/Partial Keyword Matching)
+            # 4. Strict Stop Words Only (Removes grammatical fluff, preserving ALL subject topics)
             ignore_words = {
                 "what", "is", "are", "the", "code", "for", "course", "courses", "class", "classes",
-                "show", "me", "list", "of", "in", "a", "an", "and", "or", "to", "econ", "economics", "which"
+                "show", "me", "list", "of", "in", "a", "an", "and", "or", "to", "econ", "economics",
+                "which", "find", "get", "do", "you", "have", "about", "on", "with"
             }
 
-            raw_words = query_lower.replace("?", "").replace(",", "").replace(".", "").split()
+            # Clean punctuation and extract raw search tokens
+            clean_query = query_lower.replace("?", "").replace(",", "").replace(".", "").replace("!", "")
+            raw_words = clean_query.split()
+
+            # Allow 2+ letter tokens so short course topics ('law', 'art', 'tax', 'food') are retained
             keywords = [w for w in raw_words if w not in ignore_words and len(w) >= 2]
 
             scored_matches = []
             for code, title in COURSE_DATABASE.items():
-                combined_text = f"{code} {title}".lower()
+                title_lower = title.lower()
+                code_lower = code.lower()
                 score = 0
 
-                # Direct level filters
+                # Check level filters
                 for w in raw_words:
                     if w in ["1000", "1000s", "level 1", "intro"] and code.startswith("ECON 1"):
                         score += 3
@@ -362,23 +377,27 @@ with st.popover("💬 AI Helper"):
                     elif w in ["4000", "4000s", "level 4", "senior", "seminar"] and code.startswith("ECON 4"):
                         score += 3
 
-                # Match keywords against title and code
+                # Substring & keyword matching across course titles and codes
                 for kw in keywords:
-                    if kw in title.lower():
-                        score += 4
-                    elif kw in code.lower():
-                        score += 4
+                    if kw in title_lower:
+                        score += 5
+                    elif kw in code_lower:
+                        score += 5
 
                 if score > 0:
                     scored_matches.append((score, f"**{code}**: {title}"))
 
+            # Sort matches by score (highest relevance first)
             scored_matches.sort(key=lambda x: x[0], reverse=True)
             matches = list(dict.fromkeys([item[1] for item in scored_matches]))
 
             if matches:
-                response_text = "Matching courses:\n\n" + "\n".join(f"- {m}" for m in matches[:8])
+                response_text = "Matching courses:\n\n" + "\n".join(f"- {m}" for m in matches[:10])
             else:
-                response_text = "No direct course or form match found. Try typing **'contact'**, **'all codes'**, or searching course keywords like **'macro'**, **'labor'**, or **'3000s'**."
+                response_text = (
+                    "No direct course match found for that keyword. "
+                    "Try typing **'all codes'**, **'contact'**, or searching topics like **'food'**, **'history'**, **'law'**, **'macro'**, or **'3000s'**."
+                )
 
         st.session_state.chat_messages.append({"role": "assistant", "content": response_text})
         st.rerun()
