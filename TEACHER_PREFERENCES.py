@@ -134,10 +134,11 @@ if submitted:
 
         st.success("✅ Your teaching preferences have been successfully recorded!")
 
-# -----------------------------------------------------------------------------
-# 3. DIRECT HARDCODED ADMIN VIEW
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------
+# 3. ADMIN PORTAL (DATA CLEAR & MANAGEMENT)
+# ---------------------------------------------------------
 st.markdown("---")
+
 with st.expander("🔒 Admin Portal (Restricted Access)"):
     entered_password = st.text_input("Enter Admin Password", type="password", key="admin_pwd_v2")
 
@@ -147,12 +148,16 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
         elif entered_password == ADMIN_PASSWORD:
             st.success("Access Granted")
 
+            # Always load fresh data directly from session state or CSV
             if os.path.exists(CSV_FILE):
-                df_data = pd.read_csv(CSV_FILE)
-                st.write(f"**Total Responses Recorded:** {len(df_data)}")
-                st.dataframe(df_data)
+                st.session_state.df_responses = pd.read_csv(CSV_FILE)
 
-                csv_bytes = df_data.to_csv(index=False).encode('utf-8')
+            total_responses = len(st.session_state.df_responses)
+            st.write(f"**Total Responses Recorded:** {total_responses}")
+            st.dataframe(st.session_state.df_responses)
+
+            if total_responses > 0:
+                csv_bytes = st.session_state.df_responses.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="📥 Download Dataset (.csv)",
                     data=csv_bytes,
@@ -160,16 +165,18 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     mime="text/csv"
                 )
 
-                st.markdown("---")
-                st.caption("⚠️ **Danger Zone:** Permanently delete all recorded submissions.")
+            st.markdown("---")
+            st.caption("⚠️ **Danger Zone:** Permanently delete all recorded submissions.")
 
-                if st.button("🗑️ Clear All Data", type="primary"):
-                    st.session_state.df_responses = pd.DataFrame(columns=COLUMNS)
-                    st.session_state.df_responses.to_csv(CSV_FILE, index=False)
-                    st.success("✅ All semester submission data has been permanently cleared!")
-                    st.rerun()
-            else:
-                st.info("No submission data exists yet.")
+            if st.button("🗑️ Clear All Data", type="primary", key="clear_all_data_btn"):
+                # 1. Reset memory DataFrame to empty template
+                st.session_state.df_responses = pd.DataFrame(columns=COLUMNS)
+
+                # 2. Hard-overwrite CSV file on disk with headers only
+                st.session_state.df_responses.to_csv(CSV_FILE, index=False)
+
+                st.success("✅ All submission data has been permanently cleared!")
+                st.rerun()
         else:
             st.error("Incorrect password. Access denied.")
 
