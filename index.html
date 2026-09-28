@@ -3,23 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Northeastern Economics Curriculum Planning Hub</title>
+    <title>Northeastern Economics Curriculum Planning</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #333; }
-        h1 { color: #CC0000; } /* Northeastern Red */
-        .card { border: 1px solid #ddd; padding: 20px; border-radius: 8px; margin-top: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .btn { display: inline-block; background-color: #CC0000; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 10px; }
-        .btn:hover { background-color: #A00000; }
+        :root {
+            --neu-red: #CC0000;
+            --neu-red-hover: #A30000;
+            --neu-black: #111111;
+            --neu-gray-bg: #F8F9FA;
+            --neu-border: #E2E8F0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            max-width: 850px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            color: var(--neu-black);
+            background-color: var(--neu-gray-bg);
+        }
+
+        header {
+            border-bottom: 3px solid var(--neu-red);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: var(--neu-black);
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--neu-red);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        .card {
+            background: #ffffff;
+            border: 1px solid var(--neu-border);
+            border-left: 5px solid var(--neu-red);
+            padding: 28px;
+            border-radius: 6px;
+            margin-top: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            color: var(--neu-black);
+            font-size: 1.4rem;
+        }
+
+        .btn {
+            display: inline-block;
+            background-color: var(--neu-red);
+            color: #ffffff;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 600;
+            margin-top: 15px;
+            transition: background-color 0.2s ease;
+        }
+
+        .btn:hover {
+            background-color: var(--neu-red-hover);
+        }
+
+        footer {
+            margin-top: 50px;
+            font-size: 0.85rem;
+            color: #666666;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
-    <h1>🎓 Northeastern Economics Curriculum Planning Portal</h1>
-    <p>Welcome to the central portal for faculty curriculum planning and course load scheduling.</p>
+    <header>
+        <p class="subtitle">Northeastern University — Department of Economics</p>
+        <h1>🎓 Curriculum Planning Portal</h1>
+    </header>
 
-    <div class="card">
-        <h2>Faculty Teaching Preferences Form</h2>
-        <p>Submit your preferred courses, principles coverage preferences, and desired teaching schedules for the upcoming academic year.</p>
-        <a href="https://curriculumtoolalpha.streamlit.app" class="btn" target="_blank">Open Preferences Form ↗</a>
-    </div>
+    <main>
+        <p>Welcome to the central faculty portal for curriculum coordination, course schedule planning, and teaching preferences.</p>
+
+        <div class="card">
+            <h2>Faculty Teaching Preferences Form</h2>
+            <p>Submit your preferred courses, principles coverage interest, and desired semester teaching loads for the upcoming academic year.</p>
+            <a href="https://curriculumtoolalpha.streamlit.app" class="btn" target="_blank">Open Preferences Form ↗</a>
+        </div>
+    </main>
+
+    <footer>
+        &copy; Northeastern University Department of Economics
+    </footer>
 </body>
 </html>
