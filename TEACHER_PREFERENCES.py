@@ -1,6 +1,30 @@
 import os
+import json
 import pandas as pd
 import streamlit as st
+
+FACULTY_FILE = "custom_faculty.json"
+COURSES_FILE = "custom_courses.json"
+
+def load_faculty():
+    if os.path.exists(FACULTY_FILE):
+        with open(FACULTY_FILE, "r") as f:
+            return json.load(f)
+    return list(FACULTY_NAMES)  # Fallback to default list
+
+def save_faculty(faculty_list):
+    with open(FACULTY_FILE, "w") as f:
+        json.dump(faculty_list, f, indent=4)
+
+def load_courses():
+    if os.path.exists(COURSES_FILE):
+        with open(COURSES_FILE, "r") as f:
+            return json.load(f)
+    return dict(COURSE_DATABASE)  # Fallback to default dict
+
+def save_courses(course_dict):
+    with open(COURSES_FILE, "w") as f:
+        json.dump(course_dict, f, indent=4)
 
 # Page Configuration
 st.set_page_config(
@@ -78,7 +102,7 @@ FACULTY_NAMES = [
 ]
 
 if "faculty_names" not in st.session_state:
-    st.session_state.faculty_names = list(FACULTY_NAMES)
+    st.session_state.faculty_names = load_faculty()
 
 # Reference data for Northeastern Economics courses
 COURSE_DATABASE = {
@@ -157,6 +181,9 @@ COURSE_DATABASE = {
     "ECON 4996": "Experiential Education Directed Study",
     "ECON 4997": "Senior Economics Thesis",
 }
+
+if "course_database" not in st.session_state:
+    st.session_state.course_database = load_courses()
 
 # Reference data for Northeastern Economics course descriptions (for AI Assistant)
 COURSE_DESCRIPTIONS = {
@@ -437,8 +464,10 @@ COURSE_DESCRIPTIONS = {
     }
 }
 
-# Format COURSE_DATABASE into strings for dropdown menus
-COURSE_OPTIONS = ["Select a course..."] + [f"{code} - {title}" for code, title in COURSE_DATABASE.items()]
+# Format dynamic COURSE_OPTIONS list directly from session state
+COURSE_OPTIONS = ["Select a course..."] + [
+    f"{code} - {title}" for code, title in st.session_state.course_database.items()
+]
 
 # Ensure CSV file exists with columns at startup
 if not os.path.exists(CSV_FILE):
@@ -625,13 +654,14 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
         with admin_tab2:
             st.markdown("### Manage Faculty Dropdown List")
             
-            # Form to add new faculty
+            # Add Faculty
             with st.form("add_faculty_form"):
                 new_faculty = st.text_input("Add New Faculty Name (e.g., 'Smith, Jane')")
                 if st.form_submit_button("Add Faculty Member"):
                     if new_faculty:
                         if new_faculty not in st.session_state.faculty_names:
                             st.session_state.faculty_names.append(new_faculty)
+                            save_faculty(st.session_state.faculty_names)  # <--- Save to disk
                             st.success(f"Added '{new_faculty}'!")
                             st.rerun()
                         else:
@@ -639,7 +669,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
 
             st.divider()
 
-            # Section to remove faculty
+            # Remove Faculty
             st.markdown("#### Remove Faculty Member")
             available_faculty = [f for f in st.session_state.faculty_names if f != "Select your name..."]
             
@@ -647,6 +677,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                 fac_to_remove = st.selectbox("Select Faculty to Remove", options=available_faculty)
                 if st.button("🗑️ Remove Selected Faculty", type="primary"):
                     st.session_state.faculty_names.remove(fac_to_remove)
+                    save_faculty(st.session_state.faculty_names)  # <--- Save to disk
                     st.success(f"Successfully removed '{fac_to_remove}'!")
                     st.rerun()
             else:
@@ -654,6 +685,8 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
 
         with admin_tab3:
             st.markdown("### Manage Course Catalog Dropdown List")
+            
+            # Add Course Form
             with st.form("add_course_form"):
                 c1, c2 = st.columns(2)
                 with c1:
@@ -662,19 +695,25 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     new_title = st.text_input("Course Title (e.g., 'Advanced Micro')")
                 
                 if st.form_submit_button("Add Course"):
-                    if new_code and new_title and "COURSE_DATABASE" in globals():
+                    if new_code and new_title:
                         code_formatted = new_code.strip().upper()
-                        COURSE_DATABASE[code_formatted] = new_title.strip()
+                        st.session_state.course_database[code_formatted] = new_title.strip()
+                        save_courses(st.session_state.course_database)  # Persists to custom_courses.json
                         st.success(f"Added {code_formatted}: {new_title}!")
                         st.rerun()
 
-            if "COURSE_DATABASE" in globals():
+            st.divider()
+
+            # Remove Course Form
+            st.markdown("#### Remove Course from Catalog")
+            if st.session_state.course_database:
                 course_to_remove = st.selectbox(
                     "Select Course to Remove",
-                    options=list(COURSE_DATABASE.keys())
+                    options=list(st.session_state.course_database.keys())
                 )
-                if st.button("Remove Selected Course"):
-                    del COURSE_DATABASE[course_to_remove]
+                if st.button("🗑️ Remove Selected Course", type="primary"):
+                    del st.session_state.course_database[course_to_remove]
+                    save_courses(st.session_state.course_database)  # Persists deletion to custom_courses.json
                     st.warning(f"Removed '{course_to_remove}'.")
                     st.rerun()
 
