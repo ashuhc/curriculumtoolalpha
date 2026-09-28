@@ -521,7 +521,7 @@ with st.form("preference_form", clear_on_submit=True):
     with col1:
         full_name = st.selectbox("Full Name*", options=st.session_state.faculty_names)
     with col2:
-        email = st.text_input("Email*", placeholder="Preferred Contact Email")
+        email = st.text_input("Email*", placeholder="Preferred contact email")
 
     st.markdown("---")
 
@@ -763,10 +763,10 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
         with admin_tab3:
             st.markdown("### Manage Course Catalog Dropdown List (Staging)")
             
-            # 0. Display success/info notification banner surviving st.rerun()
+            # Display success banner surviving st.rerun()
             if "course_commit_success" in st.session_state:
                 st.success(st.session_state.course_commit_success)
-                del st.session_state.course_commit_success  # Display once then clear
+                del st.session_state.course_commit_success
 
             # Check for uncommitted staging changes
             has_course_changes = st.session_state.draft_courses != st.session_state.course_database
@@ -779,24 +779,33 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
             with col_c_add:
                 st.markdown("#### Stage Add Course")
                 with st.form("stage_add_course_form"):
-                    c_code = st.text_input("Course Code (e.g., 'ECON 3500')")
-                    c_title = st.text_input("Course Title (e.g., 'Advanced Micro')")
+                    c_code = st.text_input("Course Code (e.g., 'ECON 1260')")
+                    c_title = st.text_input("Course Title (e.g., 'Contested Issues in the U.S. Economy')")
+                    c_desc = st.text_area("Course Description", help="Add the detailed course description here.")
+                    
                     if st.form_submit_button("Stage Course"):
                         if c_code and c_title:
                             code_clean = c_code.strip().upper()
-                            st.session_state.draft_courses[code_clean] = c_title.strip()
+                            # Saves Code as key, with Title AND Description in the dict object
+                            st.session_state.draft_courses[code_clean] = {
+                                "title": c_title.strip(),
+                                "description": c_desc.strip() if c_desc else ""
+                            }
                             
                             st.toast(f"✅ Staged {code_clean}", icon="📚")
                             st.rerun()
+                        else:
+                            st.warning("Course Code and Course Title are required.")
 
             # --- 2. STAGE COURSE REMOVAL ---
             with col_c_rem:
                 st.markdown("#### Stage Remove Course")
                 if st.session_state.draft_courses:
-                    # Build dropdown options with placeholder header and formatted Code - Title
-                    course_remove_options = ["Select course to remove..."] + [
-                        f"{code} - {title}" for code, title in st.session_state.draft_courses.items()
-                    ]
+                    # Build dropdown showing ONLY "Code - Title" (keeping description hidden from menu)
+                    course_remove_options = ["Select course to remove..."]
+                    for code, data in st.session_state.draft_courses.items():
+                        title = data.get("title", str(data)) if isinstance(data, dict) else str(data)
+                        course_remove_options.append(f"{code} - {title}")
                     
                     selected_course_str = st.selectbox(
                         "Select Course to Remove", 
@@ -806,9 +815,10 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     
                     if st.button("Stage Removal", key="btn_stage_c_rem"):
                         if selected_course_str != "Select course to remove...":
-                            # Extract code key before the " - " divider
+                            # Extract course code before the " - "
                             code_to_remove = selected_course_str.split(" - ")[0]
                             
+                            # Deletes the entire object (code, title, and description)
                             if code_to_remove in st.session_state.draft_courses:
                                 del st.session_state.draft_courses[code_to_remove]
                                 st.toast(f"🗑️ Staged removal of {code_to_remove}", icon="ℹ️")
@@ -828,12 +838,10 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
             
             with btn_cc1:
                 if st.button("🚀 Commit & Publish Course Catalog", type="primary", disabled=not has_course_changes):
-                    # Apply draft changes to live state
+                    # Write draft mapping directly to live session and persistent JSON disk file
                     st.session_state.course_database = dict(st.session_state.draft_courses)
-                    # Persist to disk
                     save_courses(st.session_state.course_database)
                     
-                    # Store banner message in session state to display across st.rerun()
                     st.session_state.course_commit_success = "✅ Course catalog changes successfully committed and published to live app!"
                     st.toast("Course catalog updated successfully!", icon="🚀")
                     st.rerun()
