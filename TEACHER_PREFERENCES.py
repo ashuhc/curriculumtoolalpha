@@ -18,6 +18,7 @@ st.markdown(
     """
     Please fill out your teaching preferences for the upcoming academic year.
     Refer to the [Northeastern Undergraduate Economics Course Catalog](https://catalog.northeastern.edu/undergraduate/social-sciences-humanities/economics/#coursestext) for course codes and titles.
+    If there are any questions regarding courses, course codes, or the form, feel free to ask the AI Helper in the bottom right corner.
     """
 )
 
