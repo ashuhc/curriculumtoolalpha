@@ -1102,6 +1102,7 @@ with st.popover("💬 AI Helper"):
             scored_matches.sort(key=lambda x: x[0], reverse=True)
             matches = list(dict.fromkeys([item[1] for item in scored_matches]))
 
+                # Ensure response_text exists before appending
             if matches:
                 # Separate matched courses with double newlines so descriptions read cleanly
                 response_text = "Matching courses:\n\n" + "\n\n".join(matches[:5])
@@ -1111,5 +1112,6 @@ with st.popover("💬 AI Helper"):
                     "Type **'all'** to see every code, or search stand-out terms like **'food'**, **'history'**, **'law'**."
                 )
 
-    st.session_state.chat_messages.append({"role": "assistant", "content": response_text})
-    st.rerun()
+            # Ensure these two lines are properly indented INSIDE the `if prompt := st.chat_input(...)` block:
+            st.session_state.chat_messages.append({"role": "assistant", "content": response_text})
+            st.rerun()
