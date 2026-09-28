@@ -127,14 +127,24 @@ if submitted:
             "Unique Circumstances": unique_circumstances.strip() if unique_circumstances.strip() else "None"
         }
 
+        # Convert record to DataFrame
         df_new = pd.DataFrame([record])
-        if not os.path.exists(CSV_FILE):
-            df_new.to_csv(CSV_FILE, index=False)
+
+        # 1. Load existing disk data if present to prevent overwriting
+        if os.path.exists(CSV_FILE):
+            existing_df = pd.read_csv(CSV_FILE)
+            updated_df = pd.concat([existing_df, df_new], ignore_index=True)
         else:
-            df_new.to_csv(CSV_FILE, mode='a', header=False, index=False)
+            updated_df = df_new
+
+        # 2. Save entire updated DataFrame directly to the CSV file
+        updated_df.to_csv(CSV_FILE, index=False)
+
+        # 3. Update Streamlit memory so the Admin table updates instantly
+        st.session_state.df_responses = updated_df
 
         st.success("✅ Your teaching preferences have been successfully recorded!")
-
+        st.rerun()
 # -----------------------------------------------------------------------------
 # 3. DIRECT HARDCODED ADMIN VIEW
 # -----------------------------------------------------------------------------
