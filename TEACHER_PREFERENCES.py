@@ -292,7 +292,7 @@ COURSE_DESCRIPTIONS = {
     },
     "ECON 3425": {
         "title": "Energy Economics",
-        "description": "Analyzes energy supply and demand, fossil fuel markets, renewable energy transitions, regulatory policy, and global geopolitical energy markets."
+        "description": "Examines energy supply and demand, fossil fuels, renewable energy, market imperfections, greenhouse gas emissions, and energy security policies."
     },
     "ECON 3440": {
         "title": "Public Finance",
@@ -320,7 +320,7 @@ COURSE_DESCRIPTIONS = {
     },
     "ECON 3481": {
         "title": "Economics of Sports",
-        "description": "Applies microeconomic and econometric tools to professional and collegiate sports industries, covering salary caps, ticket pricing, stadium financing, and draft economics."
+        "description": "Applies economic analysis to professional and college sports, examining sports as an economic activity and evaluating empirical evidence on key industry questions."
     },
     "ECON 3490": {
         "title": "Public Choice Economics",
