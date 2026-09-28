@@ -78,9 +78,6 @@ DEFAULT_FACULTY_NAMES = [
     "Zhou, Nan"
 ]
 
-if "faculty_names" not in st.session_state:
-    st.session_state.faculty_names = load_faculty()
-
 # Reference data for Northeastern Economics courses
 COURSE_DATABASE = {
     # 1000-Level Courses
@@ -158,9 +155,6 @@ COURSE_DATABASE = {
     "ECON 4996": "Experiential Education Directed Study",
     "ECON 4997": "Senior Economics Thesis",
 }
-
-if "course_database" not in st.session_state:
-    st.session_state.course_database = load_courses()
 
 # Reference data for Northeastern Economics course descriptions (for AI Assistant)
 COURSE_DESCRIPTIONS = {
@@ -444,6 +438,7 @@ COURSE_DESCRIPTIONS = {
 FACULTY_FILE = "custom_faculty.json"
 COURSES_FILE = "custom_courses.json"
 
+
 def load_faculty():
     if os.path.exists(FACULTY_FILE):
         try:
@@ -469,6 +464,12 @@ def load_courses():
 def save_courses(course_dict):
     with open(COURSES_FILE, "w") as f:
         json.dump(course_dict, f, indent=4)
+
+if "faculty_names" not in st.session_state:
+    st.session_state.faculty_names = load_faculty()
+
+if "course_database" not in st.session_state:
+    st.session_state.course_database = load_courses()
 
 # --- INITIALIZE LIVE & STAGING STATES ---
 if "faculty_names" not in st.session_state:
