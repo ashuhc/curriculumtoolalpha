@@ -20,89 +20,6 @@ COLUMNS = [
     "Spring Desired Courses", "Course Overload Interest", "Unique Circumstances"
 ]
 
-# Ensure CSV file exists with columns at startup
-if not os.path.exists(CSV_FILE):
-    pd.DataFrame(columns=COLUMNS).to_csv(CSV_FILE, index=False)
-
-# Sync Session State with CSV
-if "df_responses" not in st.session_state:
-    st.session_state.df_responses = pd.read_csv(CSV_FILE)
-
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
-
-# Header Section
-st.title("📋 Faculty Teaching Preferences Form")
-st.markdown(
-    """
-    Please fill out your teaching preferences for the upcoming academic year.
-    Refer to the [Northeastern Undergraduate Economics Course Catalog](https://catalog.northeastern.edu/undergraduate/social-sciences-humanities/economics/#coursestext) for course codes and titles.
-    If there are any questions regarding course titles, course codes, or the form, feel free to ask the AI Helper in the bottom right corner.
-    """
-)
-
-# -----------------------------------------------------------------------------
-# 1. FACULTY FORM
-# -----------------------------------------------------------------------------
-with st.form("preference_form", clear_on_submit=True):
-
-    st.subheader("1. Contact Information")
-    col1, col2 = st.columns(2)
-    with col1:
-        full_name = st.text_input("Full Name*", placeholder="e.g., Dr. Jane Doe")
-    with col2:
-        email = st.text_input("Email*", placeholder="e.g., j.doe@northeastern.edu or janedoe@gmail.com")
-
-    st.markdown("---")
-
-    st.subheader("2. Principles Course Preferences")
-    principles_prefs = st.multiselect(
-        "Which Principles courses would you prefer to teach? (Select all that apply)",
-        options=[
-            "ECON 1115 - Principles of Macroeconomics",
-            "ECON 1116 - Principles of Microeconomics",
-            "ECON 2350 - Statistics for Economists",
-            "None / Not Applicable"
-        ]
-    )
-
-    st.markdown("---")
-
-    st.subheader("3. Top 6 Undergraduate Course Preferences")
-    st.caption("Rank your top 6 course choices. Please include both the **Course Code** and **Course Title** (e.g., *ECON 3410 - Microeconomic Theory*).")
-
-    ranked_courses = []
-    for i in range(1, 7):
-        course = st.text_input(f"Rank #{i} Course Code & Name", key=f"course_{i}", placeholder=f"e.g., ECON {3000+i*10} - Course Title")
-        ranked_courses.append(course.strip())
-
-    st.markdown("---")
-
-    st.subheader("4. Teaching Load & Schedule")
-    st.write("**Desired course count per semester (ALPHA VERSION: Fall & Spring only):**")
-
-    col_fall, col_spring = st.columns(2)
-    with col_fall:
-        fall_courses = st.number_input("Fall Semester Courses", min_value=0, max_value=5, value=2, step=1)
-    with col_spring:
-        spring_courses = st.number_input("Spring Semester Courses", min_value=0, max_value=5, value=2, step=1)
-
-    course_overload = st.radio(
-        "FTNTT faculty: Would you like to include a course overload (e.g., 4th course) for extra compensation?",
-        options=["No", "Yes", "Maybe / Open to discussion"]
-    )
-
-    st.markdown("---")
-
-    st.subheader("5. Unique Circumstances & Special Requests")
-    unique_circumstances = st.text_area(
-        "Please specify any unique circumstances to the department that should be considered when arranging your teaching schedule for the next two (2) academic years "
-        "(e.g., joint teaching appointment, contractual course reduction, course buyout, or planned sabbatical leave):",
-        placeholder="Enter details here or leave blank if not applicable..."
-    )
-
-    # Submit Button
-    submitted = st.form_submit_button("Submit Preferences")
-
 # List of unique faculty members extracted from enrollment records
 FACULTY_NAMES = [
     "Select your name...",
@@ -160,9 +77,88 @@ FACULTY_NAMES = [
     "Zhou, Nan"
 ]
 
-# --- FORM INPUTS ---
-full_name = st.selectbox("Full Name", options=FACULTY_NAMES)
-email = st.text_input("Email Address")
+# Ensure CSV file exists with columns at startup
+if not os.path.exists(CSV_FILE):
+    pd.DataFrame(columns=COLUMNS).to_csv(CSV_FILE, index=False)
+
+# Sync Session State with CSV
+if "df_responses" not in st.session_state:
+    st.session_state.df_responses = pd.read_csv(CSV_FILE)
+
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+
+# Header Section
+st.title("📋 Faculty Teaching Preferences Form")
+st.markdown(
+    """
+    Please fill out your teaching preferences for the upcoming academic year.
+    Refer to the [Northeastern Undergraduate Economics Course Catalog](https://catalog.northeastern.edu/undergraduate/social-sciences-humanities/economics/#coursestext) for course codes and titles.
+    If there are any questions regarding course titles, course codes, or the form, feel free to ask the AI Helper in the bottom right corner.
+    """
+)
+
+# -----------------------------------------------------------------------------
+# 1. FACULTY FORM
+# -----------------------------------------------------------------------------
+with st.form("preference_form", clear_on_submit=True):
+
+    st.subheader("1. Contact Information")
+    col1, col2 = st.columns(2)
+    with col1:
+        full_name = st.selectbox("Full Name", options=FACULTY_NAMES)
+    with col2:
+        email = st.text_input("Email*", placeholder="e.g., j.doe@northeastern.edu or janedoe@gmail.com")
+
+    st.markdown("---")
+
+    st.subheader("2. Principles Course Preferences")
+    principles_prefs = st.multiselect(
+        "Which Principles courses would you prefer to teach? (Select all that apply)",
+        options=[
+            "ECON 1115 - Principles of Macroeconomics",
+            "ECON 1116 - Principles of Microeconomics",
+            "ECON 2350 - Statistics for Economists",
+            "None / Not Applicable"
+        ]
+    )
+
+    st.markdown("---")
+
+    st.subheader("3. Top 6 Undergraduate Course Preferences")
+    st.caption("Rank your top 6 course choices. Please include both the **Course Code** and **Course Title** (e.g., *ECON 3410 - Microeconomic Theory*).")
+
+    ranked_courses = []
+    for i in range(1, 7):
+        course = st.text_input(f"Rank #{i} Course Code & Name", key=f"course_{i}", placeholder=f"e.g., ECON {3000+i*10} - Course Title")
+        ranked_courses.append(course.strip())
+
+    st.markdown("---")
+
+    st.subheader("4. Teaching Load & Schedule")
+    st.write("**Desired course count per semester (ALPHA VERSION: Fall & Spring only):**")
+
+    col_fall, col_spring = st.columns(2)
+    with col_fall:
+        fall_courses = st.number_input("Fall Semester Courses", min_value=0, max_value=5, value=2, step=1)
+    with col_spring:
+        spring_courses = st.number_input("Spring Semester Courses", min_value=0, max_value=5, value=2, step=1)
+
+    course_overload = st.radio(
+        "FTNTT faculty: Would you like to include a course overload (e.g., 4th course) for extra compensation?",
+        options=["No", "Yes", "Maybe / Open to discussion"]
+    )
+
+    st.markdown("---")
+
+    st.subheader("5. Unique Circumstances & Special Requests")
+    unique_circumstances = st.text_area(
+        "Please specify any unique circumstances to the department that should be considered when arranging your teaching schedule for the next two (2) academic years "
+        "(e.g., joint teaching appointment, contractual course reduction, course buyout, or planned sabbatical leave):",
+        placeholder="Enter details here or leave blank if not applicable..."
+    )
+
+    # Submit Button
+    submitted = st.form_submit_button("Submit Preferences")
 
 # -----------------------------------------------------------------------------
 # 2. FORM SUBMISSION PROCESSING
