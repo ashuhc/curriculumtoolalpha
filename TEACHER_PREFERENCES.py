@@ -9,7 +9,24 @@ st.set_page_config(
     layout="centered"
 )
 
-CSV_FILE = "teacher_preferences.csv"
+# Hardcoded Path & Configuration
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_FILE = os.path.join(SCRIPT_DIR, "teacher_preferences.csv")
+
+COLUMNS = [
+    "Timestamp", "Full Name", "Email", "Principles Preferences",
+    "Rank 1 Course", "Rank 2 Course", "Rank 3 Course", "Rank 4 Course",
+    "Rank 5 Course", "Rank 6 Course", "Fall Desired Courses",
+    "Spring Desired Courses", "Course Overload Interest", "Unique Circumstances"
+]
+
+# Ensure CSV file exists with columns at startup
+if not os.path.exists(CSV_FILE):
+    pd.DataFrame(columns=COLUMNS).to_csv(CSV_FILE, index=False)
+
+# Sync Session State with CSV
+if "df_responses" not in st.session_state:
+    st.session_state.df_responses = pd.read_csv(CSV_FILE)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
 
 # Header Section
@@ -147,8 +164,9 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                 st.caption("⚠️ **Danger Zone:** Permanently delete all recorded submissions.")
 
                 if st.button("🗑️ Clear All Data", type="primary"):
-                    os.remove(CSV_FILE)
-                    st.warning("All submission data has been permanently cleared!")
+                    st.session_state.df_responses = pd.DataFrame(columns=COLUMNS)
+                    st.session_state.df_responses.to_csv(CSV_FILE, index=False)
+                    st.success("✅ All semester submission data has been permanently cleared!")
                     st.rerun()
             else:
                 st.info("No submission data exists yet.")
