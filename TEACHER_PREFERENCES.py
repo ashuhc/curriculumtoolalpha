@@ -158,14 +158,6 @@ COURSE_DATABASE = {
 # Format COURSE_DATABASE into strings for dropdown menus
 COURSE_OPTIONS = ["Select a course..."] + [f"{code} - {title}" for code, title in COURSE_DATABASE.items()]
 
-# Create dropdown inputs
-rank_1 = st.selectbox("Rank 1 Course", options=COURSE_OPTIONS, key="rank_1")
-rank_2 = st.selectbox("Rank 2 Course", options=COURSE_OPTIONS, key="rank_2")
-rank_3 = st.selectbox("Rank 3 Course", options=COURSE_OPTIONS, key="rank_3")
-rank_4 = st.selectbox("Rank 4 Course", options=COURSE_OPTIONS, key="rank_4")
-rank_5 = st.selectbox("Rank 5 Course", options=COURSE_OPTIONS, key="rank_5")
-rank_6 = st.selectbox("Rank 6 Course", options=COURSE_OPTIONS, key="rank_6")
-
 # Ensure CSV file exists with columns at startup
 if not os.path.exists(CSV_FILE):
     pd.DataFrame(columns=COLUMNS).to_csv(CSV_FILE, index=False)
@@ -214,12 +206,25 @@ with st.form("preference_form", clear_on_submit=True):
     st.markdown("---")
 
     st.subheader("3. Top 6 Undergraduate Course Preferences")
-    st.caption("Rank your top 6 course choices. Please include both the **Course Code** and **Course Title** (e.g., *ECON 3410 - Microeconomic Theory*).")
+    st.write("Rank your top 6 course choices from the dropdown menus below.")
 
-    ranked_courses = []
-    for i in range(1, 7):
-        course = st.text_input(f"Rank #{i} Course Code & Name", key=f"course_{i}", placeholder=f"e.g., ECON {3000+i*10} - Course Title")
-        ranked_courses.append(course.strip())
+    # Dropdowns placed directly inside Section 3
+    rank_1 = st.selectbox("Rank #1 Course Code & Name", options=COURSE_OPTIONS, index=0, key="rank_1")
+    rank_2 = st.selectbox("Rank #2 Course Code & Name", options=COURSE_OPTIONS, index=0, key="rank_2")
+    rank_3 = st.selectbox("Rank #3 Course Code & Name", options=COURSE_OPTIONS, index=0, key="rank_3")
+    rank_4 = st.selectbox("Rank #4 Course Code & Name", options=COURSE_OPTIONS, index=0, key="rank_4")
+    rank_5 = st.selectbox("Rank #5 Course Code & Name", options=COURSE_OPTIONS, index=0, key="rank_5")
+    rank_6 = st.selectbox("Rank #6 Course Code & Name", options=COURSE_OPTIONS, index=0, key="rank_6")
+
+    # Store selected values in a list for submission processing
+    ranked_courses = [
+        rank_1 if rank_1 != "Select a course..." else "None",
+        rank_2 if rank_2 != "Select a course..." else "None",
+        rank_3 if rank_3 != "Select a course..." else "None",
+        rank_4 if rank_4 != "Select a course..." else "None",
+        rank_5 if rank_5 != "Select a course..." else "None",
+        rank_6 if rank_6 != "Select a course..." else "None"
+    ]
 
     st.markdown("---")
 
