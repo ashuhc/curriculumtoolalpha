@@ -77,6 +77,14 @@ FACULTY_NAMES = [
     "Zhou, Nan"
 ]
 
+# Create dropdown inputs
+rank_1 = st.selectbox("Rank 1 Course", options=COURSE_OPTIONS, key="rank_1")
+rank_2 = st.selectbox("Rank 2 Course", options=COURSE_OPTIONS, key="rank_2")
+rank_3 = st.selectbox("Rank 3 Course", options=COURSE_OPTIONS, key="rank_3")
+rank_4 = st.selectbox("Rank 4 Course", options=COURSE_OPTIONS, key="rank_4")
+rank_5 = st.selectbox("Rank 5 Course", options=COURSE_OPTIONS, key="rank_5")
+rank_6 = st.selectbox("Rank 6 Course", options=COURSE_OPTIONS, key="rank_6")
+
 # Ensure CSV file exists with columns at startup
 if not os.path.exists(CSV_FILE):
     pd.DataFrame(columns=COLUMNS).to_csv(CSV_FILE, index=False)
@@ -164,20 +172,20 @@ with st.form("preference_form", clear_on_submit=True):
 # 2. FORM SUBMISSION PROCESSING
 # -----------------------------------------------------------------------------
 if submitted:
-    if not full_name.strip() or not email.strip():
+    if full_name == "Select your name..." or not email.strip():
         st.error("Please select your FULL NAME and enter your EMAIL ADDRESS before submitting.")
     else:
         record = {
             "Timestamp": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "Full Name": full_name.strip(),
+            "Full Name": full_name,
             "Email": email.strip(),
             "Principles Preferences": "; ".join(principles_prefs) if principles_prefs else "None",
-            "Rank 1 Course": ranked_courses[0],
-            "Rank 2 Course": ranked_courses[1],
-            "Rank 3 Course": ranked_courses[2],
-            "Rank 4 Course": ranked_courses[3],
-            "Rank 5 Course": ranked_courses[4],
-            "Rank 6 Course": ranked_courses[5],
+            "Rank 1 Course": rank_1 if rank_1 != "Select a course..." else "None",
+            "Rank 2 Course": rank_2 if rank_2 != "Select a course..." else "None",
+            "Rank 3 Course": rank_3 if rank_3 != "Select a course..." else "None",
+            "Rank 4 Course": rank_4 if rank_4 != "Select a course..." else "None",
+            "Rank 5 Course": rank_5 if rank_5 != "Select a course..." else "None",
+            "Rank 6 Course": rank_6 if rank_6 != "Select a course..." else "None",
             "Fall Desired Courses": fall_courses,
             "Spring Desired Courses": spring_courses,
             "Course Overload Interest": course_overload,
@@ -332,6 +340,9 @@ COURSE_DATABASE = {
     "ECON 4996": "Experiential Education Directed Study",
     "ECON 4997": "Senior Economics Thesis",
 }
+
+# Format COURSE_DATABASE into strings for dropdown menus
+COURSE_OPTIONS = ["Select a course..."] + [f"{code} - {title}" for code, title in COURSE_DATABASE.items()]
 
 st.divider()
 
