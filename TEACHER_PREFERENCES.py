@@ -537,7 +537,7 @@ with st.form("preference_form", clear_on_submit=True):
     st.subheader("2. Principles Course Preferences")
 
     # Target specific Principles courses: Statistics (1113), Macroecon (1115), Microecon (1116)
-    PRINCIPLES_CODES = ("ECON 1113", "ECON 1115", "ECON 1116")
+    PRINCIPLES_CODES = ("ECON 2350", "ECON 1115", "ECON 1116")
 
     principles_options = [c for c in COURSE_OPTIONS if c.startswith(PRINCIPLES_CODES)] + ["None / Not Applicable"]
 
