@@ -675,7 +675,12 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
         with admin_tab2:
             st.markdown("### Manage Faculty Dropdown List (Staging)")
             
-            # Check for uncommitted changes
+            # 0. Check for success notification banner surviving st.rerun()
+            if "faculty_commit_success" in st.session_state:
+                st.success(st.session_state.faculty_commit_success)
+                del st.session_state.faculty_commit_success  # Display once then clear
+
+            # Check for uncommitted staging changes
             has_faculty_changes = st.session_state.draft_faculty != st.session_state.faculty_names
             if has_faculty_changes:
                 st.warning("⚠️ You have uncommitted changes in your faculty staging buffer.")
@@ -692,7 +697,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                         if cleaned and cleaned not in st.session_state.draft_faculty:
                             st.session_state.draft_faculty.append(cleaned)
                             
-                            # Keep draft list sorted
+                            # Sort draft list alphabetically (keeping default prompt at top)
                             has_select = "Select your name..." in st.session_state.draft_faculty
                             names_only = [f for f in st.session_state.draft_faculty if f != "Select your name..."]
                             names_only.sort()
@@ -700,9 +705,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                                 ["Select your name..."] + names_only if has_select else names_only
                             )
                             
-                            # Success notification
-                            st.toast(f"✅ Staged '{cleaned}' for addition!", icon="🎉")
-                            st.success(f"Successfully staged '{cleaned}' to draft list!")
+                            st.toast(f"✅ Staged '{cleaned}' for addition", icon="🎉")
                             st.rerun()
                         elif cleaned in st.session_state.draft_faculty:
                             st.warning(f"'{cleaned}' is already in draft state.")
@@ -717,39 +720,45 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                         st.session_state.draft_faculty = [
                             f for f in st.session_state.draft_faculty if f != fac_to_stage_remove
                         ]
-                        
-                        # Success notification
                         st.toast(f"🗑️ Staged removal of '{fac_to_stage_remove}'", icon="ℹ️")
-                        st.success(f"Successfully staged removal of '{fac_to_stage_remove}'!")
                         st.rerun()
                 else:
                     st.caption("No remaining faculty to remove in draft.")
 
             st.divider()
 
-            # --- 3. COMMIT OR DISCARD ---
+            # --- 3. PREVIEW & COMMIT CONTROLS ---
             st.markdown("#### Preview & Commit Changes")
             st.caption(f"Draft catalog contains {len(st.session_state.draft_faculty)} entries.")
             
             btn_col1, btn_col2 = st.columns([1, 1])
             with btn_col1:
                 if st.button("🚀 Commit & Publish Faculty Changes", type="primary", disabled=not has_faculty_changes):
+                    # Apply draft changes to live state
                     st.session_state.faculty_names = list(st.session_state.draft_faculty)
+                    # Write to disk
                     save_faculty(st.session_state.faculty_names)
                     
-                    # Big Success Banner
-                    st.success("✅ Faculty list changes successfully committed and published to live app!")
+                    # Store banner message in session state so it displays after st.rerun()
+                    st.session_state.faculty_commit_success = "✅ Faculty list changes successfully committed and published to live app!"
+                    st.toast("Faculty list updated successfully!", icon="🚀")
                     st.rerun()
 
             with btn_col2:
                 if st.button("🔄 Discard Draft Changes", disabled=not has_faculty_changes):
                     st.session_state.draft_faculty = list(st.session_state.faculty_names)
-                    st.info("Successfully discarded uncommitted draft changes.")
+                    st.session_state.faculty_commit_success = "ℹ️ Discarded uncommitted faculty changes."
                     st.rerun()
 
         with admin_tab3:
             st.markdown("### Manage Course Catalog Dropdown List (Staging)")
             
+            # 0. Check for success notification banner surviving st.rerun()
+            if "course_commit_success" in st.session_state:
+                st.success(st.session_state.course_commit_success)
+                del st.session_state.course_commit_success  # Display once then clear
+
+            # Check for uncommitted staging changes
             has_course_changes = st.session_state.draft_courses != st.session_state.course_database
             if has_course_changes:
                 st.warning("⚠️ You have uncommitted changes in your course staging buffer.")
@@ -768,7 +777,6 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                             st.session_state.draft_courses[code_clean] = c_title.strip()
                             
                             st.toast(f"✅ Staged {code_clean}", icon="📚")
-                            st.success(f"Successfully staged course '{code_clean}: {c_title}'!")
                             st.rerun()
 
             # --- 2. STAGE COURSE REMOVAL ---
@@ -780,29 +788,34 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                         del st.session_state.draft_courses[c_to_remove]
                         
                         st.toast(f"🗑️ Staged removal of {c_to_remove}", icon="ℹ️")
-                        st.success(f"Successfully staged removal of course '{c_to_remove}'!")
                         st.rerun()
                 else:
                     st.caption("No courses available to remove in draft.")
 
             st.divider()
 
-            # --- 3. COMMIT OR DISCARD ---
+            # --- 3. PREVIEW & COMMIT CONTROLS ---
             st.markdown("#### Preview & Commit Course Changes")
+            st.caption(f"Draft catalog contains {len(st.session_state.draft_courses)} entries.")
+            
             btn_cc1, btn_cc2 = st.columns([1, 1])
             
             with btn_cc1:
                 if st.button("🚀 Commit & Publish Course Catalog", type="primary", disabled=not has_course_changes):
+                    # Apply draft changes to live state
                     st.session_state.course_database = dict(st.session_state.draft_courses)
+                    # Write to disk
                     save_courses(st.session_state.course_database)
                     
-                    st.success("✅ Course catalog changes successfully committed and published to live app!")
+                    # Store banner message in session state so it displays after st.rerun()
+                    st.session_state.course_commit_success = "✅ Course catalog changes successfully committed and published to live app!"
+                    st.toast("Course catalog updated successfully!", icon="🚀")
                     st.rerun()
 
             with btn_cc2:
                 if st.button("🔄 Discard Course Draft", disabled=not has_course_changes):
                     st.session_state.draft_courses = dict(st.session_state.course_database)
-                    st.info("Successfully discarded uncommitted course draft changes.")
+                    st.session_state.course_commit_success = "ℹ️ Discarded uncommitted course catalog changes."
                     st.rerun()
         # --------------------------------------------------
         # Original Data Sync & Danger Zone Actions
