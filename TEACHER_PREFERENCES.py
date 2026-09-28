@@ -486,9 +486,18 @@ if "course_database" not in st.session_state:
 if "draft_courses" not in st.session_state:
     st.session_state.draft_courses = dict(st.session_state.course_database)
 
-# Format dynamic COURSE_OPTIONS list directly from session state
+def format_course_label(code, data):
+    """Formats course for dropdown UI cleanly as 'CODE - Title'."""
+    if isinstance(data, dict):
+        title = data.get("title", "")
+    else:
+        title = str(data)
+    return f"{code} - {title}" if title else code
+
+# Build clean options list for Streamlit selectboxes
 COURSE_OPTIONS = ["Select a course..."] + [
-    f"{code} - {title}" for code, title in st.session_state.course_database.items()
+    format_course_label(code, data) 
+    for code, data in st.session_state.course_database.items()
 ]
 
 # Ensure CSV file exists with columns at startup
@@ -1034,12 +1043,24 @@ with st.popover("💬 AI Helper"):
                 "show", "me", "list", "of", "in", "a", "an", "and", "or", "to", "econ", "economics",
                 "which", "find", "get", "do", "you", "have", "about", "on", "with", "tell"
             }
+
             search_tokens = [w for w in raw_words if w not in ignore_words and len(w) >= 2]
 
             scored_matches = []
 
-            for code, title in COURSE_DATABASE.items():
+            for code, info in st.session_state.course_database.items():
+                # Extract title and description regardless of database schema
+                if isinstance(info, dict):
+                    title = info.get("title", "")
+                    desc = info.get("description", "")
+                else:
+                    title = str(info)
+                    # Fallback to COURSE_DESCRIPTIONS if separate dict exists
+                    desc_dict = globals().get("COURSE_DESCRIPTIONS", {}).get(code, {})
+                    desc = desc_dict.get("description", "") if isinstance(desc_dict, dict) else ""
+
                 title_lower = title.lower()
+                desc_lower = desc.lower()
                 code_lower = code.lower()
                 score = 0
 
@@ -1054,29 +1075,27 @@ with st.popover("💬 AI Helper"):
                     elif token in ["4000", "4000s", "4000-level"] and code.startswith("ECON 4"):
                         score += 10
 
-                # B. Direct word & partial token matches against code/title
+                # B. Direct word & partial token matches against code, title, and description
                 for token in search_tokens:
                     if token in code_lower:
                         score += 15
                     if token in title_lower:
                         score += 10
+                    if desc_lower and token in desc_lower:
+                        score += 5
 
                 # C. Topic Map Synonym Matches
                 for topic, keywords in standout_topic_map.items():
                     if topic in clean_query or any(kw in clean_query for kw in keywords):
-                        if any(kw in title_lower for kw in keywords):
+                        if any(kw in title_lower or kw in desc_lower for kw in keywords):
                             score += 8
 
                 if score > 0:
-                # Look up description from COURSE_DESCRIPTIONS
-                    desc_info = COURSE_DESCRIPTIONS.get(code, {})
-                    desc = desc_info.get("description", "")
-                
                     if desc:
-                        match_str = f"• **{code}: {title}**\n  _{desc}_"
+                        match_str = f"* **{code}**: {title}\n  _{desc}_"
                     else:
-                        match_str = f"• **{code}**: {title}"
-                        
+                        match_str = f"* **{code}**: {title}"
+
                     scored_matches.append((score, match_str))
 
             # Rank by relevance score
@@ -1084,13 +1103,13 @@ with st.popover("💬 AI Helper"):
             matches = list(dict.fromkeys([item[1] for item in scored_matches]))
 
             if matches:
-            # Separate matched courses with double newlines so descriptions read cleanly
+                # Separate matched courses with double newlines so descriptions read cleanly
                 response_text = "Matching courses:\n\n" + "\n\n".join(matches[:5])
             else:
                 response_text = (
                     "No direct course match found for that query. "
-                    "Type **'all'** to see every code, or search stand-out terms like **'food'**, **'history'**, **'law'**, **'crime'**, **'sports'**, **'money'**, or **'3000s'**."
+                    "Type **'all'** to see every code, or search stand-out terms like **'food'**, **'history'**, **'law'**."
                 )
 
-        st.session_state.chat_messages.append({"role": "assistant", "content": response_text})
-        st.rerun()
+    st.session_state.chat_messages.append({"role": "assistant", "content": response_text})
+    st.rerun()
