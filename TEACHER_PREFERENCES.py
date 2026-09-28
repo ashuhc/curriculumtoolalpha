@@ -221,45 +221,57 @@ st.divider()
 st.markdown(
     """
     <style>
-    /* Position the popover button container in the bottom-right corner */
+    /* Fixed position in bottom right corner */
     div[data-testid="stPopover"] {
-        position: fixed;
-        bottom: 24px;
-        right: 24px;
-        z-index: 999999;
+        position: fixed !important;
+        bottom: 24px !important;
+        right: 24px !important;
+        width: auto !important;
+        z-index: 999999 !important;
     }
 
-    /* Style the floating launch button */
+    /* Convert button into a sleek circular icon button */
     div[data-testid="stPopover"] > button {
-        border-radius: 50px !important;
+        width: 56px !important;
+        height: 56px !important;
+        min-width: 56px !important;
+        border-radius: 50% !important;
         background-color: #5f6caf !important;
         color: white !important;
         border: none !important;
-        padding: 12px 22px !important;
-        font-weight: 600 !important;
-        box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.25) !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 24px !important;
+        box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.35) !important;
         transition: transform 0.2s ease, background-color 0.2s ease !important;
+    }
+
+    /* Hide text inside the button if Streamlit forces popover label rendering */
+    div[data-testid="stPopover"] > button p {
+        font-size: 24px !important;
+        margin: 0 !important;
     }
 
     div[data-testid="stPopover"] > button:hover {
         background-color: #4b5693 !important;
-        transform: scale(1.05);
+        transform: scale(1.1);
     }
 
-    /* Style the pop-up panel to match modern floating chat widgets */
+    /* Pop-up chat window positioning and styling */
     div[data-testid="stPopoverBody"] {
-        width: 380px !important;
+        width: 360px !important;
         max-width: 90vw !important;
         border-radius: 16px !important;
-        box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.2) !important;
-        border: 1px solid #e0e0e0 !important;
+        box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.3) !important;
+        border: 1px solid #333 !important;
         padding: 16px !important;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
-
 # 2. Floating Popover Widget
 with st.popover("💬 AI Helper"):
     st.markdown("### 🤖 Course AI Assistant")
@@ -281,53 +293,72 @@ with st.popover("💬 AI Helper"):
         st.session_state.chat_messages.append({"role": "user", "content": prompt})
 
         response_text = ""
-        query_lower = prompt.lower()
+        query_lower = prompt.lower().strip()
 
-        ignore_words = {
-            "what", "is", "are", "the", "code", "for", "course", "courses", "class", "classes",
-            "show", "me", "list", "all", "of", "in", "a", "an", "and", "or", "to", "econ", "economics"
-        }
+        # Check if the user is asking for all codes / full catalog
+        all_trigger_words = ["all codes", "all course codes", "all courses", "show all", "list all", "every course", "everything"]
+        if any(trigger in query_lower for trigger in all_trigger_words):
+            # Format and group all courses by level
+            cat_1000 = [f"• **{code}**: {title}" for code, title in COURSE_DATABASE.items() if code.startswith("ECON 1")]
+            cat_2000 = [f"• **{code}**: {title}" for code, title in COURSE_DATABASE.items() if code.startswith("ECON 2")]
+            cat_3000 = [f"• **{code}**: {title}" for code, title in COURSE_DATABASE.items() if code.startswith("ECON 3")]
+            cat_4000 = [f"• **{code}**: {title}" for code, title in COURSE_DATABASE.items() if code.startswith("ECON 4")]
 
-        raw_words = query_lower.replace("?", "").replace(",", "").split()
-        keywords = [w for w in raw_words if w not in ignore_words and len(w) > 2]
+            response_text = (
+                "**Here is the full list of undergraduate course codes:**\n\n"
+                "**1000-Level Courses**\n" + "\n".join(cat_1000) + "\n\n"
+                "**2000-Level Courses**\n" + "\n".join(cat_2000) + "\n\n"
+                "**3000-Level Courses**\n" + "\n".join(cat_3000) + "\n\n"
+                "**4000-Level Courses**\n" + "\n".join(cat_4000)
+            )
 
-        scored_matches = []
-        for code, title in COURSE_DATABASE.items():
-            combined_text = f"{code} {title}".lower()
-            score = 0
-
-            for w in raw_words:
-                if w in ["1000", "1000s", "level 1"] and code.startswith("ECON 1"):
-                    score += 2
-                elif w in ["2000", "2000s", "level 2"] and code.startswith("ECON 2"):
-                    score += 2
-                elif w in ["3000", "3000s", "level 3"] and code.startswith("ECON 3"):
-                    score += 2
-                elif w in ["4000", "4000s", "level 4"] and code.startswith("ECON 4"):
-                    score += 2
-
-            for kw in keywords:
-                if kw in title.lower():
-                    score += 3
-                elif kw in code.lower():
-                    score += 3
-
-            if score > 0:
-                scored_matches.append((score, f"**{code}**: {title}"))
-
-        scored_matches.sort(key=lambda x: x[0], reverse=True)
-        matches = list(dict.fromkeys([item[1] for item in scored_matches]))
-
-        if matches:
-            response_text = "Matching courses:\n\n" + "\n".join(f"- {m}" for m in matches[:8])
-        elif "password" in query_lower or "admin" in query_lower:
-            response_text = "The Admin Portal requires administrator credentials to view all submitted preferences."
-        elif "rank" in query_lower or "preference" in query_lower:
-            response_text = "Select your top course preferences using Rank 1 through Rank 6 in the main form."
-        elif "load" in query_lower or "section" in query_lower:
-            response_text = "Select your total teaching load (course sections) for Fall and Spring."
         else:
-            response_text = "No direct course match found in the undergraduate catalog. Try keywords like 'crime', 'macro', 'micro', 'health', or 'labor'."
+            # Standard filtered/ranked keyword search
+            ignore_words = {
+                "what", "is", "are", "the", "code", "for", "course", "courses", "class", "classes",
+                "show", "me", "list", "of", "in", "a", "an", "and", "or", "to", "econ", "economics"
+            }
+
+            raw_words = query_lower.replace("?", "").replace(",", "").split()
+            keywords = [w for w in raw_words if w not in ignore_words and len(w) > 2]
+
+            scored_matches = []
+            for code, title in COURSE_DATABASE.items():
+                combined_text = f"{code} {title}".lower()
+                score = 0
+
+                for w in raw_words:
+                    if w in ["1000", "1000s", "level 1"] and code.startswith("ECON 1"):
+                        score += 2
+                    elif w in ["2000", "2000s", "level 2"] and code.startswith("ECON 2"):
+                        score += 2
+                    elif w in ["3000", "3000s", "level 3"] and code.startswith("ECON 3"):
+                        score += 2
+                    elif w in ["4000", "4000s", "level 4"] and code.startswith("ECON 4"):
+                        score += 2
+
+                for kw in keywords:
+                    if kw in title.lower():
+                        score += 3
+                    elif kw in code.lower():
+                        score += 3
+
+                if score > 0:
+                    scored_matches.append((score, f"**{code}**: {title}"))
+
+            scored_matches.sort(key=lambda x: x[0], reverse=True)
+            matches = list(dict.fromkeys([item[1] for item in scored_matches]))
+
+            if matches:
+                response_text = "Matching courses:\n\n" + "\n".join(f"- {m}" for m in matches[:8])
+            elif "password" in query_lower or "admin" in query_lower:
+                response_text = "The Admin Portal requires administrator credentials to view all submitted preferences."
+            elif "rank" in query_lower or "preference" in query_lower:
+                response_text = "Select your top course preferences using Rank 1 through Rank 6 in the main form."
+            elif "load" in query_lower or "section" in query_lower:
+                response_text = "Select your total teaching load (course sections) for Fall and Spring."
+            else:
+                response_text = "No direct course match found. You can ask for 'all codes' to view the entire course list, or search topics like 'macro' or '3000s'."
 
         st.session_state.chat_messages.append({"role": "assistant", "content": response_text})
         st.rerun()
