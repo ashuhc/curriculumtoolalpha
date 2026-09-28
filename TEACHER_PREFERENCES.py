@@ -127,7 +127,6 @@ if submitted:
             "Unique Circumstances": unique_circumstances.strip() if unique_circumstances.strip() else "None"
         }
 
-        # Convert record to DataFrame
         df_new = pd.DataFrame([record])
 
         # 1. Load existing disk data if present to prevent overwriting
@@ -137,14 +136,22 @@ if submitted:
         else:
             updated_df = df_new
 
-        # 2. Save entire updated DataFrame directly to the CSV file
+        # 2. Save updated DataFrame to disk
         updated_df.to_csv(CSV_FILE, index=False)
 
-        # 3. Update Streamlit memory so the Admin table updates instantly
+        # 3. Update Streamlit session state
         st.session_state.df_responses = updated_df
 
-        st.success("✅ Your teaching preferences have been successfully recorded!")
+        # 4. Set success flag so message persists across rerun
+        st.session_state["submitted_success"] = True
         st.rerun()
+
+# Display success message at top of page or above form if flag is set
+if st.session_state.get("submitted_success"):
+    st.success("✅ Your teaching preferences have been successfully recorded!")
+    # Clear flag so message goes away on subsequent interactions
+    del st.session_state["submitted_success"]
+
 # -----------------------------------------------------------------------------
 # 3. DIRECT HARDCODED ADMIN VIEW
 # -----------------------------------------------------------------------------
@@ -170,7 +177,10 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     file_name="teacher_preferences_export.csv",
                     mime="text/csv"
                 )
-
+                if st.button("💾 Sync All Memory to CSV"):
+                    st.session_state.df_responses.to_csv(CSV_FILE, index=False)
+                    st.success(f"Successfully wrote {len(st.session_state.df_responses)} records to {CSV_FILE}!")
+                
                 st.markdown("---")
                 st.caption("⚠️ **Danger Zone:** Permanently delete all recorded submissions.")
 
