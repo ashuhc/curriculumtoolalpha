@@ -675,14 +675,14 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
         with admin_tab2:
             st.markdown("### Manage Faculty Dropdown List (Staging)")
             
-            # Check if there are uncommitted changes
+            # Check for uncommitted changes
             has_faculty_changes = st.session_state.draft_faculty != st.session_state.faculty_names
             if has_faculty_changes:
                 st.warning("⚠️ You have uncommitted changes in your faculty staging buffer.")
             
             col_add, col_remove = st.columns(2)
             
-            # 1. STAGE ADDITION
+            # --- 1. STAGE ADDITION ---
             with col_add:
                 st.markdown("#### Stage Add Faculty")
                 with st.form("stage_add_faculty_form"):
@@ -692,52 +692,59 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                         if cleaned and cleaned not in st.session_state.draft_faculty:
                             st.session_state.draft_faculty.append(cleaned)
                             
-                            # Sort draft list alphabetically
+                            # Keep draft list sorted
                             has_select = "Select your name..." in st.session_state.draft_faculty
                             names_only = [f for f in st.session_state.draft_faculty if f != "Select your name..."]
                             names_only.sort()
                             st.session_state.draft_faculty = (
                                 ["Select your name..."] + names_only if has_select else names_only
                             )
-                            st.info(f"Staged '{cleaned}' for addition.")
+                            
+                            # Success notification
+                            st.toast(f"✅ Staged '{cleaned}' for addition!", icon="🎉")
+                            st.success(f"Successfully staged '{cleaned}' to draft list!")
                             st.rerun()
                         elif cleaned in st.session_state.draft_faculty:
                             st.warning(f"'{cleaned}' is already in draft state.")
 
-            # 2. STAGE REMOVAL
+            # --- 2. STAGE REMOVAL ---
             with col_remove:
                 st.markdown("#### Stage Remove Faculty")
                 avail_draft_fac = [f for f in st.session_state.draft_faculty if f != "Select your name..."]
                 if avail_draft_fac:
                     fac_to_stage_remove = st.selectbox("Select Faculty to Remove", options=avail_draft_fac, key="stage_fac_rem")
                     if st.button("Stage Removal", type="secondary"):
-                        st.session_state.draft_faculty.remove(fac_to_stage_remove)
-                        st.info(f"Staged '{fac_to_stage_remove}' for removal.")
+                        st.session_state.draft_faculty = [
+                            f for f in st.session_state.draft_faculty if f != fac_to_stage_remove
+                        ]
+                        
+                        # Success notification
+                        st.toast(f"🗑️ Staged removal of '{fac_to_stage_remove}'", icon="ℹ️")
+                        st.success(f"Successfully staged removal of '{fac_to_stage_remove}'!")
                         st.rerun()
                 else:
                     st.caption("No remaining faculty to remove in draft.")
 
             st.divider()
 
-            # 3. COMMIT OR DISCARD CONTROLS
+            # --- 3. COMMIT OR DISCARD ---
             st.markdown("#### Preview & Commit Changes")
             st.caption(f"Draft catalog contains {len(st.session_state.draft_faculty)} entries.")
             
             btn_col1, btn_col2 = st.columns([1, 1])
             with btn_col1:
                 if st.button("🚀 Commit & Publish Faculty Changes", type="primary", disabled=not has_faculty_changes):
-                    # Apply draft to live state
                     st.session_state.faculty_names = list(st.session_state.draft_faculty)
-                    # Write to persistent JSON file
                     save_faculty(st.session_state.faculty_names)
-                    st.success("Successfully committed faculty changes to live catalog!")
+                    
+                    # Big Success Banner
+                    st.success("✅ Faculty list changes successfully committed and published to live app!")
                     st.rerun()
 
             with btn_col2:
                 if st.button("🔄 Discard Draft Changes", disabled=not has_faculty_changes):
-                    # Reset draft to match live state
                     st.session_state.draft_faculty = list(st.session_state.faculty_names)
-                    st.warning("Discarded uncommitted faculty changes.")
+                    st.info("Successfully discarded uncommitted draft changes.")
                     st.rerun()
 
         with admin_tab3:
@@ -749,7 +756,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
 
             col_c_add, col_c_rem = st.columns(2)
 
-            # 1. STAGE COURSE ADDITION
+            # --- 1. STAGE COURSE ADDITION ---
             with col_c_add:
                 st.markdown("#### Stage Add Course")
                 with st.form("stage_add_course_form"):
@@ -759,43 +766,44 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                         if c_code and c_title:
                             code_clean = c_code.strip().upper()
                             st.session_state.draft_courses[code_clean] = c_title.strip()
-                            st.info(f"Staged {code_clean}: {c_title}.")
+                            
+                            st.toast(f"✅ Staged {code_clean}", icon="📚")
+                            st.success(f"Successfully staged course '{code_clean}: {c_title}'!")
                             st.rerun()
 
-            # 2. STAGE COURSE REMOVAL
+            # --- 2. STAGE COURSE REMOVAL ---
             with col_c_rem:
                 st.markdown("#### Stage Remove Course")
                 if st.session_state.draft_courses:
                     c_to_remove = st.selectbox("Select Course to Remove", options=list(st.session_state.draft_courses.keys()), key="stage_course_rem")
                     if st.button("Stage Removal", key="btn_stage_c_rem"):
                         del st.session_state.draft_courses[c_to_remove]
-                        st.info(f"Staged removal of '{c_to_remove}'.")
+                        
+                        st.toast(f"🗑️ Staged removal of {c_to_remove}", icon="ℹ️")
+                        st.success(f"Successfully staged removal of course '{c_to_remove}'!")
                         st.rerun()
                 else:
                     st.caption("No courses available to remove in draft.")
 
             st.divider()
 
-            # 3. COMMIT OR DISCARD CONTROLS
+            # --- 3. COMMIT OR DISCARD ---
             st.markdown("#### Preview & Commit Course Changes")
             btn_cc1, btn_cc2 = st.columns([1, 1])
             
             with btn_cc1:
                 if st.button("🚀 Commit & Publish Course Catalog", type="primary", disabled=not has_course_changes):
-                    # Apply draft to live state
                     st.session_state.course_database = dict(st.session_state.draft_courses)
-                    # Write to persistent JSON file
                     save_courses(st.session_state.course_database)
-                    st.success("Successfully committed course catalog changes!")
+                    
+                    st.success("✅ Course catalog changes successfully committed and published to live app!")
                     st.rerun()
 
             with btn_cc2:
                 if st.button("🔄 Discard Course Draft", disabled=not has_course_changes):
-                    # Reset draft to match live state
                     st.session_state.draft_courses = dict(st.session_state.course_database)
-                    st.warning("Discarded uncommitted course catalog changes.")
+                    st.info("Successfully discarded uncommitted course draft changes.")
                     st.rerun()
-
         # --------------------------------------------------
         # Original Data Sync & Danger Zone Actions
         # --------------------------------------------------
