@@ -155,6 +155,285 @@ COURSE_DATABASE = {
     "ECON 4997": "Senior Economics Thesis",
 }
 
+# Reference data for Northeastern Economics course descriptions (for AI Assistant)
+COURSE_DESCRIPTIONS = {
+    # 1000-Level Courses
+    "ECON 1000": {
+        "title": "Economics at Northeastern",
+        "description": "Introduces first-year economics majors to the academic and professional landscape of economics at Northeastern, including co-op opportunities and career paths."
+    },
+    "ECON 1113": {
+        "title": "Data Analysis Tools for Economists",
+        "description": "Introduces basic statistical and computational tools used in economic analysis, data manipulation, visualization, and basic regression techniques."
+    },
+    "ECON 1115": {
+        "title": "Principles of Macroeconomics",
+        "description": "Examines the economy as a whole, including national income, inflation, unemployment, fiscal and monetary policy, economic growth, and international trade."
+    },
+    "ECON 1116": {
+        "title": "Principles of Microeconomics",
+        "description": "Analyzes behavior of individual consumers and firms, market structures, price determination, resource allocation, and government intervention in markets."
+    },
+    "ECON 1125": {
+        "title": "Recitation for ECON 1115",
+        "description": "Provides small-group discussion, problem-solving, and practical application of concepts covered in Principles of Macroeconomics."
+    },
+    "ECON 1126": {
+        "title": "Recitation for ECON 1116",
+        "description": "Provides small-group discussion, problem-solving, and practical application of concepts covered in Principles of Microeconomics."
+    },
+    "ECON 1230": {
+        "title": "Healthcare and Medical Economics",
+        "description": "Explores the economics of healthcare delivery, insurance markets, medical technology, health outcomes, and government health policy."
+    },
+    "ECON 1240": {
+        "title": "Economics of Crime",
+        "description": "Applies economic principles to criminal behavior, law enforcement, deterrence, sentencing policy, drug regulation, and the economic costs of crime."
+    },
+    "ECON 1245": {
+        "title": "Economics of Inequality",
+        "description": "Investigates the distribution of income and wealth, sources of economic inequality, mobility, poverty, discrimination, and redistribution policies."
+    },
+    "ECON 1260": {
+        "title": "Contested Issues in the U.S. Economy",
+        "description": "Examines contemporary debates in American economic policy, including tax policy, minimum wage, climate change, trade, and financial regulation."
+    },
+    "ECON 1292": {
+        "title": "Economic History of the Middle East",
+        "description": "Surveys the long-run economic development, institutional evolution, trade routes, resource allocation, and modern economic challenges of the Middle East."
+    },
+    "ECON 1711": {
+        "title": "Economics of Sustainability",
+        "description": "Analyzes the economic dimensions of environmental sustainability, natural resource management, ecological footprints, and green growth strategies."
+    },
+    "ECON 1915": {
+        "title": "Introductory Selected Topics in Macroeconomics",
+        "description": "Covers special introductory topics in macroeconomic theory, policy, or empirical research."
+    },
+    "ECON 1916": {
+        "title": "Introductory Selected Topics in Microeconomics",
+        "description": "Covers special introductory topics in microeconomic analysis, decision-making, or market applications."
+    },
+    "ECON 1990": {
+        "title": "Elective",
+        "description": "Transfer or elective credit in economics at the 1000-level."
+    },
+
+    # 2000-Level Courses
+    "ECON 2315": {
+        "title": "Macroeconomic Theory",
+        "description": "Provides an intermediate analysis of aggregate demand, aggregate supply, economic growth theories, business cycle models, and macroeconomic policy."
+    },
+    "ECON 2316": {
+        "title": "Microeconomic Theory",
+        "description": "Provides an intermediate analysis of consumer choice theory, firm production, general equilibrium, market power, game theory, and welfare economics."
+    },
+    "ECON 2350": {
+        "title": "Statistics for Economists",
+        "description": "Covers probability theory, descriptive statistics, sampling distributions, hypothesis testing, and simple linear regression applied to economic data."
+    },
+    "ECON 2560": {
+        "title": "Applied Econometrics",
+        "description": "Focuses on quantitative empirical methods in economics, multiple linear regression, model specification, diagnostic testing, and econometric software applications."
+    },
+    "ECON 2990": {
+        "title": "Elective",
+        "description": "Transfer or elective credit in economics at the 2000-level."
+    },
+
+    # 3000-Level Courses
+    "ECON 3255": {
+        "title": "Economics of Financial Market Structure",
+        "description": "Examines the structure, regulation, liquidity, and trading mechanisms of modern financial markets, exchanges, and institutional investors."
+    },
+    "ECON 3290": {
+        "title": "History of the Global Economy",
+        "description": "Traces the evolution of global trade, industrialization, financial systems, global economic integration, and international crises from historical perspectives."
+    },
+    "ECON 3291": {
+        "title": "Development Economics",
+        "description": "Studies economic growth, poverty alleviation, human capital development, institutional quality, and trade strategies in low- and middle-income nations."
+    },
+    "ECON 3404": {
+        "title": "International Food Policy",
+        "description": "Analyzes global food security, agricultural trade policy, food distribution, agricultural subsidies, and sustainable farming economics."
+    },
+    "ECON 3405": {
+        "title": "A Critique of Capitalism",
+        "description": "Explores heterodox economic perspectives, historical critiques of market economies, Marxian economics, and alternative economic systems."
+    },
+    "ECON 3410": {
+        "title": "Labor Economics",
+        "description": "Analyzes labor supply and demand, wage differentials, human capital investment, labor unions, employment legislation, and unemployment."
+    },
+    "ECON 3412": {
+        "title": "Women's Labor and the Economy",
+        "description": "Investigates gender dynamics in the workforce, the gender wage gap, occupational segregation, unpaid care labor, and family policy economics."
+    },
+    "ECON 3413": {
+        "title": "Health Economics and Healthcare Policy",
+        "description": "Applies microeconomic theory to health insurance, hospital competition, pharmaceutical economics, physician incentive structures, and reform policy."
+    },
+    "ECON 3416": {
+        "title": "Behavioral Economics",
+        "description": "Integrates psychology and economics to study decision-making biases, bounded rationality, heuristics, prospect theory, and behavioral policy interventions."
+    },
+    "ECON 3420": {
+        "title": "Urban Economic Issues",
+        "description": "Examines spatial economics, housing markets, urban transportation, local public finance, gentrification, urban poverty, and municipal policies."
+    },
+    "ECON 3423": {
+        "title": "Environmental Economics",
+        "description": "Studies environmental externalities, pollution control policies, carbon pricing, ecosystem valuation, and international climate agreements."
+    },
+    "ECON 3424": {
+        "title": "Law and Economics",
+        "description": "Applies economic analysis to legal principles, focusing on property rights, contract law, tort liability, law enforcement, and judicial incentive structures."
+    },
+    "ECON 3425": {
+        "title": "Energy Economics",
+        "description": "Analyzes energy supply and demand, fossil fuel markets, renewable energy transitions, regulatory policy, and global geopolitical energy markets."
+    },
+    "ECON 3440": {
+        "title": "Public Finance",
+        "description": "Examines government expenditure, taxation principles, public goods provision, social insurance programs, fiscal policy, and tax incidence."
+    },
+    "ECON 3442": {
+        "title": "Money and Banking",
+        "description": "Studies monetary systems, commercial banking, central bank operations, financial intermediation, interest rates, and monetary policy implementation."
+    },
+    "ECON 3460": {
+        "title": "Managerial Economics",
+        "description": "Applies microeconomic principles to managerial decision-making, pricing strategies, market demand analysis, production efficiency, and competitive strategy."
+    },
+    "ECON 3462": {
+        "title": "Bubbles, Busts, and Bailouts: Market and Regulatory Failures in the Financial Crisis",
+        "description": "Investigates the mechanics of financial panics, asset price bubbles, systemic risk, bank runs, regulatory responses, and historical financial crises."
+    },
+    "ECON 3470": {
+        "title": "American Economic History",
+        "description": "Examines the long-run economic growth of the United States, covering colonial development, slavery, industrialization, the Great Depression, and postwar expansion."
+    },
+    "ECON 3480": {
+        "title": "Industrial Organization and Public Policy",
+        "description": "Analyzes firm conduct in imperfectly competitive markets, oligopoly behavior, antitrust law, merger policy, cartels, and industry regulation."
+    },
+    "ECON 3481": {
+        "title": "Economics of Sports",
+        "description": "Applies microeconomic and econometric tools to professional and collegiate sports industries, covering salary caps, ticket pricing, stadium financing, and draft economics."
+    },
+    "ECON 3490": {
+        "title": "Public Choice Economics",
+        "description": "Applies economic theory to political science processes, studying voting mechanisms, interest groups, bureaucracy, political rent-seeking, and constitutional economics."
+    },
+    "ECON 3520": {
+        "title": "History of Economic Thought",
+        "description": "Surveys the evolution of economic ideas from Classical economists (Smith, Ricardo, Mill) through Marx, Keynes, and modern neoclassical syntheses."
+    },
+    "ECON 3635": {
+        "title": "International Economics",
+        "description": "Analyzes international trade patterns, tariffs, trade agreements, balance of payments, foreign exchange markets, and global economic integration."
+    },
+    "ECON 3711": {
+        "title": "Economics of Race",
+        "description": "Applies economic tools to study racial disparities in income, housing, employment, criminal justice, education, wealth accumulation, and civil rights policies."
+    },
+    "ECON 3720": {
+        "title": "Economics of Conflict and Peace",
+        "description": "Investigates the economic causes and consequences of armed conflict, terrorism, defense spending, post-conflict reconstruction, and peacebuilding."
+    },
+    "ECON 3915": {
+        "title": "Intermediate Selected Topics in Macroeconomics",
+        "description": "Explores specialized intermediate topics in macroeconomic theory and policy."
+    },
+    "ECON 3916": {
+        "title": "Intermediate Selected Topics in Microeconomics",
+        "description": "Explores specialized intermediate topics in microeconomic theory and policy."
+    },
+    "ECON 3990": {
+        "title": "Elective",
+        "description": "Transfer or elective credit in economics at the 3000-level."
+    },
+
+    # 4000-Level Courses
+    "ECON 4637": {
+        "title": "Monetary and Fiscal Policy",
+        "description": "Provides an advanced evaluation of central bank interest rate policy, quantitative easing, national debt dynamics, inflation targeting, and macroeconomic policy coordination."
+    },
+    "ECON 4640": {
+        "title": "Financial Economics",
+        "description": "Provides rigorous analysis of asset pricing models, portfolio selection theory, efficient market hypothesis, risk management, and derivative pricing."
+    },
+    "ECON 4642": {
+        "title": "International Trade",
+        "description": "Advanced theoretical examination of trade models (Ricardian, Heckscher-Ohlin, Melitz), trade policy, tariffs, quotas, and global supply chains."
+    },
+    "ECON 4644": {
+        "title": "International Macroeconomics and Finance",
+        "description": "Analyzes open-economy macroeconomics, exchange rate determination models, global capital flows, financial contagions, and sovereign debt."
+    },
+    "ECON 4653": {
+        "title": "Mathematics for Economics",
+        "description": "Develops mathematical techniques essential for advanced economic theory, including multivariate calculus, linear algebra, constrained optimization, and differential equations."
+    },
+    "ECON 4680": {
+        "title": "Competition Policy and Regulation",
+        "description": "Advanced analysis of antitrust economics, regulatory frameworks for natural monopolies, anti-competitive practices, and merger enforcement."
+    },
+    "ECON 4681": {
+        "title": "Information Economics and Game Theory",
+        "description": "Examines strategic decision-making under uncertainty, Nash equilibria, asymmetric information, signaling models, moral hazard, adverse selection, and mechanism design."
+    },
+    "ECON 4692": {
+        "title": "Senior Economics Seminar",
+        "description": "Cap-stone seminar requiring original economic research, data analysis, literature review, and formal paper presentation."
+    },
+    "ECON 4915": {
+        "title": "Advanced Selected Topics in Macroeconomics",
+        "description": "Provides advanced instruction on cutting-edge research topics in macroeconomics."
+    },
+    "ECON 4916": {
+        "title": "Advanced Selected Topics in Microeconomics",
+        "description": "Provides advanced instruction on cutting-edge research topics in microeconomics."
+    },
+    "ECON 4965": {
+        "title": "Undergraduate Teaching Experience",
+        "description": "Provides upper-level undergraduate students with supervised teaching assistant experience in core economics courses."
+    },
+    "ECON 4970": {
+        "title": "Junior/Senior Honors Project 1",
+        "description": "First semester of advanced independent honors research under faculty supervision."
+    },
+    "ECON 4971": {
+        "title": "Junior/Senior Honors Project 2",
+        "description": "Second semester completion and defense of undergraduate honors thesis."
+    },
+    "ECON 4990": {
+        "title": "Elective",
+        "description": "Transfer or elective credit in economics at the 4000-level."
+    },
+    "ECON 4991": {
+        "title": "Research",
+        "description": "Offers structured independent research experience under the direction of an economics faculty member."
+    },
+    "ECON 4992": {
+        "title": "Directed Study",
+        "description": "Offers individual, specialized study under the direction of a faculty member on an approved economics topic."
+    },
+    "ECON 4994": {
+        "title": "Internship",
+        "description": "Provides students with practical economic experience through approved professional employment opportunities."
+    },
+    "ECON 4996": {
+        "title": "Experiential Education Directed Study",
+        "description": "Combines academic major coursework with student's approved practical experiential education. Restricted to those students who are using the course to fulfill their experiential education requirement."
+    },
+    "ECON 4997": {
+        "title": "Senior Economics Thesis",
+        "description": "Substantial individual research thesis completed under faculty advisor supervision."
+    }
+}
+
 # Format COURSE_DATABASE into strings for dropdown menus
 COURSE_OPTIONS = ["Select a course..."] + [f"{code} - {title}" for code, title in COURSE_DATABASE.items()]
 
@@ -548,14 +827,24 @@ with st.popover("💬 AI Helper"):
                             score += 8
 
                 if score > 0:
-                    scored_matches.append((score, f"• **{code}**: {title}"))
+                # Look up description from COURSE_DESCRIPTIONS
+                    desc_info = COURSE_DESCRIPTIONS.get(code, {})
+                    desc = desc_info.get("description", "")
+                
+                    if desc:
+                        match_str = f"• **{code}: {title}**\n  _{desc}_"
+                    else:
+                        match_str = f"• **{code}**: {title}"
+                        
+                    scored_matches.append((score, match_str))
 
             # Rank by relevance score
             scored_matches.sort(key=lambda x: x[0], reverse=True)
             matches = list(dict.fromkeys([item[1] for item in scored_matches]))
 
             if matches:
-                response_text = "Matching courses:\n\n" + "\n".join(matches[:10])
+            # Separate matched courses with double newlines so descriptions read cleanly
+                response_text = "Matching courses:\n\n" + "\n\n".join(matches[:5])
             else:
                 response_text = (
                     "No direct course match found for that query. "
