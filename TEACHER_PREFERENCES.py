@@ -5,8 +5,7 @@ import streamlit as st
 # Page Configuration
 st.set_page_config(
     page_title="Faculty Teaching Preferences Form",
-    page_icon="🎓",
-    layout="centered"
+    page_icon="🎓",layout="centered"
 )
 
 # Hardcoded Path & Configuration
@@ -27,6 +26,7 @@ if not os.path.exists(CSV_FILE):
 # Sync Session State with CSV
 if "df_responses" not in st.session_state:
     st.session_state.df_responses = pd.read_csv(CSV_FILE)
+
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
 
 # Header Section
@@ -134,11 +134,10 @@ if submitted:
 
         st.success("✅ Your teaching preferences have been successfully recorded!")
 
-# ---------------------------------------------------------
-# 3. ADMIN PORTAL (DATA CLEAR & MANAGEMENT)
-# ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+# 3. DIRECT HARDCODED ADMIN VIEW
+# -----------------------------------------------------------------------------
 st.markdown("---")
-
 with st.expander("🔒 Admin Portal (Restricted Access)"):
     entered_password = st.text_input("Enter Admin Password", type="password", key="admin_pwd_v2")
 
@@ -148,16 +147,12 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
         elif entered_password == ADMIN_PASSWORD:
             st.success("Access Granted")
 
-            # Always load fresh data directly from session state or CSV
             if os.path.exists(CSV_FILE):
-                st.session_state.df_responses = pd.read_csv(CSV_FILE)
+                df_data = pd.read_csv(CSV_FILE)
+                st.write(f"**Total Responses Recorded:** {len(df_data)}")
+                st.dataframe(df_data)
 
-            total_responses = len(st.session_state.df_responses)
-            st.write(f"**Total Responses Recorded:** {total_responses}")
-            st.dataframe(st.session_state.df_responses)
-
-            if total_responses > 0:
-                csv_bytes = st.session_state.df_responses.to_csv(index=False).encode('utf-8')
+                csv_bytes = df_data.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="📥 Download Dataset (.csv)",
                     data=csv_bytes,
@@ -165,18 +160,16 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     mime="text/csv"
                 )
 
-            st.markdown("---")
-            st.caption("⚠️ **Danger Zone:** Permanently delete all recorded submissions.")
+                st.markdown("---")
+                st.caption("⚠️ **Danger Zone:** Permanently delete all recorded submissions.")
 
-            if st.button("🗑️ Clear All Data", type="primary", key="clear_all_data_btn"):
-                # 1. Reset memory DataFrame to empty template
-                st.session_state.df_responses = pd.DataFrame(columns=COLUMNS)
-
-                # 2. Hard-overwrite CSV file on disk with headers only
-                st.session_state.df_responses.to_csv(CSV_FILE, index=False)
-
-                st.success("✅ All submission data has been permanently cleared!")
-                st.rerun()
+                if st.button("🗑️ Clear All Data", type="primary"):
+                    st.session_state.df_responses = pd.DataFrame(columns=COLUMNS)
+                    st.session_state.df_responses.to_csv(CSV_FILE, index=False)
+                    st.success("✅ All submission data has been permanently cleared!")
+                    st.rerun()
+            else:
+                st.info("No submission data exists yet.")
         else:
             st.error("Incorrect password. Access denied.")
 
@@ -259,221 +252,81 @@ COURSE_DATABASE = {
     "ECON 4992": "Directed Study",
     "ECON 4994": "Internship",
     "ECON 4996": "Experiential Education Directed Study",
-    "ECON 4997": "Senior Economics Thesis"
+    "ECON 4997": "Senior Economics Thesis",
 }
 
 st.divider()
 
-# 1. Custom CSS to float the popover button and style the overlay window
-st.markdown(
-    """
-    <style>
-    /* Fixed position in bottom right corner */
-    div[data-testid="stPopover"] {
-        position: fixed !important;
-        bottom: 24px !important;
-        right: 24px !important;
-        width: auto !important;
-        z-index: 999999 !important;
-    }
+# Create a 2-column layout: Form on Left (75%), AI Assistant on Right (25%)
+col_main, col_side = st.columns([3, 1])
 
-    /* Convert button into a sleek circular icon button */
-    div[data-testid="stPopover"] > button {
-        width: 56px !important;
-        height: 56px !important;
-        min-width: 56px !important;
-        border-radius: 50% !important;
-        background-color: #5f6caf !important;
-        color: white !important;
-        border: none !important;
-        padding: 0 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        font-size: 24px !important;
-        box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.35) !important;
-        transition: transform 0.2s ease, background-color 0.2s ease !important;
-    }
+# ==========================================
+# LEFT COLUMN: PREFERENCES FORM
+# ==========================================
+with col_main:
+    st.title("Faculty Teaching Preferences Form")
 
-    /* Hide text inside the button if Streamlit forces popover label rendering */
-    div[data-testid="stPopover"] > button p {
-        font-size: 24px !important;
-        margin: 0 !important;
-    }
+    # --- PUT YOUR EXISTING FORM CODE HERE ---
+    # (e.g., st.text_input, st.selectbox, st.button for preferences submission)
 
-    div[data-testid="stPopover"] > button:hover {
-        background-color: #4b5693 !important;
-        transform: scale(1.1);
-    }
 
-    /* Pop-up chat window positioning and styling */
-    div[data-testid="stPopoverBody"] {
-        width: 360px !important;
-        max-width: 90vw !important;
-        border-radius: 16px !important;
-        box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.3) !important;
-        border: 1px solid #333 !important;
-        padding: 16px !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-# 2. Floating Popover Widget
-with st.popover("💬 AI Helper"):
-    st.markdown("### 🤖 Course AI Assistant")
-    st.caption("Search course codes, levels (e.g., 3000s), or ask form questions.")
+# ==========================================
+# RIGHT COLUMN: SIDEBAR AI ASSISTANT
+# ==========================================
+with col_side:
+    st.subheader("🤖 Course AI Assistant")
+    st.caption("Search course codes, levels (e.g. 3000s), or ask form questions.")
 
     if "chat_messages" not in st.session_state:
         st.session_state.chat_messages = [
-            {"role": "assistant", "content": "Hello! Ask me about course codes or form instructions."}
+            {"role": "assistant", "content": "Hello! I can help you find course codes or answer form questions."}
         ]
 
-    # Scrollable chat box container
-    chat_container = st.container(height=320)
+    # Container to keep chat readable on the side
+    chat_container = st.container(height=400)
     with chat_container:
         for msg in st.session_state.chat_messages:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
 
-    if prompt := st.chat_input("Type a message..."):
+    if prompt := st.chat_input("Ask AI assistant..."):
         st.session_state.chat_messages.append({"role": "user", "content": prompt})
 
         response_text = ""
-        query_lower = prompt.lower().strip()
+        query_lower = prompt.lower()
+        words = query_lower.split()
 
-        # 1. Full Course Catalog Intent
-        all_trigger_words = [
-            "all codes", "all course codes", "all courses", "show all",
-            "list all", "every course", "everything", "catalog", "full list", "all"
-        ]
+        ignore_words = {"what", "are", "the", "show", "me", "list", "all", "courses", "course", "of", "for", "in", "is", "a", "an"}
+        keywords = [w for w in words if w not in ignore_words]
 
-        # 2. Contact & Email Intent
-        contact_trigger_words = [
-            "contact", "email", "support", "help desk", "reach out",
-            "who to contact", "admin email", "contact info"
-        ]
+        matches = []
+        for code, title in COURSE_DATABASE.items():
+            combined_text = f"{code} {title}".lower()
 
-        # 3. Form Rules & Instructions Intent
-        form_trigger_words = [
-            "rank", "preference", "load", "section", "password",
-            "admin", "deadline", "submit", "due"
-        ]
+            for kw in keywords:
+                if kw in ["1000", "1000s", "level 1", "freshman"] and code.startswith("ECON 1"):
+                    matches.append(f"**{code}**: {title}")
+                elif kw in ["2000", "2000s", "level 2", "sophomore"] and code.startswith("ECON 2"):
+                    matches.append(f"**{code}**: {title}")
+                elif kw in ["3000", "3000s", "level 3", "junior"] and code.startswith("ECON 3"):
+                    matches.append(f"**{code}**: {title}")
+                elif kw in ["4000", "4000s", "level 4", "senior"] and code.startswith("ECON 4"):
+                    matches.append(f"**{code}**: {title}")
+                elif len(kw) >= 3 and kw in combined_text:
+                    matches.append(f"**{code}**: {title}")
 
-        if any(trigger in query_lower for trigger in all_trigger_words):
-            cat_1000 = [f"• **{code}**: {title}" for code, title in COURSE_DATABASE.items() if code.startswith("ECON 1")]
-            cat_2000 = [f"• **{code}**: {title}" for code, title in COURSE_DATABASE.items() if code.startswith("ECON 2")]
-            cat_3000 = [f"• **{code}**: {title}" for code, title in COURSE_DATABASE.items() if code.startswith("ECON 3")]
-            cat_4000 = [f"• **{code}**: {title}" for code, title in COURSE_DATABASE.items() if code.startswith("ECON 4")]
+        matches = list(dict.fromkeys(matches))
 
-            response_text = (
-                "**Full Undergraduate Economics Course Catalog:**\n\n"
-                "**1000-Level Courses**\n" + "\n".join(cat_1000) + "\n\n"
-                "**2000-Level Courses**\n" + "\n".join(cat_2000) + "\n\n"
-                "**3000-Level Courses**\n" + "\n".join(cat_3000) + "\n\n"
-                "**4000-Level Courses**\n" + "\n".join(cat_4000)
-            )
-
-        elif any(trigger in query_lower for trigger in contact_trigger_words):
-            response_text = (
-                "**Contact & Support Information:**\n\n"
-                "• **Email Field**: Enter your official Northeastern email in Section 1.\n"
-                "• **Department Contact**: Contact the Economics Department Chair or Program Coordinator for course planning questions.\n"
-                "• **Technical Support**: Contact Northeastern ITS if you experience submission bugs."
-            )
-
-        elif any(trigger in query_lower for trigger in form_trigger_words):
-            if "password" in query_lower or "admin" in query_lower:
-                response_text = "The Admin Portal requires administrator credentials to view and download submissions."
-            elif "load" in query_lower or "section" in query_lower:
-                response_text = "Select your anticipated total teaching load (number of sections) for Fall and Spring."
-            elif "deadline" in query_lower or "due" in query_lower or "submit" in query_lower:
-                response_text = "The form does not list a submission deadline. Please confirm the deadline with the Economics Department."
-            else:
-                response_text = "Rank your top course choices using Rank #1 through Rank #6."
-
+        if matches:
+            response_text = "Matching courses:\n\n" + "\n".join(f"- {m}" for m in matches)
+        elif "password" in query_lower or "admin" in query_lower:
+            response_text = "The Admin Portal requires administrator credentials to view all submitted preferences."
+        elif "rank" in query_lower or "preference" in query_lower:
+            response_text = "Select your top course preferences using Rank 1 through Rank 6 in the main form."
+        elif "load" in query_lower or "section" in query_lower:
+            response_text = "Select your total teaching load (course sections) for Fall and Spring."
         else:
-            # 4. Stand-out Keyword & Synonym Map directly derived from your COURSE_DATABASE
-            standout_topic_map = {
-                # Specific topics in database
-                "food": ["food", "policy"],
-                "history": ["history", "historical", "thought"],
-                "law": ["law", "legal", "regulation", "court"],
-                "health": ["health", "healthcare", "medical"],
-                "crime": ["crime", "criminal"],
-                "race": ["race", "racial"],
-                "sports": ["sports", "sport"],
-                "money": ["money", "banking", "monetary", "financial", "finance"],
-                "data": ["data", "analysis", "statistics", "econometrics"],
-                "macro": ["macro", "macroeconomics", "macroeconomic"],
-                "micro": ["micro", "microeconomics", "microeconomic"],
-                "labor": ["labor", "women's labor", "employment"],
-                "game": ["game", "game theory", "information"],
-                "peace": ["peace", "conflict"],
-                "sustainability": ["sustainability", "environmental", "energy"],
-                "urban": ["urban", "city"],
-                "math": ["mathematics", "math", "tools"],
-                "thesis": ["thesis", "senior economics seminar", "honors project", "research", "directed study"],
-                "internship": ["internship", "experiential"],
-                "teaching": ["teaching", "undergraduate teaching experience"]
-            }
-
-            clean_query = query_lower.replace("?", "").replace(",", "").replace(".", "").replace("!", "")
-            raw_words = clean_query.split()
-
-            # Remove filler grammatical words only
-            ignore_words = {
-                "what", "is", "are", "the", "code", "for", "course", "courses", "class", "classes",
-                "show", "me", "list", "of", "in", "a", "an", "and", "or", "to", "econ", "economics",
-                "which", "find", "get", "do", "you", "have", "about", "on", "with", "tell"
-            }
-            search_tokens = [w for w in raw_words if w not in ignore_words and len(w) >= 2]
-
-            scored_matches = []
-
-            for code, title in COURSE_DATABASE.items():
-                title_lower = title.lower()
-                code_lower = code.lower()
-                score = 0
-
-                # A. Numeric level checks (e.g. '1000s', '3000')
-                for token in raw_words:
-                    if token in ["1000", "1000s", "1000-level"] and code.startswith("ECON 1"):
-                        score += 10
-                    elif token in ["2000", "2000s", "2000-level"] and code.startswith("ECON 2"):
-                        score += 10
-                    elif token in ["3000", "3000s", "3000-level"] and code.startswith("ECON 3"):
-                        score += 10
-                    elif token in ["4000", "4000s", "4000-level"] and code.startswith("ECON 4"):
-                        score += 10
-
-                # B. Direct word & partial token matches against code/title
-                for token in search_tokens:
-                    if token in code_lower:
-                        score += 15
-                    if token in title_lower:
-                        score += 10
-
-                # C. Topic Map Synonym Matches
-                for topic, keywords in standout_topic_map.items():
-                    if topic in clean_query or any(kw in clean_query for kw in keywords):
-                        if any(kw in title_lower for kw in keywords):
-                            score += 8
-
-                if score > 0:
-                    scored_matches.append((score, f"• **{code}**: {title}"))
-
-            # Rank by relevance score
-            scored_matches.sort(key=lambda x: x[0], reverse=True)
-            matches = list(dict.fromkeys([item[1] for item in scored_matches]))
-
-            if matches:
-                response_text = "Matching courses:\n\n" + "\n".join(matches[:10])
-            else:
-                response_text = (
-                    "No direct course match found for that query. "
-                    "Type **'all'** to see every code, or search stand-out terms like **'food'**, **'history'**, **'law'**, **'crime'**, **'sports'**, **'money'**, or **'3000s'**."
-                )
+            response_text = "No direct course match found. Try searching topics like 'macro', 'micro', 'labor', or level like '3000s'."
 
         st.session_state.chat_messages.append({"role": "assistant", "content": response_text})
         st.rerun()
