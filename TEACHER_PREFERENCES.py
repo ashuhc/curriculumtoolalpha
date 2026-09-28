@@ -619,8 +619,6 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                 if st.button("💾 Sync All Memory to CSV"):
                     st.session_state.df_responses.to_csv(CSV_FILE, index=False)
                     st.success(f"Successfully wrote {len(st.session_state.df_responses)} records to {CSV_FILE}!")
-                )
-
         with admin_tab2:
         st.markdown("### Manage Faculty Dropdown List")
         
