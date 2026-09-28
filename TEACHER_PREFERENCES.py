@@ -107,7 +107,7 @@ with st.form("preference_form", clear_on_submit=True):
     with col1:
         full_name = st.selectbox("Full Name", options=FACULTY_NAMES)
     with col2:
-        email = st.text_input("Email*", placeholder="e.g., j.doe@northeastern.edu or janedoe@gmail.com")
+        email = st.text_input("Email*", placeholder="Preferred Contact Email")
 
     st.markdown("---")
 
