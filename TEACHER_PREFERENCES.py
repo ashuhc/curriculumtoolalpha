@@ -45,7 +45,7 @@ COLUMNS = [
 ]
 
 # List of unique faculty members extracted from enrollment records
-FACULTY_NAMES = [
+DEFAULT_FACULTY_NAMES = [
     "Select your name...",
     "Adams, Brookelyn",
     "Alam, Mohammad",
@@ -497,21 +497,20 @@ with st.form("preference_form", clear_on_submit=True):
     st.subheader("1. Contact Information")
     col1, col2 = st.columns(2)
     with col1:
-        full_name = st.selectbox("Full Name*", options=st.session_state.faculty_names, key="full_name_select")
+        full_name = st.selectbox("Full Name*", options=st.session_state.faculty_names)
     with col2:
         email = st.text_input("Email*", placeholder="Preferred Contact Email")
 
     st.markdown("---")
 
     st.subheader("2. Principles Course Preferences")
+
+    # Dynamic option: Use COURSE_OPTIONS excluding the "Select a course..." default header
+    principles_options = [c for c in COURSE_OPTIONS if c != "Select a course..."] + ["None / Not Applicable"]
+
     principles_prefs = st.multiselect(
         "Which Principles courses would you prefer to teach? (Select all that apply)",
-        options=[
-            "ECON 1115 - Principles of Macroeconomics",
-            "ECON 1116 - Principles of Microeconomics",
-            "ECON 2350 - Statistics for Economists",
-            "None / Not Applicable"
-        ]
+        options=principles_options
     )
 
     st.markdown("---")
@@ -519,7 +518,7 @@ with st.form("preference_form", clear_on_submit=True):
     st.subheader("3. Top 6 Undergraduate Course Preferences")
     st.write("Rank your top 6 course choices from the dropdown menus below.")
 
-    # Dropdowns placed directly inside Section 3
+    # Dropdowns automatically reflect dynamic additions/deletions from st.session_state
     rank_1 = st.selectbox("Rank #1 Course Code & Name", options=COURSE_OPTIONS, index=0, key="rank_1")
     rank_2 = st.selectbox("Rank #2 Course Code & Name", options=COURSE_OPTIONS, index=0, key="rank_2")
     rank_3 = st.selectbox("Rank #3 Course Code & Name", options=COURSE_OPTIONS, index=0, key="rank_3")
