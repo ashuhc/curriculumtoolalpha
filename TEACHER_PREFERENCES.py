@@ -217,68 +217,109 @@ COURSE_DATABASE = {
 
 st.divider()
 
-# Create a 2-column layout: Form on Left (75%), AI Assistant on Right (25%)
-col_main, col_side = st.columns([3, 1])
+# 1. Custom CSS to float the popover button and style the overlay window
+st.markdown(
+    """
+    <style>
+    /* Position the popover button container in the bottom-right corner */
+    div[data-testid="stPopover"] {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 999999;
+    }
 
-# ==========================================
-# LEFT COLUMN: PREFERENCES FORM
-# ==========================================
-with col_main:
-    st.title("Faculty Teaching Preferences Form")
+    /* Style the floating launch button */
+    div[data-testid="stPopover"] > button {
+        border-radius: 50px !important;
+        background-color: #5f6caf !important;
+        color: white !important;
+        border: none !important;
+        padding: 12px 22px !important;
+        font-weight: 600 !important;
+        box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.25) !important;
+        transition: transform 0.2s ease, background-color 0.2s ease !important;
+    }
 
-    # --- PUT YOUR EXISTING FORM CODE HERE ---
-    # (e.g., st.text_input, st.selectbox, st.button for preferences submission)
+    div[data-testid="stPopover"] > button:hover {
+        background-color: #4b5693 !important;
+        transform: scale(1.05);
+    }
 
+    /* Style the pop-up panel to match modern floating chat widgets */
+    div[data-testid="stPopoverBody"] {
+        width: 380px !important;
+        max-width: 90vw !important;
+        border-radius: 16px !important;
+        box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.2) !important;
+        border: 1px solid #e0e0e0 !important;
+        padding: 16px !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-# ==========================================
-# RIGHT COLUMN: SIDEBAR AI ASSISTANT
-# ==========================================
-with col_side:
-    st.subheader("🤖 Course AI Assistant")
-    st.caption("Search course codes, levels (e.g. 3000s), or ask form questions.")
+# 2. Floating Popover Widget
+with st.popover("💬 AI Helper"):
+    st.markdown("### 🤖 Course AI Assistant")
+    st.caption("Search course codes, levels (e.g., 3000s), or ask form questions.")
 
     if "chat_messages" not in st.session_state:
         st.session_state.chat_messages = [
-            {"role": "assistant", "content": "Hello! I can help you find course codes or answer form questions."}
+            {"role": "assistant", "content": "Hello! Ask me about course codes or form instructions."}
         ]
 
-    # Container to keep chat readable on the side
-    chat_container = st.container(height=400)
+    # Scrollable chat box container
+    chat_container = st.container(height=320)
     with chat_container:
         for msg in st.session_state.chat_messages:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
 
-    if prompt := st.chat_input("Ask AI assistant..."):
+    if prompt := st.chat_input("Type a message..."):
         st.session_state.chat_messages.append({"role": "user", "content": prompt})
 
         response_text = ""
         query_lower = prompt.lower()
-        words = query_lower.split()
 
-        ignore_words = {"what", "are", "the", "show", "me", "list", "all", "courses", "course", "of", "for", "in", "is", "a", "an"}
-        keywords = [w for w in words if w not in ignore_words]
+        ignore_words = {
+            "what", "is", "are", "the", "code", "for", "course", "courses", "class", "classes",
+            "show", "me", "list", "all", "of", "in", "a", "an", "and", "or", "to", "econ", "economics"
+        }
 
-        matches = []
+        raw_words = query_lower.replace("?", "").replace(",", "").split()
+        keywords = [w for w in raw_words if w not in ignore_words and len(w) > 2]
+
+        scored_matches = []
         for code, title in COURSE_DATABASE.items():
             combined_text = f"{code} {title}".lower()
+            score = 0
+
+            for w in raw_words:
+                if w in ["1000", "1000s", "level 1"] and code.startswith("ECON 1"):
+                    score += 2
+                elif w in ["2000", "2000s", "level 2"] and code.startswith("ECON 2"):
+                    score += 2
+                elif w in ["3000", "3000s", "level 3"] and code.startswith("ECON 3"):
+                    score += 2
+                elif w in ["4000", "4000s", "level 4"] and code.startswith("ECON 4"):
+                    score += 2
 
             for kw in keywords:
-                if kw in ["1000", "1000s", "level 1", "freshman"] and code.startswith("ECON 1"):
-                    matches.append(f"**{code}**: {title}")
-                elif kw in ["2000", "2000s", "level 2", "sophomore"] and code.startswith("ECON 2"):
-                    matches.append(f"**{code}**: {title}")
-                elif kw in ["3000", "3000s", "level 3", "junior"] and code.startswith("ECON 3"):
-                    matches.append(f"**{code}**: {title}")
-                elif kw in ["4000", "4000s", "level 4", "senior"] and code.startswith("ECON 4"):
-                    matches.append(f"**{code}**: {title}")
-                elif len(kw) >= 3 and kw in combined_text:
-                    matches.append(f"**{code}**: {title}")
+                if kw in title.lower():
+                    score += 3
+                elif kw in code.lower():
+                    score += 3
 
-        matches = list(dict.fromkeys(matches))
+            if score > 0:
+                scored_matches.append((score, f"**{code}**: {title}"))
+
+        scored_matches.sort(key=lambda x: x[0], reverse=True)
+        matches = list(dict.fromkeys([item[1] for item in scored_matches]))
 
         if matches:
-            response_text = "Matching courses:\n\n" + "\n".join(f"- {m}" for m in matches)
+            response_text = "Matching courses:\n\n" + "\n".join(f"- {m}" for m in matches[:8])
         elif "password" in query_lower or "admin" in query_lower:
             response_text = "The Admin Portal requires administrator credentials to view all submitted preferences."
         elif "rank" in query_lower or "preference" in query_lower:
@@ -286,7 +327,7 @@ with col_side:
         elif "load" in query_lower or "section" in query_lower:
             response_text = "Select your total teaching load (course sections) for Fall and Spring."
         else:
-            response_text = "No direct course match found. Try searching topics like 'macro', 'micro', 'labor', or level like '3000s'."
+            response_text = "No direct course match found in the undergraduate catalog. Try keywords like 'crime', 'macro', 'micro', 'health', or 'labor'."
 
         st.session_state.chat_messages.append({"role": "assistant", "content": response_text})
         st.rerun()
