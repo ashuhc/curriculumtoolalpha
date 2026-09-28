@@ -713,15 +713,25 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
             # --- 2. STAGE REMOVAL ---
             with col_remove:
                 st.markdown("#### Stage Remove Faculty")
-                avail_draft_fac = [f for f in st.session_state.draft_faculty if f != "Select your name..."]
-                if avail_draft_fac:
-                    fac_to_stage_remove = st.selectbox("Select Faculty to Remove", options=avail_draft_fac, key="stage_fac_rem")
+                names_only = [f for f in st.session_state.draft_faculty if f != "Select your name..."]
+                fac_remove_options = ["Select faculty to remove..."] + names_only
+                
+                if names_only:
+                    fac_to_stage_remove = st.selectbox(
+                        "Select Faculty to Remove", 
+                        options=fac_remove_options, 
+                        key="stage_fac_rem"
+                    )
+                    
                     if st.button("Stage Removal", type="secondary"):
-                        st.session_state.draft_faculty = [
-                            f for f in st.session_state.draft_faculty if f != fac_to_stage_remove
-                        ]
-                        st.toast(f"🗑️ Staged removal of '{fac_to_stage_remove}'", icon="ℹ️")
-                        st.rerun()
+                        if fac_to_stage_remove != "Select faculty to remove...":
+                            st.session_state.draft_faculty = [
+                                f for f in st.session_state.draft_faculty if f != fac_to_stage_remove
+                            ]
+                            st.toast(f"🗑️ Staged removal of '{fac_to_stage_remove}'", icon="ℹ️")
+                            st.rerun()
+                        else:
+                            st.warning("Please select a valid faculty member to remove.")
                 else:
                     st.caption("No remaining faculty to remove in draft.")
 
@@ -783,8 +793,8 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
             with col_c_rem:
                 st.markdown("#### Stage Remove Course")
                 if st.session_state.draft_courses:
-                    # Display Code + Title in dropdown menu (e.g., "ECON 1000 - Introductory Economics")
-                    course_remove_options = [
+                    # Build dropdown options with placeholder header and formatted Code - Title
+                    course_remove_options = ["Select course to remove..."] + [
                         f"{code} - {title}" for code, title in st.session_state.draft_courses.items()
                     ]
                     
@@ -795,13 +805,16 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     )
                     
                     if st.button("Stage Removal", key="btn_stage_c_rem"):
-                        # Extract code key by taking text before the " - " divider
-                        code_to_remove = selected_course_str.split(" - ")[0]
-                        
-                        if code_to_remove in st.session_state.draft_courses:
-                            del st.session_state.draft_courses[code_to_remove]
-                            st.toast(f"🗑️ Staged removal of {code_to_remove}", icon="ℹ️")
-                            st.rerun()
+                        if selected_course_str != "Select course to remove...":
+                            # Extract code key before the " - " divider
+                            code_to_remove = selected_course_str.split(" - ")[0]
+                            
+                            if code_to_remove in st.session_state.draft_courses:
+                                del st.session_state.draft_courses[code_to_remove]
+                                st.toast(f"🗑️ Staged removal of {code_to_remove}", icon="ℹ️")
+                                st.rerun()
+                        else:
+                            st.warning("Please select a valid course to remove.")
                 else:
                     st.caption("No courses available to remove in draft.")
 
