@@ -536,8 +536,10 @@ with st.form("preference_form", clear_on_submit=True):
 
     st.subheader("2. Principles Course Preferences")
 
-    # Dynamic option: Use COURSE_OPTIONS excluding the "Select a course..." default header
-    principles_options = [c for c in COURSE_OPTIONS if c != "Select a course..."] + ["None / Not Applicable"]
+    # Target specific Principles courses: Statistics (1113), Macroecon (1115), Microecon (1116)
+    PRINCIPLES_CODES = ("ECON 1113", "ECON 1115", "ECON 1116")
+
+    principles_options = [c for c in COURSE_OPTIONS if c.startswith(PRINCIPLES_CODES)] + ["None / Not Applicable"]
 
     principles_prefs = st.multiselect(
         "Which Principles courses would you prefer to teach? (Select all that apply)",
@@ -866,7 +868,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
         # --------------------------------------------------
         st.divider()
 
-        st.caption("⚠️ **Danger Zone:** Permanently delete all recorded submissions.")
+        st.caption("⚠️ **Danger Zone:** Permanently delete all recorded preference submissions.")
 
         if st.button("🗑️ Clear All Data", type="primary"):
             st.session_state.df_responses = pd.DataFrame(columns=COLUMNS)
