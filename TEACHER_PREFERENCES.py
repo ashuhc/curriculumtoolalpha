@@ -614,28 +614,41 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     data=csv_bytes,
                     file_name="teacher_preferences_export.csv",
                     mime="text/csv"
+
+                if st.button("💾 Sync All Memory to CSV"):
+                    st.session_state.df_responses.to_csv(CSV_FILE, index=False)
+                    st.success(f"Successfully wrote {len(st.session_state.df_responses)} records to {CSV_FILE}!")
                 )
 
         with admin_tab2:
-            st.markdown("### Manage Faculty Dropdown List")
-            with st.form("add_faculty_form"):
-                new_faculty = st.text_input("Add New Faculty Name (e.g., 'Smith, Jane')")
-                if st.form_submit_button("Add Faculty Member"):
-                    if new_faculty and "FACULTY_LIST" in globals():
-                        if new_faculty not in FACULTY_LIST:
-                            FACULTY_LIST.append(new_faculty)
-                            st.success(f"Added '{new_faculty}'!")
-                            st.rerun()
+        st.markdown("### Manage Faculty Dropdown List")
+        
+        # Add new faculty member
+        with st.form("add_faculty_form"):
+            new_faculty = st.text_input("Add New Faculty Name (e.g., 'Smith, Jane')")
+            if st.form_submit_button("Add Faculty Member"):
+                if new_faculty:
+                    if new_faculty not in st.session_state.faculty_list:
+                        st.session_state.faculty_list.append(new_faculty)
+                        st.success(f"Added '{new_faculty}'!")
+                        st.rerun()
+                    else:
+                        st.warning("That faculty member is already in the list.")
 
-            if "FACULTY_LIST" in globals():
-                fac_to_remove = st.selectbox(
-                    "Select Faculty to Remove", 
-                    options=[f for f in FACULTY_LIST if f != "Select your name..."]
-                )
-                if st.button("Remove Selected Faculty"):
-                    FACULTY_LIST.remove(fac_to_remove)
-                    st.warning(f"Removed '{fac_to_remove}'.")
-                    st.rerun()
+        st.divider()
+
+        # Remove existing faculty member
+        st.markdown("#### Remove Faculty Member")
+        available_faculty = [f for f in st.session_state.faculty_list if f != "Select your name..."]
+        
+        if available_faculty:
+            fac_to_remove = st.selectbox("Select Faculty to Remove", options=available_faculty)
+            if st.button("🗑️ Remove Selected Faculty", type="primary"):
+                st.session_state.faculty_list.remove(fac_to_remove)
+                st.success(f"Successfully removed '{fac_to_remove}'!")
+                st.rerun()
+        else:
+            st.info("No editable faculty members remaining.")
 
         with admin_tab3:
             st.markdown("### Manage Course Catalog Dropdown List")
@@ -667,10 +680,6 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
         # Original Data Sync & Danger Zone Actions
         # --------------------------------------------------
         st.divider()
-
-        if st.button("💾 Sync All Memory to CSV"):
-            st.session_state.df_responses.to_csv(CSV_FILE, index=False)
-            st.success(f"Successfully wrote {len(st.session_state.df_responses)} records to {CSV_FILE}!")
 
         st.caption("⚠️ **Danger Zone:** Permanently delete all recorded submissions.")
 
