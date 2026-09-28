@@ -753,7 +753,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
         with admin_tab3:
             st.markdown("### Manage Course Catalog Dropdown List (Staging)")
             
-            # 0. Check for success notification banner surviving st.rerun()
+            # 0. Display success/info notification banner surviving st.rerun()
             if "course_commit_success" in st.session_state:
                 st.success(st.session_state.course_commit_success)
                 del st.session_state.course_commit_success  # Display once then clear
@@ -783,12 +783,25 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
             with col_c_rem:
                 st.markdown("#### Stage Remove Course")
                 if st.session_state.draft_courses:
-                    c_to_remove = st.selectbox("Select Course to Remove", options=list(st.session_state.draft_courses.keys()), key="stage_course_rem")
+                    # Display Code + Title in dropdown menu (e.g., "ECON 1000 - Introductory Economics")
+                    course_remove_options = [
+                        f"{code} - {title}" for code, title in st.session_state.draft_courses.items()
+                    ]
+                    
+                    selected_course_str = st.selectbox(
+                        "Select Course to Remove", 
+                        options=course_remove_options, 
+                        key="stage_course_rem"
+                    )
+                    
                     if st.button("Stage Removal", key="btn_stage_c_rem"):
-                        del st.session_state.draft_courses[c_to_remove]
+                        # Extract code key by taking text before the " - " divider
+                        code_to_remove = selected_course_str.split(" - ")[0]
                         
-                        st.toast(f"🗑️ Staged removal of {c_to_remove}", icon="ℹ️")
-                        st.rerun()
+                        if code_to_remove in st.session_state.draft_courses:
+                            del st.session_state.draft_courses[code_to_remove]
+                            st.toast(f"🗑️ Staged removal of {code_to_remove}", icon="ℹ️")
+                            st.rerun()
                 else:
                     st.caption("No courses available to remove in draft.")
 
@@ -804,10 +817,10 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                 if st.button("🚀 Commit & Publish Course Catalog", type="primary", disabled=not has_course_changes):
                     # Apply draft changes to live state
                     st.session_state.course_database = dict(st.session_state.draft_courses)
-                    # Write to disk
+                    # Persist to disk
                     save_courses(st.session_state.course_database)
                     
-                    # Store banner message in session state so it displays after st.rerun()
+                    # Store banner message in session state to display across st.rerun()
                     st.session_state.course_commit_success = "✅ Course catalog changes successfully committed and published to live app!"
                     st.toast("Course catalog updated successfully!", icon="🚀")
                     st.rerun()
@@ -817,6 +830,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     st.session_state.draft_courses = dict(st.session_state.course_database)
                     st.session_state.course_commit_success = "ℹ️ Discarded uncommitted course catalog changes."
                     st.rerun()
+
         # --------------------------------------------------
         # Original Data Sync & Danger Zone Actions
         # --------------------------------------------------
