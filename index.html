@@ -4,12 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Northeastern Economics Portal</title>
+
+  <!-- Book Stack Emoji Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
+
   <style>
     /* ---------------------------------------------------------
        COLOR VARIABLES & THEME DEFINITIONS
        --------------------------------------------------------- */
     :root {
-      /* Dark Theme Defaults (RateMyHusky aesthetic) */
+      /* Dark Theme Defaults */
       --bg-main: #0e1117;
       --card-bg: #161b22;
       --card-border: #30363d;
@@ -235,7 +239,7 @@
 
   <!-- Main Content Area -->
   <main class="container">
-    <h1 class="hero-title">Curriculum Planning Portal</h1>
+    <h1 class="hero-title">📚 Curriculum Planning Portal</h1>
     <p class="hero-subtitle">
       Centralized tool for department faculty to submit teaching preferences, coordinate course schedules, and view principles assignments.
     </p>
@@ -269,7 +273,6 @@
     const themeIcon = document.getElementById('themeIcon');
     const themeText = document.getElementById('themeText');
 
-    // 1. Check system preference
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)');
 
     function applyTheme(theme) {
@@ -284,7 +287,6 @@
       }
     }
 
-    // Initialize theme based on user saved preference or system mode
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
       applyTheme(savedTheme);
@@ -292,7 +294,6 @@
       applyTheme(systemPrefersDark.matches ? 'dark' : 'light');
     }
 
-    // Toggle button handler
     toggleBtn.addEventListener('click', () => {
       const currentTheme = document.documentElement.getAttribute('data-theme');
       const newTheme = currentTheme === 'light' ? 'dark' : 'light';
@@ -300,7 +301,6 @@
       applyTheme(newTheme);
     });
 
-    // Listen for OS system theme changes
     systemPrefersDark.addEventListener('change', (e) => {
       if (!localStorage.getItem('theme')) {
         applyTheme(e.matches ? 'dark' : 'light');
