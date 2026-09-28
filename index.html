@@ -1,109 +1,192 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Northeastern Economics Curriculum Planning</title>
-    <!-- Book Stack Favicon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
-    <style>
-        :root {
-            --neu-red: #CC0000;
-            --neu-red-hover: #A30000;
-            --neu-black: #111111;
-            --neu-gray-bg: #F8F9FA;
-            --neu-border: #E2E8F0;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Northeastern Economics Portal</title>
+  <style>
+    :root {
+      --bg-dark: #0e1117;
+      --card-bg: #161b22;
+      --card-border: #30363d;
+      --text-main: #f0f6fc;
+      --text-muted: #8b949e;
+      --nu-red: #d01c28;
+      --nu-red-hover: #b01520;
+    }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            max-width: 850px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            color: var(--neu-black);
-            background-color: var(--neu-gray-bg);
-        }
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
 
-        header {
-            border-bottom: 3px solid var(--neu-red);
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-        }
+    /* Top Navigation Bar */
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 32px;
+      background-color: rgba(22, 27, 34, 0.8);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--card-border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
 
-        h1 {
-            color: var(--neu-black);
-            font-size: 2rem;
-            margin-bottom: 8px;
-        }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: -0.01em;
+    }
 
-        .subtitle {
-            color: var(--neu-red);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-size: 0.9rem;
-            margin: 0;
-        }
+    .badge-tag {
+      background-color: rgba(208, 28, 40, 0.15);
+      color: #ff5252;
+      border: 1px solid rgba(208, 28, 40, 0.3);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
 
-        .card {
-            background: #ffffff;
-            border: 1px solid var(--neu-border);
-            border-left: 5px solid var(--neu-red);
-            padding: 28px;
-            border-radius: 6px;
-            margin-top: 25px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
+    /* Main Container */
+    .container {
+      max-width: 900px;
+      margin: 60px auto 40px;
+      padding: 0 24px;
+      width: 100%;
+      box-sizing: border-box;
+    }
 
-        .card h2 {
-            margin-top: 0;
-            color: var(--neu-black);
-            font-size: 1.4rem;
-        }
+    .hero-title {
+      font-size: 2.2rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
 
-        .btn {
-            display: inline-block;
-            background-color: var(--neu-red);
-            color: #ffffff;
-            padding: 12px 24px;
-            text-decoration: none;
-            border-radius: 4px;
-            font-weight: 600;
-            margin-top: 15px;
-            transition: background-color 0.2s ease;
-        }
+    .hero-subtitle {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      line-height: 1.5;
+      margin-bottom: 36px;
+    }
 
-        .btn:hover {
-            background-color: var(--neu-red-hover);
-        }
+    /* Interactive Preference Card */
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 32px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      transition: border-color 0.2s ease, transform 0.2s ease;
+    }
 
-        footer {
-            margin-top: 50px;
-            font-size: 0.85rem;
-            color: #666666;
-            text-align: center;
-        }
-    </style>
+    .card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background-color: var(--nu-red);
+    }
+
+    .card:hover {
+      border-color: #484f58;
+      transform: translateY(-2px);
+    }
+
+    .card-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin: 0 0 10px 0;
+    }
+
+    .card-description {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    /* Button Styling */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background-color: var(--nu-red);
+      color: #ffffff;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 12px 24px;
+      border-radius: 10px;
+      transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--nu-red-hover);
+      box-shadow: 0 4px 12px rgba(208, 28, 40, 0.3);
+    }
+
+    /* Footer */
+    footer {
+      margin-top: auto;
+      text-align: center;
+      padding: 24px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--card-border);
+    }
+  </style>
 </head>
 <body>
-    <header>
-        <p class="subtitle">Northeastern University — Department of Economics</p>
-        <h1>📚 Curriculum Planning Portal</h1>
-    </header>
 
-    <main>
-        <p>Welcome to the central faculty portal for curriculum coordination, course schedule planning, and teaching preferences.</p>
+  <!-- Top Navbar -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <span>📚</span> Northeastern Economics
+    </div>
+    <span class="badge-tag">Curriculum Portal</span>
+  </header>
 
-        <div class="card">
-            <h2>Faculty Teaching Preferences Form</h2>
-            <p>Submit your preferred courses, principles coverage interest, and desired semester teaching loads for the upcoming academic year.</p>
-            <a href="https://curriculumtoolalpha-1.streamlit.app/" class="btn" target="_blank">Open Preferences Form ↗</a>
-        </div>
-    </main>
+  <!-- Main Content Area -->
+  <main class="container">
+    <h1 class="hero-title">Curriculum Planning Portal</h1>
+    <p class="hero-subtitle">
+      Centralized tool for department faculty to submit teaching preferences, coordinate course schedules, and view principles assignments.
+    </p>
 
-    <footer>
-        &copy; Northeastern University Department of Economics
-    </footer>
+    <!-- Form Access Card -->
+    <div class="card">
+      <h2 class="card-title">Faculty Teaching Preferences Form</h2>
+      <p class="card-description">
+        Submit your preferred course selections, principles coverage interest, and target semester teaching loads for the upcoming academic year.
+      </p>
+      <a href="./TEACHER_PREFERENCES.py" class="btn-primary">
+        Open Preferences Form ↗
+      </a>
+    </div>
+  </main>
+
+  <footer>
+    © Northeastern University Department of Economics
+  </footer>
+
 </body>
 </html>
