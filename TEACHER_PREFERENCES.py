@@ -18,7 +18,7 @@ st.markdown(
     """
     Please fill out your teaching preferences for the upcoming academic year.
     Refer to the [Northeastern Undergraduate Economics Course Catalog](https://catalog.northeastern.edu/undergraduate/social-sciences-humanities/economics/#coursestext) for course codes and titles.
-    If there are any questions regarding courses, course codes, or the form, feel free to ask the AI Helper in the bottom right corner.
+    If there are any questions regarding course titles, course codes, or the form, feel free to ask the AI Helper in the bottom right corner.
     """
 )
 
@@ -69,7 +69,7 @@ with st.form("preference_form", clear_on_submit=True):
         spring_courses = st.number_input("Spring Semester Courses", min_value=0, max_value=5, value=2, step=1)
 
     course_overload = st.radio(
-        "Would you like to include a course overload (e.g., 4th course) for extra compensation?",
+        "FTNTT faculty: Would you like to include a course overload (e.g., 4th course) for extra compensation?",
         options=["No", "Yes", "Maybe / Open to discussion"]
     )
 
@@ -77,7 +77,7 @@ with st.form("preference_form", clear_on_submit=True):
 
     st.subheader("5. Unique Circumstances & Special Requests")
     unique_circumstances = st.text_area(
-        "Please specify any unique circumstances affecting your teaching load "
+        "Please specify any unique circumstances to the department that should be considered when arranging your teaching schedule for the next two (2) academic years "
         "(e.g., joint teaching appointment, contractual course reduction, course buyout, or planned sabbatical leave):",
         placeholder="Enter details here or leave blank if not applicable..."
     )
