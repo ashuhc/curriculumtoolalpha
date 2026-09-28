@@ -6,7 +6,7 @@ import streamlit as st
 st.set_page_config(
     page_title="Faculty Teaching Preferences Form",
     page_icon="🎓",
-    layout="wide"
+    layout="centered"
 )
 
 CSV_FILE = "teacher_preferences.csv"
