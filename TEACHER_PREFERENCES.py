@@ -614,6 +614,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     data=csv_bytes,
                     file_name="teacher_preferences_export.csv",
                     mime="text/csv"
+                )
 
                 if st.button("💾 Sync All Memory to CSV"):
                     st.session_state.df_responses.to_csv(CSV_FILE, index=False)
