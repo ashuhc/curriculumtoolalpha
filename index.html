@@ -5,20 +5,53 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Northeastern Economics Portal</title>
   <style>
+    /* ---------------------------------------------------------
+       COLOR VARIABLES & THEME DEFINITIONS
+       --------------------------------------------------------- */
     :root {
-      --bg-dark: #0e1117;
+      /* Dark Theme Defaults (RateMyHusky aesthetic) */
+      --bg-main: #0e1117;
       --card-bg: #161b22;
       --card-border: #30363d;
       --text-main: #f0f6fc;
       --text-muted: #8b949e;
+      --nav-bg: rgba(22, 27, 34, 0.85);
       --nu-red: #d01c28;
       --nu-red-hover: #b01520;
+      --badge-bg: rgba(208, 28, 40, 0.15);
+      --badge-text: #ff5252;
+      --badge-border: rgba(208, 28, 40, 0.3);
+      --toggle-bg: #21262d;
+      --toggle-border: #363b42;
+    }
+
+    [data-theme="light"] {
+      /* Light Theme Override */
+      --bg-main: #f8f9fa;
+      --card-bg: #ffffff;
+      --card-border: #e1e4e8;
+      --text-main: #1f2328;
+      --text-muted: #6e7781;
+      --nav-bg: rgba(255, 255, 255, 0.85);
+      --badge-bg: rgba(208, 28, 40, 0.08);
+      --badge-text: #c51824;
+      --badge-border: rgba(208, 28, 40, 0.2);
+      --toggle-bg: #f3f4f6;
+      --toggle-border: #d0d7de;
+    }
+
+    /* ---------------------------------------------------------
+       BASE STYLES
+       --------------------------------------------------------- */
+    * {
+      box-sizing: border-box;
+      transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
     }
 
     body {
       margin: 0;
       padding: 0;
-      background-color: var(--bg-dark);
+      background-color: var(--bg-main);
       color: var(--text-main);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       min-height: 100vh;
@@ -26,13 +59,15 @@
       flex-direction: column;
     }
 
-    /* Top Navigation Bar */
+    /* ---------------------------------------------------------
+       TOP NAVIGATION BAR
+       --------------------------------------------------------- */
     .navbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 16px 32px;
-      background-color: rgba(22, 27, 34, 0.8);
+      background-color: var(--nav-bg);
       backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--card-border);
       position: sticky;
@@ -49,10 +84,16 @@
       letter-spacing: -0.01em;
     }
 
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
     .badge-tag {
-      background-color: rgba(208, 28, 40, 0.15);
-      color: #ff5252;
-      border: 1px solid rgba(208, 28, 40, 0.3);
+      background-color: var(--badge-bg);
+      color: var(--badge-text);
+      border: 1px solid var(--badge-border);
       padding: 4px 10px;
       border-radius: 20px;
       font-size: 0.75rem;
@@ -61,13 +102,33 @@
       letter-spacing: 0.05em;
     }
 
-    /* Main Container */
+    /* Theme Toggle Button */
+    .theme-toggle-btn {
+      background-color: var(--toggle-bg);
+      border: 1px solid var(--toggle-border);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .theme-toggle-btn:hover {
+      border-color: var(--nu-red);
+    }
+
+    /* ---------------------------------------------------------
+       MAIN CONTAINER & HERO
+       --------------------------------------------------------- */
     .container {
-      max-width: 900px;
+      max-width: 850px;
       margin: 60px auto 40px;
       padding: 0 24px;
       width: 100%;
-      box-sizing: border-box;
     }
 
     .hero-title {
@@ -84,7 +145,9 @@
       margin-bottom: 36px;
     }
 
-    /* Interactive Preference Card */
+    /* ---------------------------------------------------------
+       CARD CONTAINER
+       --------------------------------------------------------- */
     .card {
       background-color: var(--card-bg);
       border: 1px solid var(--card-border);
@@ -92,8 +155,7 @@
       padding: 32px;
       position: relative;
       overflow: hidden;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-      transition: border-color 0.2s ease, transform 0.2s ease;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
     }
 
     .card::before {
@@ -102,13 +164,8 @@
       left: 0;
       top: 0;
       bottom: 0;
-      width: 4px;
+      width: 5px;
       background-color: var(--nu-red);
-    }
-
-    .card:hover {
-      border-color: #484f58;
-      transform: translateY(-2px);
     }
 
     .card-title {
@@ -121,10 +178,12 @@
       color: var(--text-muted);
       font-size: 0.95rem;
       line-height: 1.6;
-      margin-bottom: 24px;
+      margin-bottom: 28px;
     }
 
-    /* Button Styling */
+    /* ---------------------------------------------------------
+       BUTTON STYLING
+       --------------------------------------------------------- */
     .btn-primary {
       display: inline-flex;
       align-items: center;
@@ -136,15 +195,18 @@
       font-size: 0.95rem;
       padding: 12px 24px;
       border-radius: 10px;
-      transition: background-color 0.2s ease, box-shadow 0.2s ease;
+      transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
     }
 
     .btn-primary:hover {
       background-color: var(--nu-red-hover);
-      box-shadow: 0 4px 12px rgba(208, 28, 40, 0.3);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(208, 28, 40, 0.35);
     }
 
-    /* Footer */
+    /* ---------------------------------------------------------
+       FOOTER
+       --------------------------------------------------------- */
     footer {
       margin-top: auto;
       text-align: center;
@@ -162,7 +224,13 @@
     <div class="nav-brand">
       <span>📚</span> Northeastern Economics
     </div>
-    <span class="badge-tag">Curriculum Portal</span>
+    <div class="nav-controls">
+      <span class="badge-tag">Curriculum Portal</span>
+      <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="Toggle Theme">
+        <span id="themeIcon">🌙</span>
+        <span id="themeText">Dark</span>
+      </button>
+    </div>
   </header>
 
   <!-- Main Content Area -->
@@ -178,7 +246,14 @@
       <p class="card-description">
         Submit your preferred course selections, principles coverage interest, and target semester teaching loads for the upcoming academic year.
       </p>
-      <a href="./TEACHER_PREFERENCES.py" class="btn-primary">
+      
+      <!-- Clickable Streamlit Cloud App Link -->
+      <a 
+        href="https://curriculumtoolalpha-1.streamlit.app/" 
+        target="_blank" 
+        rel="noopener noreferrer" 
+        class="btn-primary"
+      >
         Open Preferences Form ↗
       </a>
     </div>
@@ -187,6 +262,51 @@
   <footer>
     © Northeastern University Department of Economics
   </footer>
+
+  <!-- Theme Toggle & System Preference Logic -->
+  <script>
+    const toggleBtn = document.getElementById('themeToggleBtn');
+    const themeIcon = document.getElementById('themeIcon');
+    const themeText = document.getElementById('themeText');
+
+    // 1. Check system preference
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+    function applyTheme(theme) {
+      if (theme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        themeIcon.textContent = '☀️';
+        themeText.textContent = 'Light';
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+        themeIcon.textContent = '🌙';
+        themeText.textContent = 'Dark';
+      }
+    }
+
+    // Initialize theme based on user saved preference or system mode
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      applyTheme(savedTheme);
+    } else {
+      applyTheme(systemPrefersDark.matches ? 'dark' : 'light');
+    }
+
+    // Toggle button handler
+    toggleBtn.addEventListener('click', () => {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      localStorage.setItem('theme', newTheme);
+      applyTheme(newTheme);
+    });
+
+    // Listen for OS system theme changes
+    systemPrefersDark.addEventListener('change', (e) => {
+      if (!localStorage.getItem('theme')) {
+        applyTheme(e.matches ? 'dark' : 'light');
+      }
+    });
+  </script>
 
 </body>
 </html>
