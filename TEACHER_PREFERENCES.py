@@ -77,6 +77,9 @@ FACULTY_NAMES = [
     "Zhou, Nan"
 ]
 
+if "faculty_names" not in st.session_state:
+    st.session_state.faculty_names = list(FACULTY_NAMES)
+
 # Reference data for Northeastern Economics courses
 COURSE_DATABASE = {
     # 1000-Level Courses
@@ -465,7 +468,7 @@ with st.form("preference_form", clear_on_submit=True):
     st.subheader("1. Contact Information")
     col1, col2 = st.columns(2)
     with col1:
-        full_name = st.selectbox("Full Name", options=FACULTY_NAMES)
+        full_name = st.selectbox("Full Name*", options=st.session_state.faculty_names, key="full_name_select")
     with col2:
         email = st.text_input("Email*", placeholder="Preferred Contact Email")
 
@@ -622,28 +625,28 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
         with admin_tab2:
             st.markdown("### Manage Faculty Dropdown List")
             
-            # Add new faculty member
+            # Form to add new faculty
             with st.form("add_faculty_form"):
                 new_faculty = st.text_input("Add New Faculty Name (e.g., 'Smith, Jane')")
                 if st.form_submit_button("Add Faculty Member"):
                     if new_faculty:
-                        if new_faculty not in st.session_state.faculty_list:
-                            st.session_state.faculty_list.append(new_faculty)
+                        if new_faculty not in st.session_state.faculty_names:
+                            st.session_state.faculty_names.append(new_faculty)
                             st.success(f"Added '{new_faculty}'!")
                             st.rerun()
                         else:
-                            st.warning("That faculty member is already in the list.")
+                            st.warning("Faculty member is already in the list.")
 
             st.divider()
 
-            # Remove existing faculty member
+            # Section to remove faculty
             st.markdown("#### Remove Faculty Member")
-            available_faculty = [f for f in st.session_state.faculty_list if f != "Select your name..."]
+            available_faculty = [f for f in st.session_state.faculty_names if f != "Select your name..."]
             
             if available_faculty:
                 fac_to_remove = st.selectbox("Select Faculty to Remove", options=available_faculty)
                 if st.button("🗑️ Remove Selected Faculty", type="primary"):
-                    st.session_state.faculty_list.remove(fac_to_remove)
+                    st.session_state.faculty_names.remove(fac_to_remove)
                     st.success(f"Successfully removed '{fac_to_remove}'!")
                     st.rerun()
             else:
