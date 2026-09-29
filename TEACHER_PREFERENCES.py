@@ -508,7 +508,7 @@ if not os.path.exists(CSV_FILE):
 if "df_responses" not in st.session_state:
     st.session_state.df_responses = pd.read_csv(CSV_FILE)
 
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "econpassword123")
 
 # Header Section
 st.title("📋 Faculty Teaching Preferences Form")
@@ -654,17 +654,24 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
     entered_password = st.text_input("Enter Admin Password", type="password", key="admin_pwd_v2")
 
     if entered_password:
-        if not ADMIN_PASSWORD:
-            st.error("Admin access is disabled. Set the ADMIN_PASSWORD environment variable.")
-        elif entered_password == ADMIN_PASSWORD:
+        if entered_password == ADMIN_PASSWORD:
             st.success("Access Granted")
+            
+            # ⬇️ INDENT THE TABS AND ADMIN CONTENT INSIDE THE SUCCESS CONDITION ⬇️
+            admin_tab1, admin_tab2, admin_tab3 = st.tabs([
+                "📊 View Submissions",
+                "👨‍🏫 Manage Faculty Names",
+                "📚 Manage Course Catalog"
+            ])
 
-            # Tabs for Admin Management
-        admin_tab1, admin_tab2, admin_tab3 = st.tabs([
-            "📊 View Submissions", 
-            "👨‍🏫 Manage Faculty Names", 
-            "📚 Manage Course Catalog"
-        ])
+            with admin_tab1:
+                if os.path.exists(CSV_FILE):
+                    df_data = pd.read_csv(CSV_FILE)
+                    st.write(f"**Total Responses Recorded:** {len(df_data)}")
+                    # ... rest of tab 1 logic ...
+
+        else:
+            st.error("Incorrect password. Access denied.")
 
         with admin_tab1:
             if os.path.exists(CSV_FILE):
