@@ -651,19 +651,37 @@ if st.session_state.get("submitted_success"):
 # -----------------------------------------------------------------------------
 st.markdown("---")
 with st.expander("🔒 Admin Portal (Restricted Access)"):
-    with st.form("admin_login_form"):
-        entered_password = st.text_input("Enter Admin Password", type="password")
-        submit_button = st.form_submit_button("Login")
+    # Initialize admin authentication in session state if not already set
+    if "admin_authenticated" not in st.session_state:
+        st.session_state["admin_authenticated"] = False
 
-    if submit_button:
-        if entered_password == ADMIN_PASSWORD:
-            st.success("Access Granted")
-            
-            admin_tab1, admin_tab2, admin_tab3 = st.tabs([
-                "📊 View Submissions", 
-                "👨‍🏫 Manage Faculty Names", 
-                "📚 Manage Course Catalog"
-            ])
+    # If NOT logged in, show the login form
+    if not st.session_state["admin_authenticated"]:
+        with st.form("admin_login_form"):
+            entered_password = st.text_input("Enter Admin Password", type="password")
+            submit_button = st.form_submit_button("Login")
+
+        if submit_button:
+            if entered_password == ADMIN_PASSWORD:
+                st.session_state["admin_authenticated"] = True
+                st.rerun()  # Refresh immediately to show the unlocked portal
+            else:
+                st.error("Incorrect password. Access denied.")
+
+    # If authenticated, show the admin portal content
+    else:
+        st.success("Access Granted")
+        
+        # Optional Logout Button
+        if st.button("🔒 Logout"):
+            st.session_state["admin_authenticated"] = False
+            st.rerun()
+
+        admin_tab1, admin_tab2, admin_tab3 = st.tabs([
+            "📊 View Submissions", 
+            "👨‍🏫 Manage Faculty Names", 
+            "📚 Manage Course Catalog"
+        ])
 
         with admin_tab1:
             if os.path.exists(CSV_FILE):
@@ -874,8 +892,6 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
             st.session_state.df_responses.to_csv(CSV_FILE, index=False)
             st.success("✅ All submission data has been permanently cleared!")
             st.rerun()
-        else:
-            st.error("Incorrect password. Access denied.")
 
 # ==========================================
 # POPUP AI ASSISTANT (COURSE HELPER)
