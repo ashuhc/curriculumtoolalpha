@@ -874,8 +874,8 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
             st.session_state.df_responses.to_csv(CSV_FILE, index=False)
             st.success("✅ All submission data has been permanently cleared!")
             st.rerun()
-    else:
-        st.error("Incorrect password. Access denied.")
+        else:
+            st.error("Incorrect password. Access denied.")
 
 # ==========================================
 # POPUP AI ASSISTANT (COURSE HELPER)
