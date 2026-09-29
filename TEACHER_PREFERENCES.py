@@ -664,12 +664,6 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                 "📚 Manage Course Catalog"
             ])
 
-            with admin_tab1:
-                if os.path.exists(CSV_FILE):
-                    df_data = pd.read_csv(CSV_FILE)
-                    st.write(f"**Total Responses Recorded:** {len(df_data)}")
-                    # ... rest of tab 1 logic ...
-
         else:
             st.error("Incorrect password. Access denied.")
 
