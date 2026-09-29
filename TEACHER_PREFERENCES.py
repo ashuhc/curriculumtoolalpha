@@ -664,9 +664,6 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                 "📚 Manage Course Catalog"
             ])
 
-        else:
-            st.error("Incorrect password. Access denied.")
-
         with admin_tab1:
             if os.path.exists(CSV_FILE):
                 df_data = pd.read_csv(CSV_FILE)
@@ -876,6 +873,8 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
             st.session_state.df_responses.to_csv(CSV_FILE, index=False)
             st.success("✅ All submission data has been permanently cleared!")
             st.rerun()
+    else:
+        st.error("Incorrect password. Access denied.")
 
 # ==========================================
 # POPUP AI ASSISTANT (COURSE HELPER)
