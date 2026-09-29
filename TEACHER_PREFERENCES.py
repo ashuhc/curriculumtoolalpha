@@ -651,16 +651,17 @@ if st.session_state.get("submitted_success"):
 # -----------------------------------------------------------------------------
 st.markdown("---")
 with st.expander("🔒 Admin Portal (Restricted Access)"):
-    entered_password = st.text_input("Enter Admin Password", type="password", key="admin_pwd_v2")
+    with st.form("admin_login_form"):
+        entered_password = st.text_input("Enter Admin Password", type="password")
+        submit_button = st.form_submit_button("Login")
 
-    if entered_password:
+    if submit_button:
         if entered_password == ADMIN_PASSWORD:
             st.success("Access Granted")
             
-            # ⬇️ INDENT THE TABS AND ADMIN CONTENT INSIDE THE SUCCESS CONDITION ⬇️
             admin_tab1, admin_tab2, admin_tab3 = st.tabs([
-                "📊 View Submissions",
-                "👨‍🏫 Manage Faculty Names",
+                "📊 View Submissions", 
+                "👨‍🏫 Manage Faculty Names", 
                 "📚 Manage Course Catalog"
             ])
 
