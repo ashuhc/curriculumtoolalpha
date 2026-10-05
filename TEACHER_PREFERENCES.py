@@ -85,8 +85,6 @@ COURSE_DATABASE = {
     "ECON 1113": "Data Analysis Tools for Economists",
     "ECON 1115": "Principles of Macroeconomics",
     "ECON 1116": "Principles of Microeconomics",
-    "ECON 1125": "Recitation for ECON 1115",
-    "ECON 1126": "Recitation for ECON 1116",
     "ECON 1230": "Healthcare and Medical Economics",
     "ECON 1240": "Economics of Crime",
     "ECON 1245": "Economics of Inequality",
@@ -174,14 +172,6 @@ COURSE_DESCRIPTIONS = {
     "ECON 1116": {
         "title": "Principles of Microeconomics",
         "description": "Analyzes behavior of individual consumers and firms, market structures, price determination, resource allocation, and government intervention in markets."
-    },
-    "ECON 1125": {
-        "title": "Recitation for ECON 1115",
-        "description": "Provides small-group discussion, problem-solving, and practical application of concepts covered in Principles of Macroeconomics."
-    },
-    "ECON 1126": {
-        "title": "Recitation for ECON 1116",
-        "description": "Provides small-group discussion, problem-solving, and practical application of concepts covered in Principles of Microeconomics."
     },
     "ECON 1230": {
         "title": "Healthcare and Medical Economics",
@@ -536,8 +526,8 @@ with st.form("preference_form", clear_on_submit=True):
 
     st.subheader("2. Principles Course Preferences")
 
-    # Target specific Principles courses: Statistics (1113), Macroecon (1115), Microecon (1116)
-    PRINCIPLES_CODES = ("ECON 2350", "ECON 1115", "ECON 1116")
+    # Target specific Principles courses: Macroeconomics (1115), Microeconomics (1116)
+    PRINCIPLES_CODES = ("ECON 1115", "ECON 1116")
 
     principles_options = [c for c in COURSE_OPTIONS if c.startswith(PRINCIPLES_CODES)] + ["None / Not Applicable"]
 
