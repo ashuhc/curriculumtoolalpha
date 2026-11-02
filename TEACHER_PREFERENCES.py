@@ -571,9 +571,18 @@ with st.form("preference_form", clear_on_submit=True):
         spring_courses = st.number_input("Spring Semester Courses", min_value=0, max_value=5, value=2, step=1)
 
     course_overload = st.radio(
-        "FTNTT faculty: Would you like to include a course overload (e.g., 4th course) for extra compensation?",
-        options=["No", "Yes", "Maybe / Open to discussion"]
+        "Are you overloading?",
+        options=["No", "Yes"],
+        horizontal=True
     )
+
+    overload_semester = "None"
+    if course_overload == "Yes":
+        overload_semester = st.radio(
+            "For which semester?",
+            options=["Fall", "Spring", "Both"],
+            horizontal=True
+        )
 
     st.markdown("---")
 
@@ -755,7 +764,40 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
 
             st.divider()
 
-            # --- 3. PREVIEW & COMMIT CONTROLS ---
+            # --- 3. FACULTY OVERLOAD MANUAL STATUS MANAGER (Check or X / Semester) ---
+            st.markdown("#### Faculty Overload Status Manager (Check / Semester)")
+            st.caption("Manually input which faculty members are overloading and for which semester.")
+
+            names_only_admin = [f for f in st.session_state.draft_faculty if f != "Select your name..."]
+            if names_only_admin:
+                with st.form("faculty_overload_admin_form"):
+                    overload_updates = {}
+                    for fac in names_only_admin:
+                        current_data = st.session_state.draft_faculty_overloads.get(fac, {"overloading": False, "semester": "None"})
+                        
+                        cols_ov = st.columns([3, 2, 3])
+                        with cols_ov[0]:
+                            st.text(fac)
+                        with cols_ov[1]:
+                            is_ov = st.checkbox("Overloading?", value=current_data.get("overloading", False), key=f"ov_chk_{fac}")
+                        with cols_ov[2]:
+                            sem = st.selectbox("Semester", options=["None", "Fall", "Spring", "Both"], 
+                                               index=["None", "Fall", "Spring", "Both"].index(current_data.get("semester", "None")), 
+                                               key=f"ov_sem_{fac}")
+                        
+                        overload_updates[fac] = {"overloading": is_ov, "semester": sem if is_ov else "None"}
+
+                    if st.form_submit_button("Save Faculty Overload Settings"):
+                        st.session_state.draft_faculty_overloads = overload_updates
+                        save_faculty_overloads(st.session_state.draft_faculty_overloads)
+                        st.success("✅ Faculty overload settings updated successfully!")
+                        st.rerun()
+            else:
+                st.caption("No faculty members available.")
+
+            st.divider()
+
+            # --- 4. PREVIEW & COMMIT CONTROLS ---
             st.markdown("#### Preview & Commit Changes")
             st.caption(f"Draft catalog contains {len(st.session_state.draft_faculty)} entries.")
             

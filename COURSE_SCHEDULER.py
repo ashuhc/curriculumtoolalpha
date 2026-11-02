@@ -1,45 +1,20 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import math
 
 # ==============================================================================
-# 1. STANDARD NORTHEASTERN COURSE SEQUENCE TIMETABLE
+# 1. CORE ECONOMICS DEFINITIONS
 # ==============================================================================
-COURSE_SEQUENCES = {
-    # MWR Sequences (Mon / Wed / Thu) - 65 min lectures
-    "MWR_1": {"days": "MWR", "time": "08:00 AM - 09:05 AM", "label": "Seq 1 (MWR 0800-0905)"},
-    "MWR_2": {"days": "MWR", "time": "09:15 AM - 10:20 AM", "label": "Seq 2 (MWR 0915-1020)"},
-    "MWR_3": {"days": "MWR", "time": "10:30 AM - 11:35 AM", "label": "Seq 3 (MWR 1030-1135)"},
-    "MWR_4": {"days": "MWR", "time": "01:35 PM - 02:40 PM", "label": "Seq 4 (MWR 1335-1440)"},
-    "MWR_5": {"days": "MWR", "time": "04:35 PM - 05:40 PM", "label": "Seq 5 (MWR 1635-1740)"},
-
-    # 2-Day Sequences (Tue/Fri - TF, Mon/Wed - MW, Wed/Fri - WF) - 100 min lectures
-    "TF_A": {"days": "TF", "time": "08:00 AM - 09:40 AM", "label": "Seq A (TF 0800-0940)"},
-    "TF_B": {"days": "TF", "time": "09:50 AM - 11:30 AM", "label": "Seq B (TF 0950-1130)"},
-    "TF_C": {"days": "TF", "time": "11:45 AM - 01:25 PM", "label": "Seq C (TF 1145-1325)"},
-    "TF_D": {"days": "TF", "time": "01:35 PM - 03:15 PM", "label": "Seq D (TF 1335-1515)"},
-    "TF_E": {"days": "TF", "time": "03:25 PM - 05:05 PM", "label": "Seq E (TF 1525-1705)"},
-    "MW_F": {"days": "MW", "time": "02:50 PM - 04:30 PM", "label": "Seq F (MW 1450-1630)"},
-    "WF_G": {"days": "WF", "time": "11:45 AM - 01:25 PM", "label": "Seq G (WF 1145-1325)"},
-
-    # Recitation / Single-day slots (Sequences L - T) - 65 min sessions
-    "R_L": {"days": "R", "time": "08:00 AM - 09:05 AM", "label": "Seq L (R 0800-0905)"},
-    "R_M": {"days": "R", "time": "01:35 PM - 02:40 PM", "label": "Seq M (R 1335-1440)"},
-    "R_N": {"days": "R", "time": "02:50 PM - 03:55 PM", "label": "Seq N (R 1450-1555)"},
-    "F_P": {"days": "F", "time": "08:00 AM - 09:05 AM", "label": "Seq P (F 0800-0905)"},
-    "F_Q": {"days": "F", "time": "11:45 AM - 01:25 PM", "label": "Seq Q (F 1145-1325)"},
-    "F_R": {"days": "F", "time": "02:50 PM - 03:55 PM", "label": "Seq R (F 1450-1555)"},
-    "W_S": {"days": "W", "time": "01:35 PM - 02:40 PM", "label": "Seq S (W 1335-1440)"},
-    "T_T": {"days": "T", "time": "02:50 PM - 03:55 PM", "label": "Seq T (T 1450-1555)"},
-}
+CORE_COURSES = {1115, 1116, 1125, 1126, 2315, 2316, 2350, 4697, 4698}
 
 
 # ==============================================================================
-# 2. HISTORICAL CLASS CAP CALCULATOR (2022-2026)
+# 2. HISTORICAL & DYNAMIC CLASS CAP CALCULATOR
 # ==============================================================================
 def calculate_historical_caps(df):
     """
-    Computes average class caps across all historical data (2022-2026)
+    Computes average class caps across all loaded historical data 
     grouped by course code, semester type (Fall vs Spring), and modality.
     """
     clean = df[
@@ -57,7 +32,6 @@ def calculate_historical_caps(df):
         (clean["Instructional Method"].str.contains("Online|Virtual", case=False, na=False))
     )
 
-    # Compute historical mean caps per (Semester_Type, is_virtual, Course #)
     cap_averages = (
         clean.groupby(["Semester_Type", "is_virtual", "Course #"])["MAXIMUM_ENROLLMENT"]
         .mean()
@@ -70,172 +44,237 @@ def calculate_historical_caps(df):
 
 
 # ==============================================================================
-# 3. COURSE SCHEDULER ENGINE
+# 3. FACULTY PREFERENCE & MATCHING ENGINE
 # ==============================================================================
-def generate_semester_schedule(df, term_prefix="Fall 2026", semester_type="Fall", historical_caps={}):
+def load_teacher_preferences(csv_path="teacher_preferences.csv"):
+    try:
+        pref_df = pd.read_csv(csv_path)
+        if pref_df.empty:
+            return {}
+        
+        pref_map = {}
+        for _, row in pref_df.iterrows():
+            name = str(row.get("Full Name", "")).strip()
+            if not name:
+                continue
+            
+            ranked_courses = []
+            for col in ["Rank 1 Course", "Rank 2 Course", "Rank 3 Course", "Rank 4 Course", "Rank 5 Course", "Rank 6 Course"]:
+                val = str(row.get(col, ""))
+                digits = "".join(filter(str.isdigit, val))
+                if digits:
+                    ranked_courses.append(int(digits))
+
+            pref_map[name] = {
+                "fall_target": int(row.get("Fall Desired Courses", 2)),
+                "spring_target": int(row.get("Spring Desired Courses", 2)),
+                "preferred_courses": ranked_courses,
+            }
+        return pref_map
+    except Exception:
+        return {}
+
+
+# ==============================================================================
+# 4. SIMPLIFIED SECTION & RECITATION ESTIMATION ENGINE
+# ==============================================================================
+def generate_curriculum_summary(df, pref_map, target_term="Fall 2026", growth_multiplier=1.00, historical_caps={}):
     """
-    Generates course schedule for undergraduate courses (< 5000 level).
-    Uses 2022-2026 historical semester averages to set estimated class caps.
-    Caps virtual sections at min(historical_avg, 25).
+    Aggregates courses by course code and modality. Determines total required sections, 
+    estimated class capacities, and accurately scales recitations based on total 
+    lecture enrollment and recitation size caps.
     """
+    semester_type = "Fall" if "Fall" in target_term else "Spring"
+
     clean_df = df[
         df["UG_ENROLLMENT"].notna() & 
         (df["UG_ENROLLMENT"] > 0) & 
-        (df["Course #"] < 5000)
+        (df["Course #"] < 5000) &
+        ~df["Course #"].isin([1125, 1126]) # Recitations handled dynamically from lectures
     ].copy()
 
-    term_df = clean_df[clean_df["ACADEMIC_PERIOD_DESC"].str.contains(term_prefix, na=False)].copy()
+    term_df = clean_df[clean_df["ACADEMIC_PERIOD_DESC"].str.contains(target_term, na=False)].copy()
     if term_df.empty:
-        term_df = clean_df[clean_df["ACADEMIC_PERIOD_DESC"].str.contains(semester_type, na=False)].copy()
+        # Fallback to representative semester type if exact term not found
+        clean_df["Semester_Type"] = clean_df["ACADEMIC_PERIOD_DESC"].apply(
+            lambda x: "Fall" if "Fall" in str(x) else ("Spring" if "Spring" in str(x) else "Other")
+        )
+        term_df = clean_df[clean_df["Semester_Type"] == semester_type].drop_duplicates(subset=["Course #"])
 
     term_df["is_virtual"] = (
         (term_df["CAMPUS"] == "VTL") | 
         (term_df["Instructional Method"].str.contains("Online|Virtual", case=False, na=False))
     )
 
-    section_rows = []
+    # Group by course and modality to determine section counts and total expected students
+    summary_rows = []
     
-    lecture_seqs = ["MWR_2", "MWR_3", "MWR_4", "TF_B", "TF_C", "TF_D", "MW_F", "WF_G", "MWR_1", "TF_A", "TF_E"]
-    recitation_seqs = ["R_L", "R_M", "R_N", "F_P", "F_Q", "F_R", "W_S", "T_T"]
+    # Track macro/micro lecture enrollments for recitation calculation
+    macro_total_students = 0
+    micro_total_students = 0
 
-    seq_idx = 0
-    rec_idx = 0
+    grouped = term_df.groupby(["Course #", "Course Title", "is_virtual"])
 
-    for idx, row in term_df.iterrows():
-        code = int(row["Course #"])
-        title = str(row["Course Title"])
-        crn = int(row["CRN"]) if not np.isnan(row["CRN"]) else "N/A"
-        is_vrtl = row["is_virtual"]
-
-        # --- DYNAMIC CAP DETERMINATION ---
+    for (code, title, is_vrtl), group in grouped:
+        num_sections = len(group)
+        
+        # Calculate projected cap per section
         if is_vrtl:
-            # Look up historical average for this virtual course
             vrtl_hist_cap = historical_caps.get((semester_type, True, code), 25)
-            # Retain historical average if lower than 25 (e.g. 19), otherwise cap at 25
-            estimated_cap = min(vrtl_hist_cap, 25)
+            estimated_cap = int(min(vrtl_hist_cap * growth_multiplier, 25))
         else:
-            # On-campus historical lookup
-            estimated_cap = historical_caps.get((semester_type, False, code), 40)
+            base_cap = int(group["MAXIMUM_ENROLLMENT"].mean()) if not group["MAXIMUM_ENROLLMENT"].empty else 40
+            estimated_cap = int(round(base_cap * growth_multiplier))
 
-        # Assign Timetable / Sequence
-        if is_vrtl:
-            seq_label = "Asynchronous (VRTL)"
-            days = "Async"
-            time_slot = "No Fixed Meeting Time"
-        else:
-            if "Recitation" in title or code in [1125, 1126]:
-                seq_key = recitation_seqs[rec_idx % len(recitation_seqs)]
-                rec_idx += 1
-            else:
-                seq_key = lecture_seqs[seq_idx % len(lecture_seqs)]
-                seq_idx += 1
+        total_enrolled_est = int(group["UG_ENROLLMENT"].sum() * growth_multiplier)
 
-            seq_info = COURSE_SEQUENCES[seq_key]
-            seq_label = seq_info["label"]
-            days = seq_info["days"]
-            time_slot = seq_info["time"]
+        if code == 1115 and not is_vrtl:
+            macro_total_students += total_enrolled_est
+        elif code == 1116 and not is_vrtl:
+            micro_total_students += total_enrolled_est
 
-        section_rows.append({
-            "CRN": crn,
+        modality_label = "Asynchronous (Virtual)" if is_vrtl else "Synchronous (On-Campus)"
+        is_core = code in CORE_COURSES
+
+        summary_rows.append({
             "Course Code": f"ECON {code}",
             "Course Title": title,
-            "Modality": "Virtual (Async)" if is_vrtl else "On-Campus",
+            "Core?": "Yes" if is_core else "No",
+            "Modality": modality_label,
+            "Required Sections": num_sections,
             "Estimated Class Cap": estimated_cap,
-            "Sequence Slot": seq_label,
-            "Days": days,
-            "Meeting Time": time_slot,
+            "Total Projected Enrollment": total_enrolled_est,
         })
 
-    return pd.DataFrame(section_rows)
+    summary_df = pd.DataFrame(summary_rows)
+
+    # --- RECITATION DYNAMIC CALCULATION ---
+    # Recitations are required for Principles of Macroeconomics (1115) and Microeconomics (1116) on-campus lectures
+    recitation_rows = []
+    recitation_cap = 30 # Standard recitation cap
+
+    if macro_total_students > 0:
+        macro_rec_sections = math.ceil(macro_total_students / recitation_cap)
+        recitation_rows.append({
+            "Course Code": "ECON 1125",
+            "Course Title": "Recitation for ECON 1115",
+            "Core?": "Yes",
+            "Modality": "Synchronous (On-Campus)",
+            "Required Sections": macro_rec_sections,
+            "Estimated Class Cap": recitation_cap,
+            "Total Projected Enrollment": macro_total_students,
+        })
+
+    if micro_total_students > 0:
+        micro_rec_sections = math.ceil(micro_total_students / recitation_cap)
+        recitation_rows.append({
+            "Course Code": "ECON 1126",
+            "Course Title": "Recitation for ECON 1116",
+            "Core?": "Yes",
+            "Modality": "Synchronous (On-Campus)",
+            "Required Sections": micro_rec_sections,
+            "Estimated Class Cap": recitation_cap,
+            "Total Projected Enrollment": micro_total_students,
+        })
+
+    if recitation_rows:
+        summary_df = pd.concat([summary_df, pd.DataFrame(recitation_rows)], ignore_index=True)
+
+    return summary_df.sort_values(by=["Core?", "Course Code"], ascending=[False, True])
 
 
 # ==============================================================================
-# 4. STREAMLIT DELIVERABLE INTERFACE
+# 5. STREAMLIT USER INTERFACE
 # ==============================================================================
 def render_course_scheduler_page():
-    st.title("📅 Undergraduate Course Offerings & Timetable Scheduler")
-    st.caption("Generates projected undergraduate section offerings (< 5000 level) with estimated class caps derived from 2022–2026 historical semester averages.")
+    st.set_page_config(page_title="Course Curriculum & Section Estimator", page_icon="📚", layout="wide")
+    st.title("📚 Undergraduate Course Curriculum & Section Estimator")
+    st.caption("Clean summary of required course sections, modalities (Sync/Async), capacities, and dynamically calculated recitations.")
 
+    # Sidebar Settings
+    st.sidebar.header("⚙️ Simulation & Term Settings")
+    
+    target_term = st.sidebar.selectbox(
+        "Select Target / Future Semester",
+        ["Fall 2026", "Spring 2027", "Fall 2027", "Spring 2028", "Fall 2028", "Custom Term"]
+    )
+    
+    if target_term == "Custom Term":
+        target_term = st.sidebar.text_input("Enter Custom Semester Name", "Fall 2029")
+
+    growth_multiplier = st.sidebar.slider(
+        "📈 Enrollment Growth Multiplier",
+        min_value=0.85, max_value=1.50, value=1.00, step=0.05,
+        help="Scales student enrollment counts and section requirements upward or downward."
+    )
+
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("📂 Add New Semester Data")
+    uploaded_file = st.sidebar.file_uploader("Upload additional Excel/CSV historical records", type=["xlsx", "csv"])
+
+    # Load data
     try:
         df = pd.read_excel("ECON_Enrollment.xlsx")
     except Exception as e:
-        st.error(f"Error loading `ECON_Enrollment.xlsx`: {e}")
+        st.error(f"Error loading baseline `ECON_Enrollment.xlsx`: {e}")
         return
 
-    # Compute 2022-2026 historical class cap averages per semester & modality
+    if uploaded_file is not None:
+        try:
+            if uploaded_file.name.endswith(".csv"):
+                new_data = pd.read_csv(uploaded_file)
+            else:
+                new_data = pd.read_excel(uploaded_file)
+            df = pd.concat([df, new_data], ignore_index=True)
+            st.sidebar.success(f"Successfully merged {len(new_data)} records!")
+        except Exception as e:
+            st.sidebar.error(f"Error reading uploaded file: {e}")
+
     historical_caps = calculate_historical_caps(df)
+    pref_map = load_teacher_preferences("teacher_preferences.csv")
 
-    tab_fall, tab_spring = st.tabs(["🍂 Fall Semester Offerings", "🌸 Spring Semester Offerings"])
+    # Generate Summary Table
+    curriculum_df = generate_curriculum_summary(
+        df, 
+        pref_map,
+        target_term=target_term, 
+        growth_multiplier=growth_multiplier,
+        historical_caps=historical_caps
+    )
 
-    # --- FALL SEMESTER TAB ---
-    with tab_fall:
-        st.subheader("Fall Semester Course Schedule")
-        fall_df = generate_semester_schedule(
-            df, 
-            term_prefix="Fall 2026", 
-            semester_type="Fall", 
-            historical_caps=historical_caps
-        )
+    # Metrics
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Unique Courses Offered", curriculum_df["Course Code"].nunique())
+    c2.metric("Total Sections Required", int(curriculum_df["Required Sections"].sum()))
+    c3.metric("Synchronous Sections", int(curriculum_df[curriculum_df["Modality"].str.contains("Synchronous")]["Required Sections"].sum()))
+    c4.metric("Asynchronous Sections", int(curriculum_df[curriculum_df["Modality"].str.contains("Asynchronous")]["Required Sections"].sum()))
 
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Unique Courses Offered", fall_df["Course Code"].nunique())
-        c2.metric("Total Sections Offered", len(fall_df))
-        c3.metric("On-Campus Sections", len(fall_df[fall_df["Modality"] == "On-Campus"]))
-        c4.metric("Virtual Sections (Async)", len(fall_df[fall_df["Modality"] != "On-Campus"]))
+    st.markdown(f"### Master Curriculum & Section Plan ({target_term})")
+    st.markdown("All CRNs, scheduling times, and sequence slots have been removed. Below is the clean section count and modality breakdown, with recitations automatically scaled to match total lecture enrollment.")
 
-        st.dataframe(
-            fall_df,
-            column_config={
-                "CRN": st.column_config.NumberColumn("CRN", format="%d", width="small"),
-                "Course Code": st.column_config.TextColumn("Course Code", width="small"),
-                "Course Title": st.column_config.TextColumn("Course Title", width="large"),
-                "Modality": st.column_config.TextColumn("Modality", width="small"),
-                "Estimated Class Cap": st.column_config.NumberColumn("Estimated Class Cap (2022-26 Avg)", format="%d seats"),
-                "Sequence Slot": st.column_config.TextColumn("Sequence Slot"),
-                "Days": st.column_config.TextColumn("Days"),
-                "Meeting Time": st.column_config.TextColumn("Meeting Time"),
-            },
-            hide_index=True,
-            use_container_width=True
-        )
+    edited_df = st.data_editor(
+        curriculum_df,
+        column_config={
+            "Course Code": st.column_config.TextColumn("Course Code", width="small"),
+            "Course Title": st.column_config.TextColumn("Course Title", width="large"),
+            "Core?": st.column_config.TextColumn("Core?", width="small"),
+            "Modality": st.column_config.TextColumn("Modality", width="medium"),
+            "Required Sections": st.column_config.NumberColumn("Required Sections", format="%d sections", width="small"),
+            "Estimated Class Cap": st.column_config.NumberColumn("Estimated Class Cap", format="%d seats", width="small"),
+            "Total Projected Enrollment": st.column_config.NumberColumn("Projected Students", format="%d students", width="small"),
+        },
+        hide_index=True,
+        use_container_width=True,
+        num_rows="dynamic"
+    )
 
-        csv_fall = fall_df.to_csv(index=False).encode("utf-8")
-        st.download_button("📥 Download Fall Schedule (CSV)", csv_fall, "fall_undergrad_schedule.csv", "text/csv")
-
-    # --- SPRING SEMESTER TAB ---
-    with tab_spring:
-        st.subheader("Spring Semester Course Schedule")
-        spring_df = generate_semester_schedule(
-            df, 
-            term_prefix="Spring 2026", 
-            semester_type="Spring", 
-            historical_caps=historical_caps
-        )
-
-        s1, s2, s3, s4 = st.columns(4)
-        s1.metric("Unique Courses Offered", spring_df["Course Code"].nunique())
-        s2.metric("Total Sections Offered", len(spring_df))
-        s3.metric("On-Campus Sections", len(spring_df[spring_df["Modality"] == "On-Campus"]))
-        s4.metric("Virtual Sections (Async)", len(spring_df[spring_df["Modality"] != "On-Campus"]))
-
-        st.dataframe(
-            spring_df,
-            column_config={
-                "CRN": st.column_config.NumberColumn("CRN", format="%d", width="small"),
-                "Course Code": st.column_config.TextColumn("Course Code", width="small"),
-                "Course Title": st.column_config.TextColumn("Course Title", width="large"),
-                "Modality": st.column_config.TextColumn("Modality", width="small"),
-                "Estimated Class Cap": st.column_config.NumberColumn("Estimated Class Cap (2022-26 Avg)", format="%d seats"),
-                "Sequence Slot": st.column_config.TextColumn("Sequence Slot"),
-                "Days": st.column_config.TextColumn("Days"),
-                "Meeting Time": st.column_config.TextColumn("Meeting Time"),
-            },
-            hide_index=True,
-            use_container_width=True
-        )
-
-        csv_spring = spring_df.to_csv(index=False).encode("utf-8")
-        st.download_button("📥 Download Spring Schedule (CSV)", csv_spring, "spring_undergrad_schedule.csv", "text/csv")
+    csv_data = edited_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label=f"📥 Download Curriculum Summary ({target_term}) as CSV",
+        data=csv_data,
+        file_name=f"curriculum_summary_{target_term.replace(' ', '_').lower()}.csv",
+        mime="text/csv"
+    )
 
 
 if __name__ == "__main__":
