@@ -698,6 +698,10 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                 st.success(st.session_state.faculty_commit_success)
                 del st.session_state.faculty_commit_success
 
+            if "overload_save_success" in st.session_state:
+                st.success(st.session_state.overload_save_success)
+                del st.session_state.overload_save_success
+
             has_faculty_changes = st.session_state.draft_faculty != st.session_state.faculty_names
             if has_faculty_changes:
                 st.warning("⚠️ You have uncommitted changes in your faculty staging buffer.")
@@ -776,7 +780,8 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     if st.form_submit_button("Save Faculty Overload Settings"):
                         st.session_state.draft_faculty_overloads = overload_updates
                         save_faculty_overloads(st.session_state.draft_faculty_overloads)
-                        st.success("✅ Faculty overload settings updated successfully!")
+                        st.session_state.overload_save_success = "✅ You have successfully saved faculty overloading changes!"
+                        st.toast("Faculty overload settings saved successfully!", icon="🎉")
                         st.rerun()
             else:
                 st.caption("No faculty members available.")
