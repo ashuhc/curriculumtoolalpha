@@ -13,12 +13,15 @@ st.set_page_config(
 # Hardcoded Path & Configuration
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CSV_FILE = os.path.join(SCRIPT_DIR, "teacher_preferences.csv")
+FACULTY_FILE = "custom_faculty.json"
+FACULTY_OVERLOADS_FILE = "faculty_overloads.json"
+COURSES_FILE = "custom_courses.json"
 
 COLUMNS = [
     "Timestamp", "Full Name", "Email", "Principles Preferences",
     "Rank 1 Course", "Rank 2 Course", "Rank 3 Course", "Rank 4 Course",
     "Rank 5 Course", "Rank 6 Course", "Fall Desired Courses",
-    "Spring Desired Courses", "Course Overload Interest", "Unique Circumstances"
+    "Spring Desired Courses", "Course Overload", "Overload Semester", "Unique Circumstances"
 ]
 
 # List of unique faculty members extracted from enrollment records
@@ -562,7 +565,7 @@ with st.form("preference_form", clear_on_submit=True):
     st.markdown("---")
 
     st.subheader("4. Teaching Load & Schedule")
-    st.write("**Desired course count per semester (ALPHA VERSION: Fall & Spring only):**")
+    st.write("**Desired course count per semester (include course overloads (e.g. if you are teaching 3 and overloading 1, put 4)):**")
 
     col_fall, col_spring = st.columns(2)
     with col_fall:
@@ -570,18 +573,24 @@ with st.form("preference_form", clear_on_submit=True):
     with col_spring:
         spring_courses = st.number_input("Spring Semester Courses", min_value=0, max_value=5, value=2, step=1)
 
+    # Use session state tracking to make the conditional question appear instantly
+    if "course_overload" not in st.session_state:
+        st.session_state.course_overload = "No"
+
     course_overload = st.radio(
         "Are you overloading?",
         options=["No", "Yes"],
-        horizontal=True
+        horizontal=True,
+        key="course_overload"
     )
 
     overload_semester = "None"
-    if course_overload == "Yes":
+    if st.session_state.course_overload == "Yes":
         overload_semester = st.radio(
             "For which semester?",
             options=["Fall", "Spring", "Both"],
-            horizontal=True
+            horizontal=True,
+            key="overload_semester"
         )
 
     st.markdown("---")
