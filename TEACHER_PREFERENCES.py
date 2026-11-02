@@ -159,7 +159,6 @@ COURSE_DATABASE = {
 
 # Reference data for Northeastern Economics course descriptions (for AI Assistant)
 COURSE_DESCRIPTIONS = {
-    # 1000-Level Courses
     "ECON 1000": {
         "title": "Economics at Northeastern",
         "description": "Introduces first-year economics majors to the academic and professional landscape of economics at Northeastern, including co-op opportunities and career paths."
@@ -212,8 +211,6 @@ COURSE_DESCRIPTIONS = {
         "title": "Elective",
         "description": "Transfer or elective credit in economics at the 1000-level."
     },
-
-    # 2000-Level Courses
     "ECON 2315": {
         "title": "Macroeconomic Theory",
         "description": "Provides an intermediate analysis of aggregate demand, aggregate supply, economic growth theories, business cycle models, and macroeconomic policy."
@@ -234,8 +231,6 @@ COURSE_DESCRIPTIONS = {
         "title": "Elective",
         "description": "Transfer or elective credit in economics at the 2000-level."
     },
-
-    # 3000-Level Courses
     "ECON 3255": {
         "title": "Economics of Financial Market Structure",
         "description": "Examines the structure, regulation, liquidity, and trading mechanisms of modern financial markets, exchanges, and institutional investors."
@@ -348,8 +343,6 @@ COURSE_DESCRIPTIONS = {
         "title": "Elective",
         "description": "Transfer or elective credit in economics at the 3000-level."
     },
-
-    # 4000-Level Courses
     "ECON 4637": {
         "title": "Monetary and Fiscal Policy",
         "description": "Provides an advanced evaluation of central bank interest rate policy, quantitative easing, national debt dynamics, inflation targeting, and macroeconomic policy coordination."
@@ -429,6 +422,7 @@ COURSE_DESCRIPTIONS = {
 }
 
 FACULTY_FILE = "custom_faculty.json"
+FACULTY_OVERLOADS_FILE = "faculty_overloads.json"
 COURSES_FILE = "custom_courses.json"
 
 
@@ -439,8 +433,6 @@ def load_faculty():
                 return json.load(f)
         except Exception:
             pass
-    
-    # First-time run: write default list to file and return it
     save_faculty(DEFAULT_FACULTY_NAMES)
     return list(DEFAULT_FACULTY_NAMES)
 
@@ -448,56 +440,66 @@ def save_faculty(faculty_list):
     with open(FACULTY_FILE, "w") as f:
         json.dump(faculty_list, f, indent=4)
 
+def load_faculty_overloads():
+    if os.path.exists(FACULTY_OVERLOADS_FILE):
+        try:
+            with open(FACULTY_OVERLOADS_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def save_faculty_overloads(overload_dict):
+    with open(FACULTY_OVERLOADS_FILE, "w") as f:
+        json.dump(overload_dict, f, indent=4)
+
 def load_courses():
     if os.path.exists(COURSES_FILE):
-        with open(COURSES_FILE, "r") as f:
-            return json.load(f)
-    return dict(COURSE_DATABASE)  # Fallback to default dict
+        try:
+            with open(COURSES_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return dict(COURSE_DATABASE)
 
 def save_courses(course_dict):
     with open(COURSES_FILE, "w") as f:
         json.dump(course_dict, f, indent=4)
 
-if "faculty_names" not in st.session_state:
-    st.session_state.faculty_names = load_faculty()
-
-if "course_database" not in st.session_state:
-    st.session_state.course_database = load_courses()
-
 # --- INITIALIZE LIVE & STAGING STATES ---
 if "faculty_names" not in st.session_state:
     st.session_state.faculty_names = load_faculty()
 
-# Draft state for uncommitted faculty changes
 if "draft_faculty" not in st.session_state:
     st.session_state.draft_faculty = list(st.session_state.faculty_names)
+
+if "faculty_overloads" not in st.session_state:
+    st.session_state.faculty_overloads = load_faculty_overloads()
+
+if "draft_faculty_overloads" not in st.session_state:
+    st.session_state.draft_faculty_overloads = dict(st.session_state.faculty_overloads)
 
 if "course_database" not in st.session_state:
     st.session_state.course_database = load_courses()
 
-# Draft state for uncommitted course changes
 if "draft_courses" not in st.session_state:
     st.session_state.draft_courses = dict(st.session_state.course_database)
 
 def format_course_label(code, data):
-    """Formats course for dropdown UI cleanly as 'CODE - Title'."""
     if isinstance(data, dict):
         title = data.get("title", "")
     else:
         title = str(data)
     return f"{code} - {title}" if title else code
 
-# Build clean options list for Streamlit selectboxes
 COURSE_OPTIONS = ["Select a course..."] + [
     format_course_label(code, data) 
     for code, data in st.session_state.course_database.items()
 ]
 
-# Ensure CSV file exists with columns at startup
 if not os.path.exists(CSV_FILE):
     pd.DataFrame(columns=COLUMNS).to_csv(CSV_FILE, index=False)
 
-# Sync Session State with CSV
 if "df_responses" not in st.session_state:
     st.session_state.df_responses = pd.read_csv(CSV_FILE)
 
@@ -528,10 +530,7 @@ with st.form("preference_form", clear_on_submit=True):
     st.markdown("---")
 
     st.subheader("2. Principles Course Preferences")
-
-    # Target specific Principles courses: Macroeconomics (1115), Microeconomics (1116)
     PRINCIPLES_CODES = ("ECON 1115", "ECON 1116")
-
     principles_options = [c for c in COURSE_OPTIONS if c.startswith(PRINCIPLES_CODES)] + ["None / Not Applicable"]
 
     principles_prefs = st.multiselect(
@@ -544,7 +543,6 @@ with st.form("preference_form", clear_on_submit=True):
     st.subheader("3. Top 6 Undergraduate Course Preferences")
     st.write("Rank your top 6 course choices from the dropdown menus below.")
 
-    # Dropdowns automatically reflect dynamic additions/deletions from st.session_state
     rank_1 = st.selectbox("Rank #1 Course Code & Name", options=COURSE_OPTIONS, index=0, key="rank_1")
     rank_2 = st.selectbox("Rank #2 Course Code & Name", options=COURSE_OPTIONS, index=0, key="rank_2")
     rank_3 = st.selectbox("Rank #3 Course Code & Name", options=COURSE_OPTIONS, index=0, key="rank_3")
@@ -552,7 +550,6 @@ with st.form("preference_form", clear_on_submit=True):
     rank_5 = st.selectbox("Rank #5 Course Code & Name", options=COURSE_OPTIONS, index=0, key="rank_5")
     rank_6 = st.selectbox("Rank #6 Course Code & Name", options=COURSE_OPTIONS, index=0, key="rank_6")
 
-    # Store selected values in a list for submission processing
     ranked_courses = [
         rank_1 if rank_1 != "Select a course..." else "None",
         rank_2 if rank_2 != "Select a course..." else "None",
@@ -573,26 +570,6 @@ with st.form("preference_form", clear_on_submit=True):
     with col_spring:
         spring_courses = st.number_input("Spring Semester Courses", min_value=0, max_value=5, value=2, step=1)
 
-    # Use session state tracking to make the conditional question appear instantly
-    if "course_overload" not in st.session_state:
-        st.session_state.course_overload = "No"
-
-    course_overload = st.radio(
-        "Are you overloading?",
-        options=["No", "Yes"],
-        horizontal=True,
-        key="course_overload"
-    )
-
-    overload_semester = "None"
-    if st.session_state.course_overload == "Yes":
-        overload_semester = st.radio(
-            "For which semester?",
-            options=["Fall", "Spring", "Both"],
-            horizontal=True,
-            key="overload_semester"
-        )
-
     st.markdown("---")
 
     st.subheader("5. Unique Circumstances & Special Requests")
@@ -604,6 +581,23 @@ with st.form("preference_form", clear_on_submit=True):
 
     # Submit Button
     submitted = st.form_submit_button("Submit Preferences")
+
+# --- INSTANT CONDITIONAL OVERLOAD QUESTIONS (OUTSIDE FORM FOR IMMEDIATE RERUN) ---
+course_overload = st.radio(
+    "Are you overloading?",
+    options=["No", "Yes"],
+    horizontal=True,
+    key="form_course_overload"
+)
+
+overload_semester = "None"
+if course_overload == "Yes":
+    overload_semester = st.radio(
+        "For which semester?",
+        options=["Fall", "Spring", "Both"],
+        horizontal=True,
+        key="form_overload_semester"
+    )
 
 # -----------------------------------------------------------------------------
 # 2. FORM SUBMISSION PROCESSING
@@ -625,33 +619,26 @@ if submitted:
             "Rank 6 Course": rank_6 if rank_6 != "Select a course..." else "None",
             "Fall Desired Courses": fall_courses,
             "Spring Desired Courses": spring_courses,
-            "Course Overload Interest": course_overload,
+            "Course Overload": course_overload,
+            "Overload Semester": overload_semester,
             "Unique Circumstances": unique_circumstances.strip() if unique_circumstances.strip() else "None"
         }
 
         df_new = pd.DataFrame([record])
 
-        # 1. Load existing disk data if present to prevent overwriting
         if os.path.exists(CSV_FILE):
             existing_df = pd.read_csv(CSV_FILE)
             updated_df = pd.concat([existing_df, df_new], ignore_index=True)
         else:
             updated_df = df_new
 
-        # 2. Save updated DataFrame to disk
         updated_df.to_csv(CSV_FILE, index=False)
-
-        # 3. Update Streamlit session state
         st.session_state.df_responses = updated_df
-
-        # 4. Set success flag so message persists across rerun
         st.session_state["submitted_success"] = True
         st.rerun()
 
-# Display success message at top of page or above form if flag is set
 if st.session_state.get("submitted_success"):
     st.success("✅ Your teaching preferences have been successfully recorded!")
-    # Clear flag so message goes away on subsequent interactions
     del st.session_state["submitted_success"]
 
 # -----------------------------------------------------------------------------
@@ -659,11 +646,9 @@ if st.session_state.get("submitted_success"):
 # -----------------------------------------------------------------------------
 st.markdown("---")
 with st.expander("🔒 Admin Portal (Restricted Access)"):
-    # Initialize admin authentication in session state if not already set
     if "admin_authenticated" not in st.session_state:
         st.session_state["admin_authenticated"] = False
 
-    # If NOT logged in, show the login form
     if not st.session_state["admin_authenticated"]:
         with st.form("admin_login_form"):
             entered_password = st.text_input("Enter Admin Password", type="password")
@@ -672,15 +657,12 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
         if submit_button:
             if entered_password == ADMIN_PASSWORD:
                 st.session_state["admin_authenticated"] = True
-                st.rerun()  # Refresh immediately to show the unlocked portal
+                st.rerun()
             else:
                 st.error("Incorrect password. Access denied.")
-
-    # If authenticated, show the admin portal content
     else:
         st.success("Access Granted")
         
-        # Optional Logout Button
         if st.button("🔒 Logout"):
             st.session_state["admin_authenticated"] = False
             st.rerun()
@@ -708,22 +690,20 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                 if st.button("💾 Sync All Memory to CSV"):
                     st.session_state.df_responses.to_csv(CSV_FILE, index=False)
                     st.success(f"Successfully wrote {len(st.session_state.df_responses)} records to {CSV_FILE}!")
+
         with admin_tab2:
             st.markdown("### Manage Faculty Dropdown List (Staging)")
             
-            # 0. Check for success notification banner surviving st.rerun()
             if "faculty_commit_success" in st.session_state:
                 st.success(st.session_state.faculty_commit_success)
-                del st.session_state.faculty_commit_success  # Display once then clear
+                del st.session_state.faculty_commit_success
 
-            # Check for uncommitted staging changes
             has_faculty_changes = st.session_state.draft_faculty != st.session_state.faculty_names
             if has_faculty_changes:
                 st.warning("⚠️ You have uncommitted changes in your faculty staging buffer.")
             
             col_add, col_remove = st.columns(2)
             
-            # --- 1. STAGE ADDITION ---
             with col_add:
                 st.markdown("#### Stage Add Faculty")
                 with st.form("stage_add_faculty_form"):
@@ -732,21 +712,17 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                         cleaned = new_fac.strip()
                         if cleaned and cleaned not in st.session_state.draft_faculty:
                             st.session_state.draft_faculty.append(cleaned)
-                            
-                            # Sort draft list alphabetically (keeping default prompt at top)
                             has_select = "Select your name..." in st.session_state.draft_faculty
                             names_only = [f for f in st.session_state.draft_faculty if f != "Select your name..."]
                             names_only.sort()
                             st.session_state.draft_faculty = (
                                 ["Select your name..."] + names_only if has_select else names_only
                             )
-                            
                             st.toast(f"✅ Staged '{cleaned}' for addition", icon="🎉")
                             st.rerun()
                         elif cleaned in st.session_state.draft_faculty:
                             st.warning(f"'{cleaned}' is already in draft state.")
 
-            # --- 2. STAGE REMOVAL ---
             with col_remove:
                 st.markdown("#### Stage Remove Faculty")
                 names_only = [f for f in st.session_state.draft_faculty if f != "Select your name..."]
@@ -773,7 +749,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
 
             st.divider()
 
-            # --- 3. FACULTY OVERLOAD MANUAL STATUS MANAGER (Check or X / Semester) ---
+            # --- FACULTY OVERLOAD MANUAL STATUS MANAGER ---
             st.markdown("#### Faculty Overload Status Manager (Check / Semester)")
             st.caption("Manually input which faculty members are overloading and for which semester.")
 
@@ -790,9 +766,10 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                         with cols_ov[1]:
                             is_ov = st.checkbox("Overloading?", value=current_data.get("overloading", False), key=f"ov_chk_{fac}")
                         with cols_ov[2]:
-                            sem = st.selectbox("Semester", options=["None", "Fall", "Spring", "Both"], 
-                                               index=["None", "Fall", "Spring", "Both"].index(current_data.get("semester", "None")), 
-                                               key=f"ov_sem_{fac}")
+                            sem_opts = ["None", "Fall", "Spring", "Both"]
+                            curr_sem = current_data.get("semester", "None")
+                            sem_idx = sem_opts.index(curr_sem) if curr_sem in sem_opts else 0
+                            sem = st.selectbox("Semester", options=sem_opts, index=sem_idx, key=f"ov_sem_{fac}")
                         
                         overload_updates[fac] = {"overloading": is_ov, "semester": sem if is_ov else "None"}
 
@@ -806,19 +783,14 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
 
             st.divider()
 
-            # --- 4. PREVIEW & COMMIT CONTROLS ---
             st.markdown("#### Preview & Commit Changes")
             st.caption(f"Draft catalog contains {len(st.session_state.draft_faculty)} entries.")
             
             btn_col1, btn_col2 = st.columns([1, 1])
             with btn_col1:
                 if st.button("🚀 Commit & Publish Faculty Changes", type="primary", disabled=not has_faculty_changes):
-                    # Apply draft changes to live state
                     st.session_state.faculty_names = list(st.session_state.draft_faculty)
-                    # Write to disk
                     save_faculty(st.session_state.faculty_names)
-                    
-                    # Store banner message in session state so it displays after st.rerun()
                     st.session_state.faculty_commit_success = "✅ Faculty list changes successfully committed and published to live app!"
                     st.toast("Faculty list updated successfully!", icon="🚀")
                     st.rerun()
@@ -832,19 +804,16 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
         with admin_tab3:
             st.markdown("### Manage Course Catalog Dropdown List (Staging)")
             
-            # Display success banner surviving st.rerun()
             if "course_commit_success" in st.session_state:
                 st.success(st.session_state.course_commit_success)
                 del st.session_state.course_commit_success
 
-            # Check for uncommitted staging changes
             has_course_changes = st.session_state.draft_courses != st.session_state.course_database
             if has_course_changes:
                 st.warning("⚠️ You have uncommitted changes in your course staging buffer.")
 
             col_c_add, col_c_rem = st.columns(2)
 
-            # --- 1. STAGE COURSE ADDITION ---
             with col_c_add:
                 st.markdown("#### Stage Add Course")
                 with st.form("stage_add_course_form"):
@@ -855,22 +824,18 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     if st.form_submit_button("Stage Course"):
                         if c_code and c_title:
                             code_clean = c_code.strip().upper()
-                            # Saves Code as key, with Title AND Description in the dict object
                             st.session_state.draft_courses[code_clean] = {
                                 "title": c_title.strip(),
                                 "description": c_desc.strip() if c_desc else ""
                             }
-                            
                             st.toast(f"✅ Staged {code_clean}", icon="📚")
                             st.rerun()
                         else:
                             st.warning("Course Code and Course Title are required.")
 
-            # --- 2. STAGE COURSE REMOVAL ---
             with col_c_rem:
                 st.markdown("#### Stage Remove Course")
                 if st.session_state.draft_courses:
-                    # Build dropdown showing ONLY "Code - Title" (keeping description hidden from menu)
                     course_remove_options = ["Select course to remove..."]
                     for code, data in st.session_state.draft_courses.items():
                         title = data.get("title", str(data)) if isinstance(data, dict) else str(data)
@@ -884,10 +849,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     
                     if st.button("Stage Removal", key="btn_stage_c_rem"):
                         if selected_course_str != "Select course to remove...":
-                            # Extract course code before the " - "
                             code_to_remove = selected_course_str.split(" - ")[0]
-                            
-                            # Deletes the entire object (code, title, and description)
                             if code_to_remove in st.session_state.draft_courses:
                                 del st.session_state.draft_courses[code_to_remove]
                                 st.toast(f"🗑️ Staged removal of {code_to_remove}", icon="ℹ️")
@@ -899,7 +861,6 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
 
             st.divider()
 
-            # --- 3. PREVIEW & COMMIT CONTROLS ---
             st.markdown("#### Preview & Commit Course Changes")
             st.caption(f"Draft catalog contains {len(st.session_state.draft_courses)} entries.")
             
@@ -907,10 +868,8 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
             
             with btn_cc1:
                 if st.button("🚀 Commit & Publish Course Catalog", type="primary", disabled=not has_course_changes):
-                    # Write draft mapping directly to live session and persistent JSON disk file
                     st.session_state.course_database = dict(st.session_state.draft_courses)
                     save_courses(st.session_state.course_database)
-                    
                     st.session_state.course_commit_success = "✅ Course catalog changes successfully committed and published to live app!"
                     st.toast("Course catalog updated successfully!", icon="🚀")
                     st.rerun()
@@ -921,11 +880,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     st.session_state.course_commit_success = "ℹ️ Discarded uncommitted course catalog changes."
                     st.rerun()
 
-        # --------------------------------------------------
-        # Original Data Sync & Danger Zone Actions
-        # --------------------------------------------------
         st.divider()
-
         st.caption("⚠️ **Danger Zone:** Permanently delete all recorded preference submissions.")
 
         if st.button("🗑️ Clear All Data", type="primary"):
@@ -939,11 +894,9 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
 # ==========================================
 
 st.divider()
-# 1. Custom CSS to float the popover button and style the overlay window
 st.markdown(
     """
     <style>
-    /* Fixed position in bottom right corner */
     div[data-testid="stPopover"] {
         position: fixed !important;
         bottom: 24px !important;
@@ -951,8 +904,6 @@ st.markdown(
         width: auto !important;
         z-index: 999999 !important;
     }
-
-    /* Convert button into a sleek circular icon button */
     div[data-testid="stPopover"] > button {
         width: 56px !important;
         height: 56px !important;
@@ -969,19 +920,14 @@ st.markdown(
         box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.35) !important;
         transition: transform 0.2s ease, background-color 0.2s ease !important;
     }
-
-    /* Hide text inside the button if Streamlit forces popover label rendering */
     div[data-testid="stPopover"] > button p {
         font-size: 24px !important;
         margin: 0 !important;
     }
-
     div[data-testid="stPopover"] > button:hover {
         background-color: #4b5693 !important;
         transform: scale(1.1);
     }
-
-    /* Pop-up chat window positioning and styling */
     div[data-testid="stPopoverBody"] {
         width: 360px !important;
         max-width: 90vw !important;
@@ -995,7 +941,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# 2. Floating Popover Widget
 with st.popover("💬 AI Helper"):
     st.markdown("### 🤖 Course AI Assistant")
     st.caption("Search course codes, levels (e.g., 3000s), or ask form questions.")
@@ -1005,7 +950,6 @@ with st.popover("💬 AI Helper"):
             {"role": "assistant", "content": "Hello! Ask me about course codes or form instructions."}
         ]
 
-    # Scrollable chat box container
     chat_container = st.container(height=320)
     with chat_container:
         for msg in st.session_state.chat_messages:
@@ -1018,29 +962,26 @@ with st.popover("💬 AI Helper"):
         response_text = ""
         query_lower = prompt.lower().strip()
 
-        # 1. Full Course Catalog Intent
         all_trigger_words = [
             "all codes", "all course codes", "all courses", "show all",
             "list all", "every course", "everything", "catalog", "full list", "all"
         ]
 
-        # 2. Contact & Email Intent
         contact_trigger_words = [
             "contact", "email", "support", "help desk", "reach out",
             "who to contact", "admin email", "contact info"
         ]
 
-        # 3. Form Rules & Instructions Intent
         form_trigger_words = [
             "rank", "preference", "load", "section", "password",
             "admin", "deadline", "submit", "due"
         ]
 
         if any(trigger in query_lower for trigger in all_trigger_words):
-            cat_1000 = [f"• **{code}**: {title}" for code, title in COURSE_DATABASE.items() if code.startswith("ECON 1")]
-            cat_2000 = [f"• **{code}**: {title}" for code, title in COURSE_DATABASE.items() if code.startswith("ECON 2")]
-            cat_3000 = [f"• **{code}**: {title}" for code, title in COURSE_DATABASE.items() if code.startswith("ECON 3")]
-            cat_4000 = [f"• **{code}**: {title}" for code, title in COURSE_DATABASE.items() if code.startswith("ECON 4")]
+            cat_1000 = [f"• **{code}**: {title}" for code, title in st.session_state.course_database.items() if code.startswith("ECON 1")]
+            cat_2000 = [f"• **{code}**: {title}" for code, title in st.session_state.course_database.items() if code.startswith("ECON 2")]
+            cat_3000 = [f"• **{code}**: {title}" for code, title in st.session_state.course_database.items() if code.startswith("ECON 3")]
+            cat_4000 = [f"• **{code}**: {title}" for code, title in st.session_state.course_database.items() if code.startswith("ECON 4")]
 
             response_text = (
                 "**Full Undergraduate Economics Course Catalog:**\n\n"
@@ -1069,9 +1010,7 @@ with st.popover("💬 AI Helper"):
                 response_text = "Rank your top course choices using Rank #1 through Rank #6."
 
         else:
-            # 4. Stand-out Keyword & Synonym Map directly derived from your COURSE_DATABASE
             standout_topic_map = {
-                # Specific topics in database
                 "food": ["food", "policy"],
                 "history": ["history", "historical", "thought"],
                 "law": ["law", "legal", "regulation", "court"],
@@ -1097,7 +1036,6 @@ with st.popover("💬 AI Helper"):
             clean_query = query_lower.replace("?", "").replace(",", "").replace(".", "").replace("!", "")
             raw_words = clean_query.split()
 
-            # Remove filler grammatical words only
             ignore_words = {
                 "what", "is", "are", "the", "code", "for", "course", "courses", "class", "classes",
                 "show", "me", "list", "of", "in", "a", "an", "and", "or", "to", "econ", "economics",
@@ -1105,18 +1043,15 @@ with st.popover("💬 AI Helper"):
             }
 
             search_tokens = [w for w in raw_words if w not in ignore_words and len(w) >= 2]
-
             scored_matches = []
 
             for code, info in st.session_state.course_database.items():
-                # Extract title and description regardless of database schema
                 if isinstance(info, dict):
                     title = info.get("title", "")
                     desc = info.get("description", "")
                 else:
                     title = str(info)
-                    # Fallback to COURSE_DESCRIPTIONS if separate dict exists
-                    desc_dict = globals().get("COURSE_DESCRIPTIONS", {}).get(code, {})
+                    desc_dict = COURSE_DESCRIPTIONS.get(code, {})
                     desc = desc_dict.get("description", "") if isinstance(desc_dict, dict) else ""
 
                 title_lower = title.lower()
@@ -1124,7 +1059,6 @@ with st.popover("💬 AI Helper"):
                 code_lower = code.lower()
                 score = 0
 
-                # A. Numeric level checks (e.g. '1000s', '3000')
                 for token in raw_words:
                     if token in ["1000", "1000s", "1000-level"] and code.startswith("ECON 1"):
                         score += 10
@@ -1135,7 +1069,6 @@ with st.popover("💬 AI Helper"):
                     elif token in ["4000", "4000s", "4000-level"] and code.startswith("ECON 4"):
                         score += 10
 
-                # B. Direct word & partial token matches against code, title, and description
                 for token in search_tokens:
                     if token in code_lower:
                         score += 15
@@ -1144,7 +1077,6 @@ with st.popover("💬 AI Helper"):
                     if desc_lower and token in desc_lower:
                         score += 5
 
-                # C. Topic Map Synonym Matches
                 for topic, keywords in standout_topic_map.items():
                     if topic in clean_query or any(kw in clean_query for kw in keywords):
                         if any(kw in title_lower or kw in desc_lower for kw in keywords):
@@ -1155,16 +1087,12 @@ with st.popover("💬 AI Helper"):
                         match_str = f"* **{code}**: {title}\n  _{desc}_"
                     else:
                         match_str = f"* **{code}**: {title}"
-
                     scored_matches.append((score, match_str))
 
-            # Rank by relevance score
             scored_matches.sort(key=lambda x: x[0], reverse=True)
             matches = list(dict.fromkeys([item[1] for item in scored_matches]))
 
-                # Ensure response_text exists before appending
             if matches:
-                # Separate matched courses with double newlines so descriptions read cleanly
                 response_text = "Matching courses:\n\n" + "\n\n".join(matches[:5])
             else:
                 response_text = (
@@ -1172,6 +1100,5 @@ with st.popover("💬 AI Helper"):
                     "Type **'all'** to see every code, or search stand-out terms like **'food'**, **'history'**, **'law'**."
                 )
 
-            # Ensure these two lines are properly indented INSIDE the `if prompt := st.chat_input(...)` block:
-            st.session_state.chat_messages.append({"role": "assistant", "content": response_text})
-            st.rerun()
+        st.session_state.chat_messages.append({"role": "assistant", "content": response_text})
+        st.rerun()
