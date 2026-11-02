@@ -493,7 +493,7 @@ def format_course_label(code, data):
     return f"{code} - {title}" if title else code
 
 COURSE_OPTIONS = ["Select a course..."] + [
-    format_course_label(code, data) 
+    format_course_label(code, data)
     for code, data in st.session_state.course_database.items()
 ]
 
@@ -570,6 +570,23 @@ with st.form("preference_form", clear_on_submit=True):
     with col_spring:
         spring_courses = st.number_input("Spring Semester Courses", min_value=0, max_value=5, value=2, step=1)
 
+    course_overload = st.radio(
+        "Are you overloading?",
+        options=["No", "Yes"],
+        horizontal=True,
+        key="form_course_overload"
+    )
+
+    overload_semester_choice = st.radio(
+        "If overloading, which semester? (Select None if not applicable)",
+        options=["None", "Fall", "Spring", "Both"],
+        horizontal=True,
+        key="form_overload_semester"
+    )
+    overload_semester = (
+        overload_semester_choice if course_overload == "Yes" else "None"
+    )
+
     st.markdown("---")
 
     st.subheader("5. Unique Circumstances & Special Requests")
@@ -581,23 +598,6 @@ with st.form("preference_form", clear_on_submit=True):
 
     # Submit Button
     submitted = st.form_submit_button("Submit Preferences")
-
-# --- INSTANT CONDITIONAL OVERLOAD QUESTIONS (OUTSIDE FORM FOR IMMEDIATE RERUN) ---
-course_overload = st.radio(
-    "Are you overloading?",
-    options=["No", "Yes"],
-    horizontal=True,
-    key="form_course_overload"
-)
-
-overload_semester = "None"
-if course_overload == "Yes":
-    overload_semester = st.radio(
-        "For which semester?",
-        options=["Fall", "Spring", "Both"],
-        horizontal=True,
-        key="form_overload_semester"
-    )
 
 # -----------------------------------------------------------------------------
 # 2. FORM SUBMISSION PROCESSING
@@ -662,14 +662,14 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                 st.error("Incorrect password. Access denied.")
     else:
         st.success("Access Granted")
-        
+
         if st.button("🔒 Logout"):
             st.session_state["admin_authenticated"] = False
             st.rerun()
 
         admin_tab1, admin_tab2, admin_tab3 = st.tabs([
-            "📊 View Submissions", 
-            "👨‍🏫 Manage Faculty Names", 
+            "📊 View Submissions",
+            "👨‍🏫 Manage Faculty Names",
             "📚 Manage Course Catalog"
         ])
 
@@ -678,7 +678,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                 df_data = pd.read_csv(CSV_FILE)
                 st.write(f"**Total Responses Recorded:** {len(df_data)}")
                 st.dataframe(df_data)
-                
+
                 csv_bytes = df_data.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="📥 Download Dataset (.csv)",
@@ -693,7 +693,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
 
         with admin_tab2:
             st.markdown("### Manage Faculty Dropdown List (Staging)")
-            
+
             if "faculty_commit_success" in st.session_state:
                 st.success(st.session_state.faculty_commit_success)
                 del st.session_state.faculty_commit_success
@@ -701,9 +701,9 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
             has_faculty_changes = st.session_state.draft_faculty != st.session_state.faculty_names
             if has_faculty_changes:
                 st.warning("⚠️ You have uncommitted changes in your faculty staging buffer.")
-            
+
             col_add, col_remove = st.columns(2)
-            
+
             with col_add:
                 st.markdown("#### Stage Add Faculty")
                 with st.form("stage_add_faculty_form"):
@@ -727,14 +727,14 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                 st.markdown("#### Stage Remove Faculty")
                 names_only = [f for f in st.session_state.draft_faculty if f != "Select your name..."]
                 fac_remove_options = ["Select faculty to remove..."] + names_only
-                
+
                 if names_only:
                     fac_to_stage_remove = st.selectbox(
-                        "Select Faculty to Remove", 
-                        options=fac_remove_options, 
+                        "Select Faculty to Remove",
+                        options=fac_remove_options,
                         key="stage_fac_rem"
                     )
-                    
+
                     if st.button("Stage Removal", type="secondary"):
                         if fac_to_stage_remove != "Select faculty to remove...":
                             st.session_state.draft_faculty = [
@@ -759,7 +759,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     overload_updates = {}
                     for fac in names_only_admin:
                         current_data = st.session_state.draft_faculty_overloads.get(fac, {"overloading": False, "semester": "None"})
-                        
+
                         cols_ov = st.columns([3, 2, 3])
                         with cols_ov[0]:
                             st.text(fac)
@@ -770,7 +770,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                             curr_sem = current_data.get("semester", "None")
                             sem_idx = sem_opts.index(curr_sem) if curr_sem in sem_opts else 0
                             sem = st.selectbox("Semester", options=sem_opts, index=sem_idx, key=f"ov_sem_{fac}")
-                        
+
                         overload_updates[fac] = {"overloading": is_ov, "semester": sem if is_ov else "None"}
 
                     if st.form_submit_button("Save Faculty Overload Settings"):
@@ -785,7 +785,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
 
             st.markdown("#### Preview & Commit Changes")
             st.caption(f"Draft catalog contains {len(st.session_state.draft_faculty)} entries.")
-            
+
             btn_col1, btn_col2 = st.columns([1, 1])
             with btn_col1:
                 if st.button("🚀 Commit & Publish Faculty Changes", type="primary", disabled=not has_faculty_changes):
@@ -803,7 +803,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
 
         with admin_tab3:
             st.markdown("### Manage Course Catalog Dropdown List (Staging)")
-            
+
             if "course_commit_success" in st.session_state:
                 st.success(st.session_state.course_commit_success)
                 del st.session_state.course_commit_success
@@ -820,7 +820,7 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     c_code = st.text_input("Course Code (e.g., 'ECON 1260')")
                     c_title = st.text_input("Course Title (e.g., 'Contested Issues in the U.S. Economy')")
                     c_desc = st.text_area("Course Description", help="Add the detailed course description here.")
-                    
+
                     if st.form_submit_button("Stage Course"):
                         if c_code and c_title:
                             code_clean = c_code.strip().upper()
@@ -840,13 +840,13 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
                     for code, data in st.session_state.draft_courses.items():
                         title = data.get("title", str(data)) if isinstance(data, dict) else str(data)
                         course_remove_options.append(f"{code} - {title}")
-                    
+
                     selected_course_str = st.selectbox(
-                        "Select Course to Remove", 
-                        options=course_remove_options, 
+                        "Select Course to Remove",
+                        options=course_remove_options,
                         key="stage_course_rem"
                     )
-                    
+
                     if st.button("Stage Removal", key="btn_stage_c_rem"):
                         if selected_course_str != "Select course to remove...":
                             code_to_remove = selected_course_str.split(" - ")[0]
@@ -863,9 +863,9 @@ with st.expander("🔒 Admin Portal (Restricted Access)"):
 
             st.markdown("#### Preview & Commit Course Changes")
             st.caption(f"Draft catalog contains {len(st.session_state.draft_courses)} entries.")
-            
+
             btn_cc1, btn_cc2 = st.columns([1, 1])
-            
+
             with btn_cc1:
                 if st.button("🚀 Commit & Publish Course Catalog", type="primary", disabled=not has_course_changes):
                     st.session_state.course_database = dict(st.session_state.draft_courses)

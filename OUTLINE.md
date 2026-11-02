@@ -22,6 +22,7 @@ Courses: [catalog.northeastern.edu/course-descriptions/econ](https://catalog.nor
   or not. if they do not, the elective is not offered. 
   - Remote sections are capped at 25 students
   - Example section sizes: 40, 43, 45 for smaller classes; 100 - 200 for larger ones (give or take)
+  - Recitations are once a week with each session being around 60 - 65 minutes long. A recitation may NOT occur at the same time as a lecture of the course in which the recitation is for (ex. law and economics cannot have recitation and lecture at the same time frame)
 
 ### Prerequisite structure by course level
 
@@ -100,4 +101,10 @@ Form: [Teacher Preferences Google Form](https://docs.google.com/forms/d/e/1FAIpQ
 - How should the code resolve a conflict where a required core course has no willing/available instructor? (Manual override, or an automated fallback assignment?)
 - Should room/building assignment be added to a later phase, or is that explicitly someone else's responsibility?
 - Is there a cutoff date after which teacher preference form responses are no longer accepted/updated for a given semester's run?
+
+## AI Usage
+
+- Used AI when sifting through enrollment database for professor names as well as debugging
+- Used AI to help develop admin section of code
+- Used AI to design UI interface aesthetics
 
