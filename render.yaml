@@ -1,37 +1,32 @@
-# Render Blueprint — one-click deploy of the whole app.
-# Render dashboard → New → Blueprint → pick this repository.
-# You'll be asked for ADMIN_EMAIL and ADMIN_PASSWORD (your first scheduler login).
+# Render Blueprint — free, no-expiry deployment of the whole app.
 #
-# Free plans: the web service sleeps after 15 idle minutes (~1 min to wake) and the
-# free database expires after 30 days. Change both `plan:` values for real use.
-
-databases:
-  - name: econ-scheduler-db
-    plan: free
-    region: oregon
-    postgresMajorVersion: "16"
-    databaseName: econ_scheduler
-    user: econ
+#   Database:  Neon free Postgres (neon.tech) — no expiry, no credit card.
+#   Website:   one Render free web service built from ./Dockerfile (API + site on one URL).
+#
+# Render dashboard → New → Blueprint → pick this repository. You'll be prompted for:
+#   DATABASE_URL    your Neon connection string (postgresql://…neon.tech/neondb?sslmode=require)
+#   ADMIN_EMAIL     your first scheduler login
+#   ADMIN_PASSWORD  a strong password for it
+#
+# Free web services sleep after 15 idle minutes (~1 minute to wake on the next visit).
 
 services:
   - type: web
     name: econ-scheduler
     runtime: docker
     plan: free
-    region: oregon                      # same region as the database
+    region: oregon                      # Neon's US West (Oregon) region is closest
     dockerfilePath: ./Dockerfile        # single container: API + website
     dockerContext: .
     healthCheckPath: /api/health
     autoDeployTrigger: commit
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: econ-scheduler-db
-          property: connectionString
+        sync: false                     # prompted: paste the Neon connection string
       - key: AUTH_SECRET
         generateValue: true             # random signing key for sign-in tokens
       - key: ADMIN_EMAIL
-        sync: false                     # prompted when you create the Blueprint
+        sync: false                     # prompted
       - key: ADMIN_PASSWORD
         sync: false                     # prompted; use a strong password
       - key: SEED_DEMO_USERS

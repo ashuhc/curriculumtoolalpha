@@ -136,22 +136,31 @@ cd frontend && npm run build                                  # type-check + pro
 
 The app uses its own role-based accounts. All authorization goes through one dependency, `auth.current_user`. To move to Auth0 or university SSO, replace `decode_token()` in `backend/auth.py` with JWKS verification of the identity provider's access token, and map its role claim onto `User.role`. On the frontend, replace the sign-in form with the provider's login redirect.
 
-## Deploying to Render (simplest way to get a public URL)
+## Deploying for free (Render + Neon)
 
-`render.yaml` is a Render Blueprint. It creates a PostgreSQL database and **one** web service built from the root `Dockerfile`, and that service serves both the website and the API from a single URL. Settings on the public site:
+This setup costs nothing and doesn't expire. **Neon** hosts the PostgreSQL database on its free plan, and `render.yaml` creates **one** free Render web service, built from the root `Dockerfile`, that serves both the website and the API from a single URL. The public site is locked down:
 
-* **Sign-in required**: `REQUIRE_LOGIN=true`. Visitors see only the sign-in page; all data and API reads need an account.
+* **Sign-in required**: `REQUIRE_LOGIN=true`. Visitors only see the sign-in page.
 * **No demo accounts**: `SEED_DEMO_USERS=false`. The only account created is the admin you choose.
 * **Random token key**: `AUTH_SECRET` is generated for you.
 
-Steps:
-1. Sign in at [render.com](https://render.com) with GitHub, and allow it to access this repository.
+**1. Create the database (Neon)**
+1. Sign up at [neon.tech](https://neon.tech) with GitHub. No credit card is needed.
+2. Create a project (region **US West (Oregon)**, Postgres 16 or newer).
+3. On the project dashboard click **Connect** and copy the connection string. It looks like
+   `postgresql://neondb_owner:…@ep-….us-west-2.aws.neon.tech/neondb?sslmode=require`
+
+**2. Deploy the site (Render)**
+1. Sign in at [render.com](https://render.com) with GitHub and allow access to this repository.
 2. **New → Blueprint**, then pick this repository and the branch to deploy (e.g. `main`).
-3. When prompted, enter **ADMIN_EMAIL** and a strong **ADMIN_PASSWORD**. This is your first scheduler login.
-4. Click **Apply**. The first build takes a few minutes. Your site is then at `https://econ-scheduler.onrender.com`, or the URL Render shows.
+3. Fill in the prompts:
+   * **DATABASE_URL**: the Neon connection string
+   * **ADMIN_EMAIL**: your email (your first scheduler login)
+   * **ADMIN_PASSWORD**: a strong password
+4. Click **Apply**. The first build takes a few minutes, and the first start loads the data into Neon. Your site is then at `https://econ-scheduler.onrender.com`, or the URL Render shows.
 5. Sign in, open **Administration → Users & roles**, and create accounts for faculty and other schedulers.
 
-Every push to the deployed branch redeploys automatically. Free plans are fine for trying it out, but the web service sleeps after 15 idle minutes (the first visit then takes about a minute) and the free database **expires after 30 days**. Switch both `plan:` values to paid plans for real use.
+Every push to the deployed branch redeploys automatically, and your data stays in Neon across redeploys. Free-plan behavior: the Render service sleeps after 15 idle minutes, so the next visit takes about a minute while it wakes. Render gives 750 free hours a month, enough for one service. Neon's free plan allows 1 GB of storage, far more than this app needs.
 
 To run the same single-container image anywhere else:
 
