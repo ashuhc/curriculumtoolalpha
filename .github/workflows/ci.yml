@@ -63,3 +63,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose build
+      - name: Single-container image (used by render.yaml)
+        run: docker build -t econ-scheduler .

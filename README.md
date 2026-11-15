@@ -128,10 +128,38 @@ cd frontend && npm run build                                  # type-check + pro
 | `CORS_ORIGINS` | localhost dev origins | comma-separated allowed origins |
 | `SCHEDULER_DATA_DIR` | repo root | where `seed_db.py` reads the source files |
 | `VITE_API_URL` | `http://localhost:8000` | frontend → API URL; empty means same origin (Docker/nginx) |
+| `REQUIRE_LOGIN` | `false` | `true` = sign-in required to view anything (recommended for any public deployment) |
+| `STATIC_DIR` | unset | path to the built frontend; when set, the API also serves the website (single-container mode) |
+| `PORT` | `8000` | port the container listens on (Render sets this automatically) |
 
 ### Single sign-on (Auth0 / Northeastern SSO)
 
 The app uses its own role-based accounts. All authorization goes through one dependency, `auth.current_user`. To move to Auth0 or university SSO, replace `decode_token()` in `backend/auth.py` with JWKS verification of the identity provider's access token, and map its role claim onto `User.role`. On the frontend, replace the sign-in form with the provider's login redirect.
+
+## Deploying to Render (simplest way to get a public URL)
+
+`render.yaml` is a Render Blueprint. It creates a PostgreSQL database and **one** web service built from the root `Dockerfile`, and that service serves both the website and the API from a single URL. Settings on the public site:
+
+* **Sign-in required**: `REQUIRE_LOGIN=true`. Visitors see only the sign-in page; all data and API reads need an account.
+* **No demo accounts**: `SEED_DEMO_USERS=false`. The only account created is the admin you choose.
+* **Random token key**: `AUTH_SECRET` is generated for you.
+
+Steps:
+1. Sign in at [render.com](https://render.com) with GitHub, and allow it to access this repository.
+2. **New → Blueprint**, then pick this repository and the branch to deploy (e.g. `main`).
+3. When prompted, enter **ADMIN_EMAIL** and a strong **ADMIN_PASSWORD**. This is your first scheduler login.
+4. Click **Apply**. The first build takes a few minutes. Your site is then at `https://econ-scheduler.onrender.com`, or the URL Render shows.
+5. Sign in, open **Administration → Users & roles**, and create accounts for faculty and other schedulers.
+
+Every push to the deployed branch redeploys automatically. Free plans are fine for trying it out, but the web service sleeps after 15 idle minutes (the first visit then takes about a minute) and the free database **expires after 30 days**. Switch both `plan:` values to paid plans for real use.
+
+To run the same single-container image anywhere else:
+
+```bash
+docker build -t econ-scheduler .
+docker run -p 8000:8000 -e DATABASE_URL=postgresql://... -e AUTH_SECRET=... \
+  -e ADMIN_PASSWORD=... -e SEED_DEMO_USERS=false -e REQUIRE_LOGIN=true econ-scheduler
+```
 
 ## Deploying to AWS
 

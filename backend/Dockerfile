@@ -23,4 +23,4 @@ HEALTHCHECK --interval=15s --timeout=3s --start-period=20s \
 
 # seed_db.py only fills empty tables, so it is safe on every start.
 # One worker: the WebSocket hub is in-process (see realtime.py).
-CMD ["sh", "-c", "python seed_db.py && exec uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]
+CMD ["sh", "-c", "python seed_db.py && exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]

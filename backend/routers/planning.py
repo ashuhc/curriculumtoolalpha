@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 import engine as eng
 import services as svc
-from auth import require_admin
+from auth import login_required, require_admin
 from database import get_db
 from models import Publication, ScheduleOverride, SectionComment, SectionLock, User
 from realtime import hub
@@ -42,6 +42,7 @@ def meta(db: Session = Depends(get_db)):
                  "capstones": eng.CAPSTONES, "recitations": eng.RECITATION_FOR},
         "limits": {"virtual_cap": eng.VIRTUAL_CAP_LIMIT},
         "special_instructors": [eng.UNSTAFFED, eng.RECITATION_TBA],
+        "require_login": login_required(),
     }
 
 

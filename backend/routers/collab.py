@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisco
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
-from auth import require_admin, require_user, user_from_token
+from auth import login_required, require_admin, require_user, user_from_token
 from database import SessionLocal, get_db
 from models import SectionComment, SectionLock, User
 from realtime import hub
@@ -168,6 +168,9 @@ async def websocket_endpoint(ws: WebSocket, token: Optional[str] = None):
     and {"type":"ping"}.
     """
     user = await run_in_threadpool(_ws_user, token)
+    if user is None and login_required():
+        await ws.close(code=1008)   # policy violation: sign in first
+        return
     await hub.connect(ws, user)
     try:
         while True:

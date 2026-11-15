@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { api } from "./api";
 import { AppShell } from "./components/AppShell";
 import { ChatWidget } from "./components/assistant/ChatWidget";
@@ -19,6 +19,11 @@ export default function App() {
   const loadMeta = usePlan((s) => s.loadMeta);
   const metaError = usePlan((s) => s.metaError);
   const dataVersion = usePlan((s) => s.dataVersion);
+  const requireLogin = usePlan((s) => s.meta?.require_login ?? false);
+  const user = useAuth((s) => s.user);
+  const location = useLocation();
+  // Private deployments (REQUIRE_LOGIN=true): everything except the login page needs an account
+  const gated = requireLogin && !user && location.pathname !== "/login";
 
   // Reference data (terms, sequences) reloads when the underlying data changes
   useEffect(() => { loadMeta(); }, [loadMeta, dataVersion]);
@@ -33,7 +38,7 @@ export default function App() {
   return (
     <AppShell>
       {metaError && <div className="mb-6"><Alert tone="error" title="Can't reach the scheduler API">{metaError}</Alert></div>}
-      <Routes>
+      {gated ? <Navigate to="/login" replace state={{ from: location.pathname + location.search }} /> : <Routes>
         <Route path="/" element={<Overview />} />
         <Route path="/login" element={<Login />} />
         <Route path="/preferences" element={<Preferences />} />
@@ -42,7 +47,7 @@ export default function App() {
         <Route path="/conflicts" element={<Conflicts />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      </Routes>}
       <ChatWidget />
     </AppShell>
   );

@@ -89,9 +89,10 @@ export const useCollab = create<CollabState>()((set) => ({
       pingTimer = setInterval(() => sock.readyState === WebSocket.OPEN && sock.send('{"type":"ping"}'), 25000);
     };
     sock.onmessage = (e) => { try { handle(JSON.parse(e.data)); } catch { /* ignore malformed */ } };
-    sock.onclose = () => {
+    sock.onclose = (e) => {
       clearInterval(pingTimer);
       set({ status: "offline", presence: [] });
+      if (e.code === 1008) return;   // server requires sign-in; reconnects automatically after login
       retry = Math.min(retry + 1, 6);
       retryTimer = setTimeout(() => useCollab.getState().connect(), 500 * 2 ** retry);
     };

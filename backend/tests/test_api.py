@@ -98,3 +98,20 @@ def test_websocket_broadcasts_edits(client, admin):
                 break
         else:
             raise AssertionError("no comment event received")
+
+
+def test_require_login_gates_everything(client, admin, monkeypatch):
+    from starlette.websockets import WebSocketDisconnect
+
+    monkeypatch.setenv("REQUIRE_LOGIN", "true")
+    assert client.get("/api/health").status_code == 200
+    assert client.get("/api/meta").json()["require_login"] is True
+    assert client.get("/api/courses").status_code == 401
+    assert client.post("/api/plan/schedule", json=S).status_code == 401
+    assert client.get("/api/courses", headers=admin).status_code == 200
+    try:
+        with client.websocket_connect("/ws") as ws:
+            ws.receive_json()
+        raise AssertionError("anonymous websocket should be refused")
+    except WebSocketDisconnect:
+        pass

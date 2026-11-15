@@ -32,6 +32,11 @@ from database import BACKEND_DIR, get_db
 from models import User
 
 ROLES = ("admin", "faculty")
+
+
+def login_required() -> bool:
+    """REQUIRE_LOGIN=true: every page and API read needs a signed-in user (recommended for public hosting)."""
+    return os.environ.get("REQUIRE_LOGIN", "false").strip().lower() in ("1", "true", "yes")
 TOKEN_TTL_SECONDS = 12 * 3600
 _PBKDF2_ITERATIONS = 200_000
 

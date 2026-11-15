@@ -29,6 +29,8 @@ export interface Meta {
   core: { econ_at_nu: number; principles: number[]; follow_ups: number[]; capstones: number[]; recitations: Record<string, number> };
   limits: { virtual_cap: number };
   special_instructors: string[];
+  /** When true the deployment requires sign-in to view anything. */
+  require_login: boolean;
 }
 
 export interface Course { code: number; title: string; description: string; active: boolean; label: string; level: number; category: string; prerequisites: string; times_offered: number }
