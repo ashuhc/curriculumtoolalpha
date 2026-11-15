@@ -1,0 +1,67 @@
+# Build images, push to Amazon ECR and roll out the ECS (Fargate) service.
+#
+# One-time AWS setup (see README → "Deploying to AWS"):
+#   • ECR repositories:  econ-scheduler-api, econ-scheduler-web
+#   • ECS cluster + service running infra/aws/task-definition.json
+#   • RDS PostgreSQL; DATABASE_URL and AUTH_SECRET stored in Secrets Manager
+#   • An IAM role trusted for GitHub OIDC
+# Repository secrets:   AWS_ROLE_ARN
+# Repository variables: AWS_REGION, ECS_CLUSTER, ECS_SERVICE
+name: Deploy to AWS
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push images
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ github.sha }}
+        run: |
+          docker build -f backend/Dockerfile -t $REGISTRY/econ-scheduler-api:$TAG .
+          docker build --build-arg VITE_API_URL= -t $REGISTRY/econ-scheduler-web:$TAG frontend
+          docker push $REGISTRY/econ-scheduler-api:$TAG
+          docker push $REGISTRY/econ-scheduler-web:$TAG
+          echo "API_IMAGE=$REGISTRY/econ-scheduler-api:$TAG" >> $GITHUB_ENV
+          echo "WEB_IMAGE=$REGISTRY/econ-scheduler-web:$TAG" >> $GITHUB_ENV
+
+      - id: api-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: infra/aws/task-definition.json
+          container-name: api
+          image: ${{ env.API_IMAGE }}
+
+      - id: web-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ steps.api-def.outputs.task-definition }}
+          container-name: web
+          image: ${{ env.WEB_IMAGE }}
+
+      - uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.web-def.outputs.task-definition }}
+          cluster: ${{ vars.ECS_CLUSTER }}
+          service: ${{ vars.ECS_SERVICE }}
+          wait-for-service-stability: true
