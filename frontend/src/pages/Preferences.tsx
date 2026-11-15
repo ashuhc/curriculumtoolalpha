@@ -8,7 +8,7 @@ import { Alert, Badge, Button, ErrorState, Field, PageHeader, Panel, Spinner, in
 import { fmtDate, useAsync } from "../lib/hooks";
 import { useAuth } from "../store/auth";
 import { usePlan } from "../store/plan";
-import { useUI } from "../store/ui";
+import { useFlash, useUI } from "../store/ui";
 
 const EMPTY = {
   faculty_id: 0, email: "", principles: [] as number[], ranks: [null, null, null, null, null, null] as (number | null)[],
@@ -30,7 +30,8 @@ function Section({ n, title, description, children }: { n: number; title: string
 export default function Preferences() {
   const user = useAuth((s) => s.user);
   const dataVersion = usePlan((s) => s.dataVersion);
-  const toast = useUI((s) => s.toast);
+  const success = useUI((s) => s.success);
+  const flash = useFlash();
   const courses = useAsync(() => api.courses(), [dataVersion]);
   const faculty = useAsync(() => api.faculty(), [dataVersion]);
   const mine = useAsync(() => (user?.role === "faculty" ? api.myPreferences() : Promise.resolve([])), [user?.id, dataVersion]);
@@ -65,7 +66,7 @@ export default function Preferences() {
     try {
       const res = await api.submitPreferences({ ...form, ranks: form.ranks.filter((r): r is number => r !== null),
         overload_semester: form.overload ? form.overload_semester : "None" });
-      toast({ title: "Preferences submitted", body: `Recorded for ${res.faculty_name}. Your latest submission is the one used.`, tone: "success" });
+      success("Preferences submitted", `Saved for ${res.faculty_name} · your latest submission is the one used`, "prefs-form");
       mine.reload();
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
@@ -75,8 +76,8 @@ export default function Preferences() {
     return (
       <>
         <PageHeader title="Teaching Preferences" description="Faculty submit ranked course preferences and semester loads for the coming academic year." />
-        <Alert tone="info" title="Sign in to submit your preferences"
-          action={<Link to="/login" state={{ from: "/preferences" }}><Button size="sm" variant="primary">Sign in</Button></Link>}>
+        <Alert tone="info" title="Sign In to Submit Your Preferences"
+          action={<Link to="/login" state={{ from: "/preferences" }}><Button size="sm" variant="primary">Sign In</Button></Link>}>
           Your account is linked to your faculty roster entry, so submissions are attributed to you.
         </Alert>
         <div className="mt-6"><CatalogBrowser courses={courses.data ?? []} /></div>
@@ -92,31 +93,31 @@ export default function Preferences() {
     <>
       <PageHeader title="Teaching Preferences"
         description="Rank the undergraduate courses you'd like to teach and set your semester loads. Electives are offered only when a faculty member wants to teach them."
-        meta={last && <Badge tone="green">Last submitted {fmtDate(last.submitted_at)}</Badge>}
+        meta={last && <Badge tone="green">Last Submitted {fmtDate(last.submitted_at)}</Badge>}
         actions={<a className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg" target="_blank" rel="noreferrer"
-          href="https://catalog.northeastern.edu/undergraduate/social-sciences-humanities/economics/#coursestext">Undergraduate catalog <ExternalLink className="h-3 w-3" /></a>} />
+          href="https://catalog.northeastern.edu/undergraduate/social-sciences-humanities/economics/#coursestext">Undergraduate Catalog <ExternalLink className="h-3 w-3" /></a>} />
 
       {user.role === "faculty" && !user.faculty_id && (
-        <div className="mb-6"><Alert tone="warning" title="Account not linked">Ask a scheduler to link your account to your faculty roster entry before submitting.</Alert></div>
+        <div className="mb-6"><Alert tone="warning" title="Account Not Linked">Ask a scheduler to link your account to your faculty roster entry before submitting.</Alert></div>
       )}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
-        <form onSubmit={submit} className="rounded-lg border border-line bg-surface px-5">
-          <Section n={1} title="Faculty member" description={isAdmin ? "Schedulers can submit on behalf of any faculty member." : undefined}>
+        <form onSubmit={submit} className={`rounded-lg border border-line bg-surface px-5 ${flash("prefs-form")}`}>
+          <Section n={1} title="Faculty Member" description={isAdmin ? "Schedulers can submit on behalf of any faculty member." : undefined}>
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Name">
                 {isAdmin ? (
                   <select className={inputCls} value={form.faculty_id} onChange={(e) => set("faculty_id", Number(e.target.value))}>
-                    <option value={0}>Select a faculty member</option>
+                    <option value={0}>Select a Faculty Member</option>
                     {faculty.data!.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
                   </select>
-                ) : <input className={inputCls} disabled value={myFaculty?.name ?? "Not linked"} />}
+                ) : <input className={inputCls} disabled value={myFaculty?.name ?? "Not Linked"} />}
               </Field>
-              <Field label="Contact email"><input className={inputCls} type="email" value={form.email} onChange={(e) => set("email", e.target.value)} /></Field>
+              <Field label="Contact Email"><input className={inputCls} type="email" value={form.email} onChange={(e) => set("email", e.target.value)} /></Field>
             </div>
           </Section>
 
-          <Section n={2} title="Principles courses" description="Large principles lectures serve both Business School and Economics students.">
+          <Section n={2} title="Principles Courses" description="Large principles lectures serve both Business School and Economics students.">
             <div className="flex flex-col gap-2">
               {principles.map((c) => (
                 <label key={c.code} className="flex items-center gap-2 text-[13px]">
@@ -128,7 +129,7 @@ export default function Preferences() {
             </div>
           </Section>
 
-          <Section n={3} title="Ranked course preferences" description="Up to six undergraduate courses. Rank 1 is your strongest preference.">
+          <Section n={3} title="Ranked Course Preferences" description="Up to six undergraduate courses. Rank 1 is your strongest preference.">
             <div className="space-y-2">
               {form.ranks.map((r, i) => (
                 <div key={i} className="grid grid-cols-[28px_1fr] items-center gap-2">
@@ -140,19 +141,19 @@ export default function Preferences() {
             </div>
           </Section>
 
-          <Section n={4} title="Teaching load" description="Courses per semester, including any overload (e.g. teaching 3 plus 1 overload → 4).">
+          <Section n={4} title="Teaching Load" description="Courses per semester, including any overload (e.g. teaching 3 plus 1 overload → 4).">
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Fall courses"><input type="number" min={0} max={5} className={inputCls} value={form.fall_target}
+              <Field label="Fall Courses"><input type="number" min={0} max={5} className={inputCls} value={form.fall_target}
                 onChange={(e) => set("fall_target", Math.max(0, Math.min(5, Number(e.target.value))))} /></Field>
-              <Field label="Spring courses"><input type="number" min={0} max={5} className={inputCls} value={form.spring_target}
+              <Field label="Spring Courses"><input type="number" min={0} max={5} className={inputCls} value={form.spring_target}
                 onChange={(e) => set("spring_target", Math.max(0, Math.min(5, Number(e.target.value))))} /></Field>
-              <Field label="Overload for additional compensation">
+              <Field label="Overload for Additional Compensation">
                 <select className={inputCls} value={form.overload ? "yes" : "no"}
                   onChange={(e) => setForm((f) => ({ ...f, overload: e.target.value === "yes", overload_semester: e.target.value === "yes" ? (f.overload_semester === "None" ? "Fall" : f.overload_semester) : "None" }))}>
                   <option value="no">No</option><option value="yes">Yes</option>
                 </select>
               </Field>
-              <Field label="Overload semester">
+              <Field label="Overload Semester">
                 <select className={inputCls} disabled={!form.overload} value={form.overload_semester} onChange={(e) => set("overload_semester", e.target.value)}>
                   {(form.overload ? ["Fall", "Spring", "Both"] : ["None"]).map((s) => <option key={s}>{s}</option>)}
                 </select>
@@ -160,15 +161,15 @@ export default function Preferences() {
             </div>
           </Section>
 
-          <Section n={5} title="Unique circumstances" description="Joint appointment, contractual reduction, course buyout, planned sabbatical, or anything else schedulers should know.">
+          <Section n={5} title="Unique Circumstances" description="Joint appointment, contractual reduction, course buyout, planned sabbatical, or anything else schedulers should know.">
             <textarea className={textareaCls + " min-h-24"} value={form.unique_circumstances} onChange={(e) => set("unique_circumstances", e.target.value)} />
           </Section>
 
           <div className="flex items-center gap-3 border-t border-line py-4">
             {error && <div className="flex-1"><Alert tone="error">{error}</Alert></div>}
             <div className="ml-auto flex gap-2">
-              <Button type="button" variant="ghost" onClick={() => setForm({ ...EMPTY, faculty_id: form.faculty_id, email: form.email })}>Clear</Button>
-              <Button variant="primary" type="submit" loading={busy} disabled={user.role === "faculty" && !user.faculty_id}>Submit preferences</Button>
+              <Button type="button" variant="ghost" onClick={() => { setForm({ ...EMPTY, faculty_id: form.faculty_id, email: form.email }); success("Form cleared", "Nothing is submitted until you click Submit preferences"); }}>Clear</Button>
+              <Button variant="primary" type="submit" loading={busy} disabled={user.role === "faculty" && !user.faculty_id}>Submit Preferences</Button>
             </div>
           </div>
         </form>
@@ -184,7 +185,7 @@ function CatalogBrowser({ courses }: { courses: Course[] }) {
   const shown = useMemo(() => courses.filter((c) => matchCourse(c, q)), [courses, q]);
   return (
     <aside className="xl:sticky xl:top-16 xl:self-start">
-      <Panel title="Course catalog" description="Search by code, level (e.g. 3000s), title or topic." flush>
+      <Panel title="Course Catalog" description="Search by code, level (e.g. 3000s), title or topic." flush>
         <div className="border-b border-line p-3">
           <div className="relative">
             <Search className="absolute left-2.5 top-2 h-4 w-4 text-faint" />

@@ -43,6 +43,7 @@ function handle(msg: Record<string, unknown>) {
     case "schedule":
       if (msg.term === term) {
         refetchSoon();
+        if (msg.section_id) setTimeout(() => useUI.getState().flash(`section:${msg.section_id}`), 400);
         if (msg.by && msg.by !== me?.name) toast({ title: `${msg.by} updated the schedule`, body: (msg.section_id as string) ?? "Manual edits reset" });
       }
       break;
@@ -66,7 +67,8 @@ function handle(msg: Record<string, unknown>) {
     case "published": {
       const p = msg.publication as Publication;
       if (msg.term === term) refetchSoon();
-      toast({ title: `${p.term} schedule published (v${p.version})`, body: `by ${p.published_by}`, tone: "success" });
+      // Your own publish already showed a green confirmation; others get a neutral notice
+      if (p.published_by !== me?.name) toast({ title: `${p.term} schedule published (v${p.version})`, body: `by ${p.published_by}` });
       break;
     }
   }

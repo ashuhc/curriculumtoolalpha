@@ -8,7 +8,7 @@ import { Alert, Badge, Button, ErrorState, Field, IconButton, PageHeader, Panel,
 import { fmtDate, useAsync } from "../lib/hooks";
 import { useAuth, useIsAdmin } from "../store/auth";
 import { usePlan } from "../store/plan";
-import { useUI } from "../store/ui";
+import { useFlash, useUI } from "../store/ui";
 
 type Tab = "submissions" | "faculty" | "courses" | "users" | "data" | "publications";
 
@@ -17,18 +17,29 @@ function useFail() {
   return (e: unknown) => toast({ title: "Action failed", body: (e as Error).message, tone: "error" });
 }
 
+/** Plain-language summary of a faculty edit for the confirmation toast. */
+function describeFacultyChange(patch: Record<string, unknown>): string {
+  if (patch.clear_type) return "group reverted to the history-inferred value";
+  if ("annual_reduction" in patch) return `annual reduction set to ${patch.annual_reduction}`;
+  if ("overloading" in patch && patch.overloading === false) return "overload approval removed";
+  if ("overload_semester" in patch) return `overload approved for ${patch.overload_semester === "Both" ? "both semesters" : patch.overload_semester}`;
+  if ("active" in patch) return patch.active ? "reactivated" : "deactivated";
+  if ("faculty_type" in patch) return `group set to ${patch.faculty_type}`;
+  return "updated";
+}
+
 export default function Admin() {
   const isAdmin = useIsAdmin();
   const user = useAuth((s) => s.user);
   const [tab, setTab] = useState<Tab>("submissions");
   if (!user) return <Navigate to="/login" state={{ from: "/admin" }} replace />;
-  if (!isAdmin) return <Alert tone="warning" title="Scheduler access required">Your account has the faculty role.</Alert>;
+  if (!isAdmin) return <Alert tone="warning" title="Scheduler Access Required">Your account has the faculty role.</Alert>;
   return (
     <>
       <PageHeader title="Administration" description="Manage preference submissions, the faculty roster and overloads, the course catalog, user accounts and enrollment data." />
       <Tabs value={tab} onChange={setTab} className="mb-5" tabs={[
-        { id: "submissions", label: "Submissions" }, { id: "faculty", label: "Faculty & overloads" }, { id: "courses", label: "Course catalog" },
-        { id: "users", label: "Users & roles" }, { id: "data", label: "Enrollment data" }, { id: "publications", label: "Publications" }]} />
+        { id: "submissions", label: "Submissions" }, { id: "faculty", label: "Faculty & Overloads" }, { id: "courses", label: "Course Catalog" },
+        { id: "users", label: "Users & Roles" }, { id: "data", label: "Enrollment Data" }, { id: "publications", label: "Publications" }]} />
       {tab === "submissions" && <Submissions />}
       {tab === "faculty" && <FacultyAdmin />}
       {tab === "courses" && <CourseAdmin />}
@@ -45,20 +56,22 @@ function Submissions() {
   const subs = useAsync(() => api.preferences(), [dataVersion]);
   const courses = useAsync(() => api.courses(true), []);
   const fail = useFail();
+  const success = useUI((s) => s.success);
   const title = (c: number) => courses.data?.find((x) => x.code === c)?.title ?? "";
   if (subs.loading && !subs.data) return <Spinner />;
   if (subs.error) return <ErrorState error={subs.error} onRetry={subs.reload} />;
   const rows = subs.data!;
   return (
-    <Panel flush title={`Preference submissions (${rows.length})`} description="Only each faculty member's most recent submission is used by the scheduler."
+    <Panel flush title={`Preference Submissions (${rows.length})`} description="Only each faculty member's most recent submission is used by the scheduler."
       actions={<>
-        <Button size="sm" icon={<Download className="h-3.5 w-3.5" />} disabled={!rows.length} onClick={() => api.exportPreferences().catch(fail)}>Export CSV</Button>
+        <Button size="sm" icon={<Download className="h-3.5 w-3.5" />} disabled={!rows.length} onClick={() => api.exportPreferences().then(() => success("Export downloaded", "teacher_preferences_export.csv")).catch(fail)}>Export CSV</Button>
         <Button size="sm" variant="danger" disabled={!rows.length}
-          onClick={() => confirm("Delete ALL preference submissions? This cannot be undone.") && api.clearPreferences().catch(fail)}>Clear all</Button>
+          onClick={() => confirm("Delete ALL preference submissions? This cannot be undone.") &&
+            api.clearPreferences().then(() => success("All submissions cleared", `${rows.length} removed`)).catch(fail)}>Clear All</Button>
       </>}>
       {rows.length === 0 ? <div className="p-6 text-center text-[13px] text-muted">No submissions yet.</div> : (
         <Table>
-          <thead><tr><th>Submitted</th><th>Faculty</th><th>Principles</th><th>Ranked courses</th><th className="text-right">Fall</th><th className="text-right">Spring</th><th>Overload</th><th>Circumstances</th><th /></tr></thead>
+          <thead><tr><th>Submitted</th><th>Faculty</th><th>Principles</th><th>Ranked Courses</th><th className="text-right">Fall</th><th className="text-right">Spring</th><th>Overload</th><th>Circumstances</th><th /></tr></thead>
           <tbody>{rows.map((s) => (
             <tr key={s.id}>
               <td className="whitespace-nowrap text-muted">{fmtDate(s.submitted_at)}</td>
@@ -68,7 +81,8 @@ function Submissions() {
               <td className="text-right tabular-nums">{s.fall_target}</td><td className="text-right tabular-nums">{s.spring_target}</td>
               <td>{s.overload ? <Badge tone="amber">{s.overload_semester}</Badge> : <span className="text-faint">No</span>}</td>
               <td className="max-w-64 text-xs text-muted">{s.unique_circumstances || "—"}</td>
-              <td><IconButton label="Delete submission" onClick={() => confirm(`Delete ${s.faculty_name}'s submission?`) && api.deletePreference(s.id).catch(fail)}><Trash2 className="h-3.5 w-3.5" /></IconButton></td>
+              <td><IconButton label="Delete Submission" onClick={() => confirm(`Delete ${s.faculty_name}'s submission?`) &&
+                api.deletePreference(s.id).then(() => success("Submission deleted", s.faculty_name)).catch(fail)}><Trash2 className="h-3.5 w-3.5" /></IconButton></td>
             </tr>
           ))}</tbody>
         </Table>
@@ -82,6 +96,8 @@ function FacultyAdmin() {
   const { dataVersion, meta } = usePlan();
   const fac = useAsync(() => api.faculty(true), [dataVersion]);
   const fail = useFail();
+  const success = useUI((s) => s.success);
+  const flash = useFlash();
   const [q, setQ] = useState("");
   const [name, setName] = useState("");
   const types = Object.keys(meta?.faculty_types ?? {});
@@ -89,11 +105,16 @@ function FacultyAdmin() {
     try {
       const u = await api.updateFaculty(f.id, patch);
       fac.setData((l) => l?.map((x) => (x.id === f.id ? u : x)) ?? null);
+      success("Faculty settings updated", `${f.name}: ${describeFacultyChange(patch)}`, `faculty:${f.id}`);
     } catch (e) { fail(e); }
   };
   const add = async (e: FormEvent) => {
     e.preventDefault();
-    try { await api.createFaculty({ name: name.trim(), email: "" }); setName(""); } catch (x) { fail(x); }
+    try {
+      const f = await api.createFaculty({ name: name.trim(), email: "" });
+      setName("");
+      success("Faculty member added", f.name, `faculty:${f.id}`);
+    } catch (x) { fail(x); }
   };
   const shown = useMemo(() => (fac.data ?? []).filter((f) => f.name.toLowerCase().includes(q.toLowerCase())), [fac.data, q]);
   if (fac.loading && !fac.data) return <Spinner />;
@@ -101,8 +122,8 @@ function FacultyAdmin() {
   const inferred = fac.data!.filter((f) => f.type_source !== "Confirmed" && f.active).length;
   return (
     <div className="space-y-4">
-      {inferred > 0 && <Alert tone="warning" title={`${inferred} faculty groups are inferred from teaching history`}>Workload checks depend on the faculty group. Confirm each one by selecting the correct group.</Alert>}
-      <Panel flush title={`Faculty roster (${fac.data!.length})`}
+      {inferred > 0 && <Alert tone="warning" title={`${inferred} Faculty Groups Need Confirmation`}>These groups were inferred from teaching history. Workload checks depend on them, so confirm each one by selecting the correct group.</Alert>}
+      <Panel flush title={`Faculty Roster (${fac.data!.length})`}
         description="Tenured 3/yr · Full-time teaching & temporary 6/yr · Adjunct 1–2/yr. An approved overload raises the annual ceiling for extra compensation; a reduction lowers it."
         actions={<>
           <div className="relative"><Search className="absolute left-2.5 top-2 h-4 w-4 text-faint" />
@@ -113,9 +134,9 @@ function FacultyAdmin() {
           </form>
         </>}>
         <Table maxH="max-h-[640px]">
-          <thead><tr><th>Name</th><th>Faculty group</th><th>Reduction / yr</th><th>Approved overload</th><th className="text-right">History (UG / grad per yr)</th><th className="text-right">Forms</th><th>Active</th><th /></tr></thead>
+          <thead><tr><th>Name</th><th>Faculty Group</th><th>Reduction per Year</th><th>Approved Overload</th><th className="text-right">History (UG / Grad per Year)</th><th className="text-right">Forms</th><th>Active</th><th /></tr></thead>
           <tbody>{shown.map((f) => (
-            <tr key={f.id} className={f.active ? "" : "opacity-50"}>
+            <tr key={f.id} className={`${f.active ? "" : "opacity-50"} ${flash(`faculty:${f.id}`)}`}>
               <td className="whitespace-nowrap font-medium">{f.name}</td>
               <td>
                 <div className="flex items-center gap-2">
@@ -123,7 +144,7 @@ function FacultyAdmin() {
                     {types.map((t) => <option key={t}>{t}</option>)}
                   </select>
                   {f.type_source === "Confirmed"
-                    ? <button className="text-[11px] text-faint hover:text-fg" title="Revert to the history-inferred group" onClick={() => update(f, { clear_type: true })}>Confirmed</button>
+                    ? <button className="text-[11px] text-faint hover:text-fg" title="Revert to the History-Inferred Group" onClick={() => update(f, { clear_type: true })}>Confirmed</button>
                     : <Badge tone="amber">Inferred</Badge>}
                 </div>
               </td>
@@ -142,7 +163,8 @@ function FacultyAdmin() {
               <td className="text-right tabular-nums text-muted">{f.ug_lectures_per_year} / {f.grad_sections_per_year}</td>
               <td className="text-right tabular-nums">{f.submissions}</td>
               <td><Switch checked={f.active} onChange={(v) => update(f, { active: v })} /></td>
-              <td><IconButton label="Delete faculty member" onClick={() => confirm(`Delete ${f.name} and their submissions?`) && api.deleteFaculty(f.id).catch(fail)}><Trash2 className="h-3.5 w-3.5" /></IconButton></td>
+              <td><IconButton label="Delete Faculty Member" onClick={() => confirm(`Delete ${f.name} and their submissions?`) &&
+                api.deleteFaculty(f.id).then(() => success("Faculty member removed", f.name)).catch(fail)}><Trash2 className="h-3.5 w-3.5" /></IconButton></td>
             </tr>
           ))}</tbody>
         </Table>
@@ -156,18 +178,25 @@ function CourseAdmin() {
   const dataVersion = usePlan((s) => s.dataVersion);
   const list = useAsync(() => api.courses(true), [dataVersion]);
   const fail = useFail();
+  const success = useUI((s) => s.success);
+  const flash = useFlash();
   const [q, setQ] = useState("");
   const [draft, setDraft] = useState({ code: "", title: "", description: "" });
   const save = async (c: Course, patch: Partial<Course>) => {
     try {
       const u = await api.updateCourse(c.code, patch);
       list.setData((l) => l?.map((x) => (x.code === c.code ? { ...x, ...u, times_offered: x.times_offered } : x)) ?? null);
+      const what = patch.title !== undefined ? `title changed to “${patch.title}”` : patch.active ? "activated" : "deactivated";
+      success("Course updated", `ECON ${c.code}: ${what}`, `course:${c.code}`);
     } catch (e) { fail(e); }
   };
   const add = async (e: FormEvent) => {
     e.preventDefault();
-    try { await api.createCourse({ code: Number(draft.code), title: draft.title.trim(), description: draft.description.trim() }); setDraft({ code: "", title: "", description: "" }); }
-    catch (x) { fail(x); }
+    try {
+      const c = await api.createCourse({ code: Number(draft.code), title: draft.title.trim(), description: draft.description.trim() });
+      setDraft({ code: "", title: "", description: "" });
+      success("Course added to the catalog", `ECON ${c.code} · ${c.title}`, `course:${c.code}`);
+    } catch (x) { fail(x); }
   };
   if (list.loading && !list.data) return <Spinner />;
   if (list.error) return <ErrorState error={list.error} onRetry={list.reload} />;
@@ -175,21 +204,21 @@ function CourseAdmin() {
   const core = (c: Course) => c.category.startsWith("Core") || c.category === "Recitation";
   return (
     <div className="space-y-4">
-      <Panel title="Add a course" description="Undergraduate only (1000–4999). Graduate courses are rejected.">
+      <Panel title="Add a Course" description="Undergraduate only (1000–4999). Graduate courses are rejected.">
         <form onSubmit={add} className="grid gap-3 md:grid-cols-[110px_1fr_1.5fr_auto]">
           <input className={inputCls + " tabular-nums"} placeholder="3999" value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value.replace(/\D/g, "").slice(0, 4) })} />
           <input className={inputCls} placeholder="Title" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
           <input className={inputCls} placeholder="Description (optional)" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
-          <Button variant="primary" type="submit" icon={<Plus className="h-3.5 w-3.5" />} disabled={draft.code.length !== 4 || !draft.title.trim()}>Add course</Button>
+          <Button variant="primary" type="submit" icon={<Plus className="h-3.5 w-3.5" />} disabled={draft.code.length !== 4 || !draft.title.trim()}>Add Course</Button>
         </form>
       </Panel>
       <Panel flush title={`Catalog (${list.data!.length})`} description="Inactive courses are hidden from the form and excluded from planning. Titles save when the field loses focus."
         actions={<div className="relative"><Search className="absolute left-2.5 top-2 h-4 w-4 text-faint" />
           <input className={inputBase + " w-56 pl-8"} placeholder="Code, level or title" value={q} onChange={(e) => setQ(e.target.value)} /></div>}>
         <Table maxH="max-h-[640px]">
-          <thead><tr><th>Code</th><th>Title</th><th>Category</th><th>Prerequisites</th><th className="text-right">Terms offered</th><th>Active</th><th /></tr></thead>
+          <thead><tr><th>Code</th><th>Title</th><th>Category</th><th>Prerequisites</th><th className="text-right">Terms Offered</th><th>Active</th><th /></tr></thead>
           <tbody>{shown.map((c) => (
-            <tr key={c.code} className={c.active ? "" : "opacity-50"}>
+            <tr key={c.code} className={`${c.active ? "" : "opacity-50"} ${flash(`course:${c.code}`)}`}>
               <td className="font-medium tabular-nums">ECON {c.code}</td>
               <td className="min-w-72"><input className={inputBase + " h-7 w-full"} defaultValue={c.title}
                 onBlur={(e) => e.target.value.trim() && e.target.value !== c.title && save(c, { title: e.target.value.trim() })} /></td>
@@ -197,7 +226,8 @@ function CourseAdmin() {
               <td className="text-xs text-muted">{c.prerequisites}</td>
               <td className="text-right tabular-nums">{c.times_offered}</td>
               <td><Switch checked={c.active} disabled={core(c)} onChange={(v) => save(c, { active: v })} /></td>
-              <td>{!core(c) && <IconButton label="Delete course" onClick={() => confirm(`Delete ECON ${c.code}?`) && api.deleteCourse(c.code).catch(fail)}><Trash2 className="h-3.5 w-3.5" /></IconButton>}</td>
+              <td>{!core(c) && <IconButton label="Delete Course" onClick={() => confirm(`Delete ECON ${c.code}?`) &&
+                    api.deleteCourse(c.code).then(() => success("Course deleted", `ECON ${c.code} · ${c.title}`)).catch(fail)}><Trash2 className="h-3.5 w-3.5" /></IconButton>}</td>
             </tr>
           ))}</tbody>
         </Table>
@@ -212,33 +242,44 @@ function UsersAdmin() {
   const users = useAsync(() => api.users(), []);
   const faculty = useAsync(() => api.faculty(), []);
   const fail = useFail();
-  const toast = useUI((s) => s.toast);
+  const success = useUI((s) => s.success);
+  const flash = useFlash();
   const [draft, setDraft] = useState({ name: "", email: "", password: "", role: "faculty" as Role, faculty_id: 0 });
   const add = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await api.createUser({ ...draft, faculty_id: draft.faculty_id || null });
-      toast({ title: "Account created", body: draft.email, tone: "success" });
+      const u = await api.createUser({ ...draft, faculty_id: draft.faculty_id || null });
+      success("Account created", `${u.email} · ${u.role === "admin" ? "Scheduler" : "Faculty"}`, `user:${u.id}`);
       setDraft({ name: "", email: "", password: "", role: "faculty", faculty_id: 0 });
       users.reload();
     } catch (x) { fail(x); }
   };
-  const update = async (id: number, patch: Record<string, unknown>) => { try { await api.updateUser(id, patch); users.reload(); } catch (e) { fail(e); } };
+  const update = async (id: number, patch: Record<string, unknown>) => {
+    const email = users.data?.find((u) => u.id === id)?.email ?? "";
+    try {
+      await api.updateUser(id, patch);
+      users.reload();
+      const what = patch.password ? "password reset" : patch.role ? `role set to ${patch.role === "admin" ? "Scheduler" : "Faculty"}`
+        : patch.unlink_faculty ? "unlinked from the faculty roster" : "faculty_id" in patch ? "linked to the faculty roster"
+        : patch.active === false ? "deactivated" : patch.active ? "reactivated" : "updated";
+      success("Account updated", `${email}: ${what}`, `user:${id}`);
+    } catch (e) { fail(e); }
+  };
   if (users.loading && !users.data) return <Spinner />;
   if (users.error) return <ErrorState error={users.error} onRetry={users.reload} />;
   return (
     <div className="space-y-4">
-      <Panel title="Create an account" description="Faculty accounts should be linked to a roster entry so their preference submissions are attributed correctly.">
+      <Panel title="Create an Account" description="Faculty accounts should be linked to a roster entry so their preference submissions are attributed correctly.">
         <form onSubmit={add} className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           <Field label="Name"><input className={inputCls} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
           <Field label="Email"><input className={inputCls} type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} /></Field>
-          <Field label="Temporary password" hint="At least 8 characters"><input className={inputCls} type="password" value={draft.password} onChange={(e) => setDraft({ ...draft, password: e.target.value })} /></Field>
+          <Field label="Temporary Password" hint="At least 8 characters"><input className={inputCls} type="password" value={draft.password} onChange={(e) => setDraft({ ...draft, password: e.target.value })} /></Field>
           <Field label="Role">
             <select className={inputCls} value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value as Role })}>
-              <option value="faculty">Faculty</option><option value="admin">Scheduler (admin)</option>
+              <option value="faculty">Faculty</option><option value="admin">Scheduler (Admin)</option>
             </select>
           </Field>
-          <Field label="Faculty roster link">
+          <Field label="Faculty Roster Link">
             <select className={inputCls} value={draft.faculty_id} onChange={(e) => {
               const f = faculty.data?.find((x) => x.id === Number(e.target.value));
               setDraft({ ...draft, faculty_id: Number(e.target.value), name: draft.name || (f ? f.name.split(", ").reverse().join(" ") : "") });
@@ -246,19 +287,19 @@ function UsersAdmin() {
               <option value={0}>None</option>{faculty.data?.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
           </Field>
-          <div className="flex items-end"><Button variant="primary" type="submit" className="w-full" disabled={!draft.name || !draft.email || draft.password.length < 8}>Create account</Button></div>
+          <div className="flex items-end"><Button variant="primary" type="submit" className="w-full" disabled={!draft.name || !draft.email || draft.password.length < 8}>Create Account</Button></div>
         </form>
       </Panel>
       <Panel flush title={`Accounts (${users.data!.length})`}>
         <Table>
-          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Linked faculty</th><th>Last sign-in</th><th>Active</th><th /></tr></thead>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Linked Faculty</th><th>Last Sign-In</th><th>Active</th><th /></tr></thead>
           <tbody>{users.data!.map((u) => (
-            <tr key={u.id}>
+            <tr key={u.id} className={flash(`user:${u.id}`)}>
               <td className="font-medium">{u.name}{u.id === me?.id && <span className="ml-1.5 text-xs text-faint">(you)</span>}</td>
               <td className="text-muted">{u.email}</td>
               <td>
                 <select className={inputBase + " h-7 w-36 text-xs"} value={u.role} disabled={u.id === me?.id} onChange={(e) => update(u.id, { role: e.target.value })}>
-                  <option value="faculty">Faculty</option><option value="admin">Scheduler (admin)</option>
+                  <option value="faculty">Faculty</option><option value="admin">Scheduler (Admin)</option>
                 </select>
               </td>
               <td>
@@ -273,8 +314,9 @@ function UsersAdmin() {
                 <Button size="sm" variant="ghost" onClick={() => {
                   const pw = prompt(`New password for ${u.email} (min 8 characters)`);
                   if (pw) update(u.id, { password: pw });
-                }}>Reset password</Button>
-                {u.id !== me?.id && <IconButton label="Delete account" onClick={() => confirm(`Delete ${u.email}?`) && api.deleteUser(u.id).then(users.reload).catch(fail)}><Trash2 className="h-3.5 w-3.5" /></IconButton>}
+                }}>Reset Password</Button>
+                {u.id !== me?.id && <IconButton label="Delete Account" onClick={() => confirm(`Delete ${u.email}?`) &&
+                  api.deleteUser(u.id).then(() => { users.reload(); success("Account deleted", u.email); }).catch(fail)}><Trash2 className="h-3.5 w-3.5" /></IconButton>}
               </td>
             </tr>
           ))}</tbody>
@@ -289,28 +331,34 @@ function DataAdmin() {
   const dataVersion = usePlan((s) => s.dataVersion);
   const terms = useAsync(() => api.enrollmentTerms(), [dataVersion]);
   const toast = useUI((s) => s.toast);
+  const success = useUI((s) => s.success);
+  const flash = useFlash();
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const upload = async () => {
     if (!file) return;
     setBusy(true);
-    try { const r = await api.uploadEnrollment(file); toast({ title: `Added ${r.added} enrollment records`, tone: "success" }); setFile(null); }
+    try {
+      const r = await api.uploadEnrollment(file);
+      success("Enrollment data merged", `${r.added} records added from ${file.name}`, "enrollment-history");
+      setFile(null);
+    }
     catch (e) { toast({ title: "Upload failed", body: (e as Error).message, tone: "error" }); } finally { setBusy(false); }
   };
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Panel title="Upload additional semester data"
+      <Panel title="Upload Additional Semester Data"
         description="Excel or CSV with the ECON_Enrollment.xlsx columns: ACADEMIC_PERIOD_DESC, CAMPUS, Course #, Course Title, Instructional Method, Instructor, Schedule, MAXIMUM_ENROLLMENT, UG_ENROLLMENT.">
         <div className="flex flex-wrap items-center gap-3">
           <input type="file" accept=".xlsx,.csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             className="text-[13px] file:mr-3 file:h-8 file:rounded-md file:border file:border-line-strong file:bg-surface file:px-3 file:text-[13px] file:text-fg" />
-          <Button variant="primary" icon={<Upload className="h-3.5 w-3.5" />} loading={busy} disabled={!file} onClick={upload}>Upload and merge</Button>
+          <Button variant="primary" icon={<Upload className="h-3.5 w-3.5" />} loading={busy} disabled={!file} onClick={upload}>Upload and Merge</Button>
         </div>
       </Panel>
-      <Panel flush title="Enrollment history on file" description="Undergraduate sections and students per term.">
+      <Panel flush title="Enrollment History on File" description="Undergraduate sections and students per term." className={flash("enrollment-history")}>
         {terms.loading ? <Spinner /> : terms.error ? <div className="p-4"><ErrorState error={terms.error} /></div> : (
           <Table maxH="max-h-96">
-            <thead><tr><th>Term</th><th className="text-right">UG sections</th><th className="text-right">UG students</th></tr></thead>
+            <thead><tr><th>Term</th><th className="text-right">UG Sections</th><th className="text-right">UG Students</th></tr></thead>
             <tbody>{terms.data!.map((t) => <tr key={t.term}><td>{t.term}</td><td className="text-right tabular-nums">{t.sections}</td><td className="text-right tabular-nums">{t.students.toLocaleString()}</td></tr>)}</tbody>
           </Table>
         )}
@@ -324,20 +372,21 @@ function Publications() {
   const dataVersion = usePlan((s) => s.dataVersion);
   const pubs = useAsync(() => api.publications(), [dataVersion]);
   const fail = useFail();
+  const success = useUI((s) => s.success);
   if (pubs.loading && !pubs.data) return <Spinner />;
   if (pubs.error) return <ErrorState error={pubs.error} onRetry={pubs.reload} />;
   return (
-    <Panel flush title="Published schedules" description="Each publish freezes the master schedule for a term as a new version. Exports use the registrar catalog-import layout.">
+    <Panel flush title="Published Schedules" description="Each publish freezes the master schedule for a term as a new version. Exports use the registrar catalog-import layout.">
       {pubs.data!.length === 0 ? <div className="p-6 text-center text-[13px] text-muted">Nothing published yet. Publish from the Master Schedule.</div> : (
         <Table>
-          <thead><tr><th>Term</th><th>Version</th><th>Published</th><th>By</th><th className="text-right">Sections</th><th>Open issues</th><th>Note</th><th /></tr></thead>
+          <thead><tr><th>Term</th><th>Version</th><th>Published</th><th>By</th><th className="text-right">Sections</th><th>Open Issues</th><th>Note</th><th /></tr></thead>
           <tbody>{pubs.data!.map((p) => (
             <tr key={p.id}>
               <td className="font-medium">{p.term}</td><td className="tabular-nums">v{p.version}</td><td className="text-muted">{fmtDate(p.published_at)}</td>
               <td>{p.published_by}</td><td className="text-right tabular-nums">{p.sections}</td>
-              <td>{p.critical ? <Badge tone="red">{p.critical} critical</Badge> : <Badge tone="green">None critical</Badge>} <span className="text-xs text-muted">{p.warning} warnings</span></td>
+              <td>{p.critical ? <Badge tone="red">{p.critical} Critical</Badge> : <Badge tone="green">None Critical</Badge>} <span className="text-xs text-muted">{p.warning} Warnings</span></td>
               <td className="max-w-64 text-xs text-muted">{p.note || "—"}</td>
-              <td><Button size="sm" icon={<Download className="h-3.5 w-3.5" />} onClick={() => api.exportPublication(p.id).catch(fail)}>Catalog CSV</Button></td>
+              <td><Button size="sm" icon={<Download className="h-3.5 w-3.5" />} onClick={() => api.exportPublication(p.id).then(() => success("Catalog CSV downloaded", `${p.term} v${p.version}`)).catch(fail)}>Catalog CSV</Button></td>
             </tr>
           ))}</tbody>
         </Table>

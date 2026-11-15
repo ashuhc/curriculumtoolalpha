@@ -1,5 +1,5 @@
 // Design-system primitives: restrained, border-led, enterprise-dashboard styling.
-import { AlertCircle, AlertTriangle, CheckCircle2, Info, Loader2, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, GraduationCap, Info, Loader2, X } from "lucide-react";
 import { useEffect, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 export function cx(...c: (string | false | null | undefined)[]) {
@@ -10,12 +10,12 @@ export function cx(...c: (string | false | null | undefined)[]) {
 export function PageHeader({ title, description, actions, meta }: { title: string; description?: ReactNode; actions?: ReactNode; meta?: ReactNode }) {
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-line pb-5">
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1 basis-80">
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-        {description && <p className="mt-1 max-w-3xl text-[13px] leading-relaxed text-muted">{description}</p>}
+        {description && <p className="mt-1 text-[13px] leading-relaxed text-muted text-pretty">{description}</p>}
         {meta && <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">{meta}</div>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
@@ -27,7 +27,7 @@ export function Panel({ title, description, actions, children, className, bodyCl
     <section className={cx("rounded-lg border border-line bg-surface", className)}>
       {(title || actions) && (
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1 basis-64">
             {title && <h2 className="text-[13px] font-semibold">{title}</h2>}
             {description && <p className="mt-0.5 text-xs leading-relaxed text-muted">{description}</p>}
           </div>
@@ -192,7 +192,7 @@ export function Alert({ tone = "info", title, children, action }: { tone?: "info
 }
 
 export function ErrorState({ error, onRetry }: { error: string; onRetry?: () => void }) {
-  return <Alert tone="error" title="Something went wrong" action={onRetry && <Button size="sm" onClick={onRetry}>Retry</Button>}>{error}</Alert>;
+  return <Alert tone="error" title="Something Went Wrong" action={onRetry && <Button size="sm" onClick={onRetry}>Retry</Button>}>{error}</Alert>;
 }
 
 export function Empty({ icon, title, children }: { icon?: ReactNode; title: string; children?: ReactNode }) {
@@ -264,16 +264,33 @@ export function Modal({ open, onClose, title, children, footer }: { open: boolea
 // ------------------------------------------------------------ domain bits ---
 export const SEVERITY_TONE = { Critical: "red", Warning: "amber", Info: "neutral" } as const;
 
-/** Category colors (muted, distinguishable in both themes). */
-export const CATEGORY_COLOR: Record<string, string> = {
-  "Core · Econ at NU": "#c2410c",
-  "Core · Principles": "#b45309",
-  "Core · Follow-up": "#6d28d9",
-  "Core · Capstone": "#1d4ed8",
-  Recitation: "#047857",
-  Elective: "#52525b",
+/**
+ * Category styling as complete, static Tailwind class strings. (Never build
+ * class names like `bg-${color}-500`: Tailwind only ships classes it can
+ * find written out in full in the source.)
+ */
+export interface CategoryStyle { dot: string; bar: string; chip: string }
+export const CATEGORY_STYLE: Record<string, CategoryStyle> = {
+  "Core · Econ at NU": { dot: "bg-orange-600", bar: "bg-orange-600", chip: "bg-orange-600/15 text-orange-700 ring-orange-600/30 dark:text-orange-300" },
+  "Core · Principles": { dot: "bg-amber-500", bar: "bg-amber-500", chip: "bg-amber-500/15 text-amber-700 ring-amber-500/30 dark:text-amber-300" },
+  "Core · Follow-up": { dot: "bg-violet-500", bar: "bg-violet-500", chip: "bg-violet-500/15 text-violet-700 ring-violet-500/30 dark:text-violet-300" },
+  "Core · Capstone": { dot: "bg-blue-500", bar: "bg-blue-500", chip: "bg-blue-500/15 text-blue-700 ring-blue-500/30 dark:text-blue-300" },
+  Recitation: { dot: "bg-emerald-500", bar: "bg-emerald-500", chip: "bg-emerald-500/15 text-emerald-700 ring-emerald-500/30 dark:text-emerald-300" },
+  Elective: { dot: "bg-cyan-500", bar: "bg-cyan-500", chip: "bg-cyan-500/15 text-cyan-700 ring-cyan-500/30 dark:text-cyan-300" },
 };
+const FALLBACK_STYLE: CategoryStyle = { dot: "bg-zinc-400", bar: "bg-zinc-400", chip: "bg-zinc-500/15 text-zinc-600 ring-zinc-500/30 dark:text-zinc-300" };
+export const CATEGORIES = Object.keys(CATEGORY_STYLE);
+export const categoryStyle = (category: string) => CATEGORY_STYLE[category] ?? FALLBACK_STYLE;
 
 export function CategoryDot({ category }: { category: string }) {
-  return <span className="inline-block h-2 w-2 shrink-0 rounded-sm" style={{ background: CATEGORY_COLOR[category] ?? "#71717a" }} />;
+  return <span className={cx("inline-block h-2 w-2 shrink-0 rounded-sm", categoryStyle(category).dot)} />;
+}
+
+/** Northeastern brand mark: graduation cap on a Northeastern Red tile (same artwork as /favicon.svg). */
+export function BrandMark({ size = 28 }: { size?: number }) {
+  return (
+    <span className="inline-flex shrink-0 items-center justify-center rounded-[22%] bg-nu text-white" style={{ width: size, height: size }} aria-hidden>
+      <GraduationCap style={{ width: size * 0.64, height: size * 0.64 }} strokeWidth={2.1} />
+    </span>
+  );
 }

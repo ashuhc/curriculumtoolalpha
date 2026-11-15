@@ -70,7 +70,7 @@ const INTENTS: Intent[] = [
         `• Recitations are split across lecture sections in proportion to their enrollment, and each one is **linked to a single lecture**.\n` +
         `• They're scheduled in 65-minute slots inside the lab/studio windows (sequences L–W) and **never overlap their linked lecture**. The scheduler also tries to keep them clear of the course's other lectures.\n` +
         `• They're staffed by recitation leaders, not by lecture faculty, and don't count toward faculty course loads.`,
-      links: [{ label: "See recitation math", to: "/demand" }],
+      links: [{ label: "See Recitation Math", to: "/demand" }],
       };
     },
   },
@@ -102,7 +102,7 @@ const INTENTS: Intent[] = [
         `5. Note **unique circumstances**: joint appointment, course reduction, buyout or sabbatical.\n\n` +
         `You can resubmit any time; only your **latest** submission is used. Electives run only when someone ranks them.` +
         (ctx.role ? "" : `\n\nYou're not signed in yet.`),
-      links: [{ label: "Go to Teaching Preferences", to: "/preferences" }, ...(ctx.role ? [] : [{ label: "Sign in", to: "/login" }])],
+      links: [{ label: "Go to Teaching Preferences", to: "/preferences" }, ...(ctx.role ? [] : [{ label: "Sign In", to: "/login" }])],
     }),
   },
   {
@@ -116,7 +116,7 @@ const INTENTS: Intent[] = [
         `• Leaving a core section unstaffed is heavily penalized, so it only happens when *no* willing instructor has capacity.\n` +
         `• Electives are offered only when a willing instructor still has capacity after core is covered.\n` +
         `• Load is spread so one person isn't given every section.\n\n` +
-        `Faculty without a form are matched on teaching history while "Use teaching history without a form" is on.`,
+        `Faculty without a form are matched on teaching history while "Use Teaching History Without a Form" is on.`,
       links: [{ label: "Open Master Schedule", to: "/schedule" }],
     },
   },
@@ -131,7 +131,7 @@ const INTENTS: Intent[] = [
         `• **Sequences L–W**: lab/studio windows. Recitations use 65-minute slots inside them.\n` +
         `• Sequences 6 and 7 are administrative and never used.\n\n` +
         `The scheduler never double-books an instructor and never overlaps a recitation with its lecture. It also spreads sections of the same course, avoids stacking core courses students take together, and favors historically popular times.`,
-      links: [{ label: "View weekly calendar", to: "/schedule" }],
+      links: [{ label: "View Weekly Calendar", to: "/schedule" }],
     },
   },
   {
@@ -157,7 +157,7 @@ const INTENTS: Intent[] = [
         `**Annual teaching loads**:\n• Tenured: 3 courses per year (may teach fewer)\n• Full-time teaching and temporary: 6 per year\n• Adjuncts: 1–2 per year\n\n` +
         `Each person's annual load = sections assigned this term + their planned load for the other semester. An **approved overload** (Administration → Faculty) raises the ceiling and is flagged for extra compensation. ` +
         `An **annual reduction** (graduate teaching, buyout, sabbatical) lowers it. Faculty groups are inferred from teaching history until a scheduler confirms them.`,
-      links: [{ label: "See workload", to: "/conflicts" }],
+      links: [{ label: "See Workload", to: "/conflicts" }],
     },
   },
   {
@@ -189,7 +189,7 @@ const INTENTS: Intent[] = [
       text:
         `There are two roles:\n• **Faculty** can submit their own teaching preferences and comment on sections.\n• **Schedulers (admins)** can also edit and lock sections, publish schedules, and manage the catalog, faculty roster, overloads, user accounts and enrollment data.\n\n` +
         `Anyone can view the dashboards read-only.` + (ctx.role ? ` You're signed in as **${ctx.role === "admin" ? "a scheduler" : "faculty"}**.` : ""),
-      links: ctx.role ? [] : [{ label: "Sign in", to: "/login" }],
+      links: ctx.role ? [] : [{ label: "Sign In", to: "/login" }],
     }),
   },
   {

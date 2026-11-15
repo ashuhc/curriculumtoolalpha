@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, type Comment, type MasterRow, type Meta, type ScheduleResponse } from "../api";
 import { fmtDate } from "../lib/hooks";
+import { titleCase } from "../lib/text";
 import { useAuth, useIsAdmin } from "../store/auth";
 import { useCollab } from "../store/collab";
 import { usePlan } from "../store/plan";
-import { useUI } from "../store/ui";
+import { useFlash, useUI } from "../store/ui";
 import { Alert, Avatar, Badge, Button, CategoryDot, Drawer, Field, SEVERITY_TONE, cx, inputCls, textareaCls } from "./ui";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -25,6 +26,8 @@ export function SectionDrawer({ row, data, meta, onClose, onChanged }: {
   const me = useAuth((s) => s.user);
   const isAdmin = useIsAdmin();
   const toast = useUI((s) => s.toast);
+  const success = useUI((s) => s.success);
+  const flash = useFlash();
   const { presence, sendPresence, onComment } = useCollab();
   const [busy, setBusy] = useState(false);
   const [override, setOverride] = useState<{ instructor: string | null; sequence: string | null } | null>(null);
@@ -78,6 +81,10 @@ export function SectionDrawer({ row, data, meta, onClose, onChanged }: {
     await api.setOverride({ term, section_id: row.section_id, ...next });
     setOverride(next);
     onChanged();
+    const seq = Object.values({ ...meta.sequences.class, ...meta.sequences.lab, ...meta.sequences.recitation }).find((x) => x.code === value);
+    success(field === "instructor" ? "Instructor updated" : "Time slot updated",
+      `${row.section_id} → ${field === "instructor" ? value : seq ? `${value} (${seq.label})` : value}`,
+      [`section:${row.section_id}`, `drawer:${row.section_id}`]);
   });
   const isOverridden = data.overridden.includes(row.section_id);
   const seqGroups = [
@@ -95,6 +102,7 @@ export function SectionDrawer({ row, data, meta, onClose, onChanged }: {
     setComments((list) => (list.some((x) => x.id === c.id) ? list : [...list, c]));
     setDraft("");
     setReplyTo(null);
+    success(replyTo ? "Reply posted" : "Comment posted", `Visible to everyone on ${row.section_id}`, `comment:${c.id}`);
   });
 
   return (
@@ -118,13 +126,14 @@ export function SectionDrawer({ row, data, meta, onClose, onChanged }: {
         {isAdmin && (
           lock && !mine ? (
             <Button size="sm" variant="danger" icon={<Unlock className="h-3.5 w-3.5" />} loading={busy}
-              onClick={() => confirm(`Break ${lock.user_name}'s lock on ${row.section_id}?`) && run(() => api.unlock(term, row.section_id))}>Break lock</Button>
+              onClick={() => confirm(`Break ${lock.user_name}'s lock on ${row.section_id}?`) &&
+                run(async () => { await api.unlock(term, row.section_id); success("Lock released", `${row.section_id} is now editable`); })}>Break Lock</Button>
           ) : mine ? (
             <Button size="sm" variant="primary" icon={<Check className="h-3.5 w-3.5" />} loading={busy}
-              onClick={() => run(() => api.unlock(term, row.section_id))}>Done editing</Button>
+              onClick={() => run(async () => { await api.unlock(term, row.section_id); success("Changes saved", `${row.section_id} unlocked for other schedulers`, `section:${row.section_id}`); })}>Done Editing</Button>
           ) : (
             <Button size="sm" icon={<Pencil className="h-3.5 w-3.5" />} loading={busy}
-              onClick={() => run(() => api.lock(term, row.section_id))}>Edit section</Button>
+              onClick={() => run(async () => { await api.lock(term, row.section_id); success("Section locked for editing", `Other schedulers can't change ${row.section_id} until you're done`); })}>Edit Section</Button>
           )
         )}
       </div>
@@ -149,20 +158,23 @@ export function SectionDrawer({ row, data, meta, onClose, onChanged }: {
             )}
             {isOverridden && (
               <Button size="sm" variant="ghost" icon={<RotateCcw className="h-3.5 w-3.5" />} loading={busy}
-                onClick={() => run(async () => { await api.resetOverrides(term, row.section_id); setOverride({ instructor: null, sequence: null }); onChanged(); })}>
-                Revert to generated assignment
+                onClick={() => run(async () => {
+                  await api.resetOverrides(term, row.section_id); setOverride({ instructor: null, sequence: null }); onChanged();
+                  success("Reverted to generated assignment", row.section_id, [`section:${row.section_id}`, `drawer:${row.section_id}`]);
+                })}>
+                Revert to Generated Assignment
               </Button>
             )}
           </div>
         )}
 
-        <dl className="divide-y divide-line">
+        <dl className={cx("-mx-2 divide-y divide-line rounded px-2", flash(`drawer:${row.section_id}`))}>
           <Row label="Instructor"><span className={cx(row.instructor === "UNSTAFFED" && "font-medium text-nu-text")}>{row.instructor}</span>
             <span className="ml-2 text-xs text-muted">{row.faculty_type !== "—" && row.faculty_type}</span></Row>
-          <Row label="Assignment basis">{isOverridden ? <Badge tone="amber">Manual edit</Badge> : <span className="text-muted">{row.match_basis}</span>}</Row>
+          <Row label="Assignment Basis">{isOverridden ? <Badge tone="amber">Manual Edit</Badge> : <span className="text-muted">{titleCase(row.match_basis)}</span>}</Row>
           <Row label="Meeting">{row.meeting_time} <span className="ml-1 text-xs text-muted">({row.sequence})</span></Row>
           <Row label="Capacity"><span className="tabular-nums">{row.projected_enrollment} projected / {row.section_cap} seats</span></Row>
-          {row.linked_lecture && <Row label="Linked lecture">{row.linked_lecture}</Row>}
+          {row.linked_lecture && <Row label="Linked Lecture">{row.linked_lecture}</Row>}
           <Row label="Prerequisites"><span className="text-muted">{row.prerequisites}</span></Row>
         </dl>
 
@@ -171,7 +183,7 @@ export function SectionDrawer({ row, data, meta, onClose, onChanged }: {
             <h3 className="text-xs font-medium text-muted">Conflicts</h3>
             {conflicts.map((c, i) => (
               <div key={i} className="rounded-md border border-line px-3 py-2 text-[13px]">
-                <div className="flex items-center gap-2"><Badge tone={SEVERITY_TONE[c.severity]}>{c.severity}</Badge><span className="font-medium">{c.category}</span></div>
+                <div className="flex items-center gap-2"><Badge tone={SEVERITY_TONE[c.severity]}>{c.severity}</Badge><span className="font-medium">{titleCase(c.category)}</span></div>
                 <p className="mt-1 text-muted">{c.details}</p>
                 <p className="mt-0.5 text-xs text-faint">{c.suggested_action}</p>
               </div>
@@ -184,22 +196,22 @@ export function SectionDrawer({ row, data, meta, onClose, onChanged }: {
             <h3 className="text-xs font-medium text-muted">Discussion</h3>
             {resolvedCount > 0 && (
               <button className="text-xs text-muted hover:text-fg" onClick={() => setShowResolved(!showResolved)}>
-                {showResolved ? "Hide" : "Show"} {resolvedCount} resolved
+                {showResolved ? "Hide" : "Show"} {resolvedCount} Resolved
               </button>
             )}
           </div>
           {roots.length === 0 && <p className="py-2 text-[13px] text-faint">No open threads on this section.</p>}
           <div className="space-y-3">
             {roots.map((c) => (
-              <div key={c.id} className={cx("rounded-md border border-line", c.resolved && "opacity-60")}>
+              <div key={c.id} className={cx("rounded-md border border-line", c.resolved && "opacity-60", flash(`comment:${c.id}`))}>
                 <CommentItem c={c} canModify={!!me && (me.id === c.user_id || isAdmin)}
-                  onResolve={() => run(async () => { await api.updateComment(c.id, { resolved: !c.resolved }); })}
-                  onDelete={() => run(async () => { await api.deleteComment(c.id); setComments((l) => l.filter((x) => x.id !== c.id && x.parent_id !== c.id)); })}
+                  onResolve={() => run(async () => { await api.updateComment(c.id, { resolved: !c.resolved }); success(c.resolved ? "Thread reopened" : "Thread resolved", undefined, `comment:${c.id}`); })}
+                  onDelete={() => run(async () => { await api.deleteComment(c.id); setComments((l) => l.filter((x) => x.id !== c.id && x.parent_id !== c.id)); success("Comment deleted"); })}
                   onReply={me ? () => setReplyTo(c.id) : undefined} />
                 {replies(c.id).map((r) => (
-                  <div key={r.id} className="border-t border-line pl-6">
+                  <div key={r.id} className={cx("border-t border-line pl-6", flash(`comment:${r.id}`))}>
                     <CommentItem c={r} reply canModify={!!me && (me.id === r.user_id || isAdmin)}
-                      onDelete={() => run(async () => { await api.deleteComment(r.id); setComments((l) => l.filter((x) => x.id !== r.id)); })} />
+                      onDelete={() => run(async () => { await api.deleteComment(r.id); setComments((l) => l.filter((x) => x.id !== r.id)); success("Reply deleted"); })} />
                   </div>
                 ))}
               </div>
@@ -223,7 +235,7 @@ export function SectionDrawer({ row, data, meta, onClose, onChanged }: {
             </div>
           ) : (
             <Alert>
-              <Link to="/login" className="font-medium text-fg underline">Sign in</Link> to join the discussion.
+              <Link to="/login" className="font-medium text-fg underline">Sign In</Link> to join the discussion.
             </Alert>
           )}
         </div>

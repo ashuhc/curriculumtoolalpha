@@ -72,9 +72,9 @@ export function ChatWidget() {
   return (
     <>
       {!open && (
-        <button onClick={() => setOpen(true)} aria-label="Open assistant"
+        <button onClick={() => setOpen(true)} aria-label="Open Assistant"
           className="fixed bottom-5 right-5 z-40 flex h-11 items-center gap-2 rounded-full bg-nu pl-3.5 pr-4 text-[13px] font-medium text-white shadow-lg transition-colors hover:bg-nu-hover">
-          <MessageSquare className="h-4 w-4" /> Ask the assistant
+          <MessageSquare className="h-4 w-4" /> Ask the Assistant
         </button>
       )}
       {open && (
@@ -83,10 +83,10 @@ export function ChatWidget() {
             <div className="flex h-7 w-7 items-center justify-center rounded bg-nu text-white"><MessageSquare className="h-3.5 w-3.5" /></div>
             <div className="flex-1 leading-tight">
               <div className="text-[13px] font-semibold">Scheduler Assistant</div>
-              <div className="text-[11px] text-muted">Help with this site · answers from built-in docs</div>
+              <div className="text-[11px] text-muted">Site Help · Built-In Documentation</div>
             </div>
-            <IconButton label="Clear conversation" onClick={() => setMsgs([GREETING])}><RotateCcw className="h-3.5 w-3.5" /></IconButton>
-            <IconButton label="Close assistant" onClick={() => setOpen(false)}><X className="h-4 w-4" /></IconButton>
+            <IconButton label="Clear Conversation" onClick={() => setMsgs([GREETING])}><RotateCcw className="h-3.5 w-3.5" /></IconButton>
+            <IconButton label="Close Assistant" onClick={() => setOpen(false)}><X className="h-4 w-4" /></IconButton>
           </header>
 
           <div ref={scroller} className="flex-1 space-y-4 overflow-y-auto px-4 py-4">

@@ -3,6 +3,43 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { api, type Meta, type PlanSettings } from "../api";
+import { useUI } from "./ui";
+
+const LABELS: Record<keyof PlanSettings, (v: never) => string> = {
+  target_term: (v: string) => `Now planning ${v}`,
+  growth_multiplier: (v: number) => `Enrollment growth set to ${v.toFixed(2)}×`,
+  history_window: (v: number) => `History window set to ${v} term${v === 1 ? "" : "s"}`,
+  apply_trend: (v: boolean) => `Historical trend ${v ? "on" : "off"}`,
+  large_lecture_cap: (v: number) => `Large lecture cap set to ${v}`,
+  small_section_cap: (v: number) => `Small section cap set to ${v}`,
+  virtual_cap: (v: number) => `Remote section cap set to ${v}`,
+  recitation_cap: (v: number) => `Recitation cap set to ${v}`,
+  min_elective_demand: (v: number) => `Minimum elective enrollment set to ${v}`,
+  history_fallback: (v: boolean) => `Teaching-history matching ${v ? "on" : "off"}`,
+  force_fill_core: (v: boolean) => `Force-fill unstaffed core ${v ? "on" : "off"}`,
+  recitation_leader_load: (v: number) => `Recitations per leader set to ${v}`,
+};
+
+let pendingSince: PlanSettings | null = null;
+let confirmTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Confirm settings changes once the user stops adjusting (no toast per slider tick). */
+function confirmSettings(before: PlanSettings, getAfter: () => PlanSettings, reset = false) {
+  pendingSince = pendingSince ?? before;
+  clearTimeout(confirmTimer);
+  confirmTimer = setTimeout(() => {
+    const from = pendingSince!;
+    pendingSince = null;
+    const after = getAfter();
+    const changed = (Object.keys(LABELS) as (keyof PlanSettings)[]).filter((k) => from[k] !== after[k]);
+    if (!changed.length) return;
+    const ui = useUI.getState();
+    const lines = changed.map((k) => (LABELS[k] as (v: unknown) => string)(after[k]));
+    const termOnly = changed.length === 1 && changed[0] === "target_term";
+    ui.success(reset ? "Planning settings reset to defaults" : termOnly ? lines[0] : "Planning settings saved",
+      reset || termOnly ? (termOnly ? "Forecast, schedule and conflicts updated" : undefined) : lines.join(" · "), "settings");
+  }, 700);
+}
 
 export const DEFAULT_SETTINGS: PlanSettings = {
   target_term: "", growth_multiplier: 1.0, history_window: 3, apply_trend: true, large_lecture_cap: 200,
@@ -25,8 +62,16 @@ export const usePlan = create<PlanState>()(
   persist(
     (set, get) => ({
       settings: DEFAULT_SETTINGS,
-      update: (patch) => set({ settings: { ...get().settings, ...patch } }),
-      reset: () => set({ settings: { ...DEFAULT_SETTINGS, target_term: get().settings.target_term } }),
+      update: (patch) => {
+        const before = get().settings;
+        set({ settings: { ...before, ...patch } });
+        confirmSettings(before, () => get().settings);
+      },
+      reset: () => {
+        const before = get().settings;
+        set({ settings: { ...DEFAULT_SETTINGS, target_term: before.target_term } });
+        confirmSettings(before, () => get().settings, true);
+      },
       meta: null,
       metaError: null,
       loadMeta: async () => {

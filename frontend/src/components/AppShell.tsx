@@ -1,6 +1,6 @@
 // Application chrome: sidebar navigation, top bar (term, presence, theme, account) and toasts.
 import {
-  AlertTriangle, BarChart3, CalendarRange, ClipboardList, LayoutDashboard, LogIn, LogOut, Menu, Moon, Settings2, Sun, X,
+  AlertCircle, AlertTriangle, BarChart3, CheckCircle2, Info, CalendarRange, ClipboardList, LayoutDashboard, LogIn, LogOut, Menu, Moon, Settings2, Sun, X,
 } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
@@ -9,7 +9,7 @@ import { useCollab } from "../store/collab";
 import { usePlan } from "../store/plan";
 import { useUI } from "../store/ui";
 import { TermSelect } from "./SettingsPanel";
-import { Avatar, IconButton, cx } from "./ui";
+import { Avatar, BrandMark, IconButton, cx } from "./ui";
 
 const NAV = [
   { group: "Planning", items: [
@@ -25,7 +25,7 @@ const NAV = [
 function Brand() {
   return (
     <div className="flex items-center gap-2.5 px-3 py-4">
-      <div className="flex h-7 w-7 items-center justify-center rounded bg-nu text-[11px] font-bold tracking-tight text-white">NU</div>
+      <BrandMark size={28} />
       <div className="leading-tight">
         <div className="text-[13px] font-semibold">Economics Scheduler</div>
         <div className="text-[11px] text-muted">Northeastern University</div>
@@ -66,11 +66,11 @@ function Sidebar() {
               <div className="truncate text-[13px] font-medium">{user.name}</div>
               <div className="truncate text-[11px] text-muted">{user.role === "admin" ? "Scheduler" : "Faculty"} · {user.email}</div>
             </div>
-            <IconButton label="Sign out" onClick={() => { signOut(); navigate("/"); }}><LogOut className="h-4 w-4" /></IconButton>
+            <IconButton label="Sign Out" onClick={() => { signOut(); navigate("/"); useUI.getState().success("Signed out"); }}><LogOut className="h-4 w-4" /></IconButton>
           </div>
         ) : (
           <NavLink to="/login" className="flex h-9 items-center gap-2 rounded-md px-2 text-[13px] text-muted hover:bg-hover hover:text-fg">
-            <LogIn className="h-4 w-4" /> Sign in
+            <LogIn className="h-4 w-4" /> Sign In
           </NavLink>
         )}
       </div>
@@ -96,7 +96,7 @@ function Presence() {
           {others.length > 4 && <span className="flex h-6 w-6 items-center justify-center rounded-full bg-subtle text-[10px] ring-2 ring-surface">+{others.length - 4}</span>}
         </div>
       )}
-      <span className="flex items-center gap-1.5 text-xs text-muted" title="Real-time collaboration connection">
+      <span className="flex items-center gap-1.5 text-xs text-muted" title="Real-Time Collaboration Connection">
         <span className={cx("h-1.5 w-1.5 rounded-full", status === "online" ? "bg-emerald-500" : status === "connecting" ? "bg-amber-500" : "bg-faint")} />
         {label}
       </span>
@@ -104,21 +104,34 @@ function Presence() {
   );
 }
 
+const TOAST_STYLE = {
+  success: { box: "border-emerald-200 bg-emerald-50/95 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/80 dark:text-emerald-300",
+             body: "text-emerald-700/80 dark:text-emerald-300/70", icon: CheckCircle2 },
+  error: { box: "border-nu/30 bg-surface text-fg", body: "text-muted", icon: AlertCircle },
+  info: { box: "border-line bg-surface text-fg", body: "text-muted", icon: Info },
+} as const;
+
 function Toaster() {
   const toasts = useUI((s) => s.toasts);
   const dismiss = useUI((s) => s.dismiss);
   return (
-    <div className="pointer-events-none fixed bottom-4 left-1/2 z-[60] flex w-[360px] max-w-[92vw] -translate-x-1/2 flex-col gap-2">
-      {toasts.map((t) => (
-        <div key={t.id} className="animate-fade-up pointer-events-auto flex items-start gap-3 rounded-md border border-line bg-surface px-3 py-2.5 shadow-lg">
-          <span className={cx("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", t.tone === "error" ? "bg-nu" : t.tone === "success" ? "bg-emerald-500" : "bg-sky-500")} />
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium">{t.title}</div>
-            {t.body && <div className="truncate text-xs text-muted">{t.body}</div>}
+    <div aria-live="polite" className="pointer-events-none fixed bottom-4 left-1/2 z-[60] flex w-[380px] max-w-[92vw] -translate-x-1/2 flex-col gap-2">
+      {toasts.map((t) => {
+        const st = TOAST_STYLE[t.tone];
+        const Icon = st.icon;
+        return (
+          <div key={t.id} role={t.tone === "error" ? "alert" : "status"}
+            className={cx("pointer-events-auto flex items-start gap-2.5 rounded-md border px-3 py-2.5 shadow-lg backdrop-blur",
+              st.box, t.leaving ? "animate-toast-out" : "animate-fade-up")}>
+            <Icon className={cx("mt-px h-4 w-4 shrink-0", t.tone === "error" ? "text-nu-text" : t.tone === "info" ? "text-sky-500" : "")} />
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-medium">{t.title}</div>
+              {t.body && <div className={cx("truncate text-xs", st.body)}>{t.body}</div>}
+            </div>
+            <button onClick={() => dismiss(t.id)} aria-label="Dismiss" className="opacity-60 hover:opacity-100"><X className="h-3.5 w-3.5" /></button>
           </div>
-          <button onClick={() => dismiss(t.id)} className="text-faint hover:text-fg"><X className="h-3.5 w-3.5" /></button>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -128,7 +141,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const term = usePlan((s) => s.settings.target_term);
   const sendPresence = useCollab((s) => s.sendPresence);
   const location = useLocation();
-  const pageName = NAV.flatMap((g) => g.items).find((n) => n.to === location.pathname)?.label ?? "Sign in";
+  const pageName = NAV.flatMap((g) => g.items).find((n) => n.to === location.pathname)?.label ?? "Sign In";
 
   useEffect(() => { sendPresence({ page: pageName, term, section_id: null }); }, [pageName, term, sendPresence]);
 
@@ -143,7 +156,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-40 flex h-12 items-center gap-3 border-b border-line bg-surface/90 px-4 backdrop-blur md:px-6">
-          <IconButton label="Open navigation" className="lg:hidden" onClick={() => setNavOpen(true)}><Menu className="h-4 w-4" /></IconButton>
+          <IconButton label="Open Navigation" className="lg:hidden" onClick={() => setNavOpen(true)}><Menu className="h-4 w-4" /></IconButton>
           <div className="flex items-center gap-2 text-xs text-muted">
             <span className="hidden sm:inline">Term</span>
             <div className="w-40"><TermSelect compact /></div>
@@ -158,7 +171,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
         <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 md:px-8">{children}</main>
         <footer className="border-t border-line px-8 py-4 text-xs text-faint">
-          Northeastern University · Department of Economics · Undergraduate curriculum planning
+          Northeastern University · Department of Economics · Undergraduate Curriculum Planning
         </footer>
       </div>
       <Toaster />

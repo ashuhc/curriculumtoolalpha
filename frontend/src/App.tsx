@@ -37,7 +37,7 @@ export default function App() {
 
   return (
     <AppShell>
-      {metaError && <div className="mb-6"><Alert tone="error" title="Can't reach the scheduler API">{metaError}</Alert></div>}
+      {metaError && <div className="mb-6"><Alert tone="error" title="Can't Reach the Scheduler API">{metaError}</Alert></div>}
       {gated ? <Navigate to="/login" replace state={{ from: location.pathname + location.search }} /> : <Routes>
         <Route path="/" element={<Overview />} />
         <Route path="/login" element={<Login />} />

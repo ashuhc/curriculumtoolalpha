@@ -77,3 +77,15 @@ input[type="range"], input[type="checkbox"], input[type="radio"] { accent-color:
 @keyframes fade-up { from { transform: translateY(6px); opacity: 0 } to { transform: none; opacity: 1 } }
 .animate-slide-in { animation: slide-in 160ms ease-out; }
 .animate-fade-up { animation: fade-up 160ms ease-out; }
+
+/* Toast exit */
+@keyframes toast-out { to { transform: translateY(6px); opacity: 0 } }
+.animate-toast-out { animation: toast-out 220ms ease-in forwards; }
+
+/* Green "just updated" highlight for rows and panels after a successful change */
+@keyframes flash-bg { 0%, 25% { background-color: rgb(16 185 129 / 0.16) } 100% { background-color: transparent } }
+@keyframes flash-edge { 0%, 25% { box-shadow: inset 2px 0 0 rgb(16 185 129 / 0.9) } 100% { box-shadow: inset 2px 0 0 transparent } }
+.flash-success:not(tr) { animation: flash-bg 1.6s ease-out, flash-edge 1.6s ease-out; }
+/* Table rows: browsers don't paint box-shadow on <tr>, so tint the cells and edge the first one */
+tr.flash-success > td { animation: flash-bg 1.6s ease-out; }
+tr.flash-success > td:first-child { animation: flash-bg 1.6s ease-out, flash-edge 1.6s ease-out; }

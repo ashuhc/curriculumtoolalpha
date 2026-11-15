@@ -11,6 +11,7 @@ import { useUI } from "../store/ui";
 export default function Demand() {
   const { settings, dataVersion } = usePlan();
   const toast = useUI((s) => s.toast);
+  const success = useUI((s) => s.success);
   const s = useDebounced(settings);
   const res = useAsync(() => (s.target_term ? api.demand(s) : Promise.resolve(null)), [JSON.stringify(s), dataVersion]);
   const [q, setQ] = useState("");
@@ -30,7 +31,8 @@ export default function Demand() {
     <>
       <PageHeader title="Demand Estimator"
         description={<>Projected undergraduate enrollment and section plan for <span className="font-medium text-fg">{settings.target_term}</span>. Projection = recency-weighted average of prior same-season terms × annual trend × growth multiplier.</>}
-        actions={<Button icon={<Download className="h-3.5 w-3.5" />} onClick={() => api.exportPlan("demand", settings).catch((e) => toast({ title: "Export failed", body: e.message, tone: "error" }))}>Export CSV</Button>} />
+        actions={<Button icon={<Download className="h-3.5 w-3.5" />} onClick={() => api.exportPlan("demand", settings).then(() => success("Demand estimate exported", settings.target_term))
+          .catch((e) => toast({ title: "Export failed", body: e.message, tone: "error" }))}>Export CSV</Button>} />
 
       <div className="space-y-6">
         <SettingsPanel mode="demand" />
@@ -40,19 +42,19 @@ export default function Demand() {
           <>
             <div className={cx("transition-opacity", res.loading && "opacity-60")}>
               <StatGrid cols={6}>
-                <Stat label="Courses planned" value={d.summary.courses} />
-                <Stat label="Lecture sections" value={d.summary.lecture_sections} />
+                <Stat label="Courses Planned" value={d.summary.courses} />
+                <Stat label="Lecture Sections" value={d.summary.lecture_sections} />
                 <Stat label="Recitations" value={d.summary.recitation_sections} />
-                <Stat label="Projected students" value={d.summary.projected_students.toLocaleString()} />
-                <Stat label="Seats offered" value={d.summary.seats_offered.toLocaleString()}
+                <Stat label="Projected Students" value={d.summary.projected_students.toLocaleString()} />
+                <Stat label="Seats Offered" value={d.summary.seats_offered.toLocaleString()}
                   sub={`${Math.round((100 * d.summary.projected_students) / Math.max(1, d.summary.seats_offered))}% seat fill`} />
-                <Stat label="Remote sections" value={d.summary.remote_sections} sub={`≤ ${settings.virtual_cap} students each`} />
+                <Stat label="Remote Sections" value={d.summary.remote_sections} sub={`≤ ${settings.virtual_cap} students each`} />
               </StatGrid>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               {recitations.map((r) => (
-                <Panel key={r.code} title={`${r.course} recitations`} description={`${r.title} · weekly, 65 minutes`}>
+                <Panel key={r.code} title={`${r.course} Recitations`} description={`${r.title} · weekly, 65 minutes`}>
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[13px] text-muted">
                     <span className="text-lg font-semibold tabular-nums text-fg">{r.projected_enrollment.toLocaleString()}</span> on-campus lecture students
                     <span>÷</span><span className="text-lg font-semibold tabular-nums text-fg">{settings.recitation_cap}</span> per recitation
@@ -64,21 +66,21 @@ export default function Demand() {
               ))}
             </div>
 
-            <Panel flush title="Projected demand and section plan"
+            <Panel flush title="Projected Demand and Section Plan"
               description={`Principles run as ${settings.large_lecture_cap}-seat lectures plus ${settings.small_section_cap}-seat sections. Electives under ${settings.min_elective_demand} students aren't planned and only run if a faculty member is matched to them.`}
               actions={<>
                 <div className="relative"><Search className="absolute left-2.5 top-2 h-4 w-4 text-faint" />
                   <input className={inputBase + " w-52 pl-8"} placeholder="Filter courses" value={q} onChange={(e) => setQ(e.target.value)} /></div>
                 <select className={inputBase + " w-44"} value={cat} onChange={(e) => setCat(e.target.value)}>
-                  <option value="">All categories</option>{cats.map((c) => <option key={c}>{c}</option>)}
+                  <option value="">All Categories</option>{cats.map((c) => <option key={c}>{c}</option>)}
                 </select>
-                <Switch checked={plannedOnly} onChange={setPlannedOnly} label="Planned only" />
+                <Switch checked={plannedOnly} onChange={setPlannedOnly} label="Planned Only" />
               </>}>
               {backtest && <div className="border-b border-line p-3"><Alert>Back-test: {settings.target_term} already has enrollment on file, so actual figures appear next to the forecast (which uses only earlier terms).</Alert></div>}
               <Table maxH="max-h-[640px]">
                 <thead><tr>
-                  <th>Course</th><th>Title</th><th>Category</th><th>Modality</th><th className="text-right">Hist. avg</th><th className="text-right">Trend / yr</th>
-                  <th className="text-right">Projected</th><th className="text-right">Sections</th><th>Section caps</th><th className="w-36">Seat fill</th>
+                  <th>Course</th><th>Title</th><th>Category</th><th>Modality</th><th className="text-right">Hist. Avg</th><th className="text-right">Trend per Year</th>
+                  <th className="text-right">Projected</th><th className="text-right">Sections</th><th>Section Caps</th><th className="w-36">Seat Fill</th>
                   {backtest && <th className="text-right">Actual</th>}<th>Notes</th>
                 </tr></thead>
                 <tbody>
@@ -87,7 +89,7 @@ export default function Demand() {
                       <td className="whitespace-nowrap font-medium tabular-nums">{r.course}</td>
                       <td className="min-w-48">{r.title}</td>
                       <td className="whitespace-nowrap"><span className="flex items-center gap-1.5 text-xs text-muted"><CategoryDot category={r.category} />{r.category}</span></td>
-                      <td className="whitespace-nowrap">{r.virtual ? <Badge tone="blue">Remote</Badge> : <span className="text-muted">In person</span>}</td>
+                      <td className="whitespace-nowrap">{r.virtual ? <Badge tone="blue">Remote</Badge> : <span className="text-muted">In Person</span>}</td>
                       <td className="text-right tabular-nums text-muted">{r.hist_weighted_avg ?? "—"}</td>
                       <td className={cx("text-right tabular-nums", r.annual_trend > 0.005 ? "text-emerald-600" : r.annual_trend < -0.005 ? "text-nu-text" : "text-faint")}>
                         {r.annual_trend ? `${r.annual_trend > 0 ? "+" : ""}${(r.annual_trend * 100).toFixed(1)}%` : "—"}</td>
@@ -110,11 +112,11 @@ export default function Demand() {
               </Table>
             </Panel>
 
-            <Panel flush title="Prerequisite validation"
+            <Panel flush title="Prerequisite Validation"
               description="1000-level: none · 3000-level: Principles · 4000-level: multiple prerequisites including theory. Each prerequisite must also be offered this term."
               actions={<Badge tone={failedPrereqs ? "amber" : "green"}>{d.prerequisites.length - failedPrereqs} of {d.prerequisites.length} pass</Badge>}>
               <Table maxH="max-h-96">
-                <thead><tr><th>Course</th><th>Title</th><th>Level</th><th>Prerequisites</th><th>Level rule</th><th>Pathway offered</th></tr></thead>
+                <thead><tr><th>Course</th><th>Title</th><th>Level</th><th>Prerequisites</th><th>Level Rule</th><th>Pathway Offered</th></tr></thead>
                 <tbody>{d.prerequisites.map((p) => (
                   <tr key={p.course}>
                     <td className="font-medium tabular-nums">{p.course}</td><td>{p.title}</td><td className="tabular-nums text-muted">{p.level}</td>
