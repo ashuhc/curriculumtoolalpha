@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 import { Link } from "react-router-dom";
 import { api, type Course } from "../api";
 import { CourseSelect, matchCourse } from "../components/CourseSelect";
-import { Alert, Badge, Button, ErrorState, Field, PageHeader, Panel, Spinner, inputCls, textareaCls } from "../components/ui";
+import { Alert, Badge, Button, CARD, ErrorState, Field, PageHeader, Panel, Spinner, cx, inputCls, textareaCls } from "../components/ui";
 import { fmtDate, useAsync } from "../lib/hooks";
 import { useAuth } from "../store/auth";
 import { usePlan } from "../store/plan";
@@ -75,7 +75,7 @@ export default function Preferences() {
   if (!user) {
     return (
       <>
-        <PageHeader title="Teaching Preferences" description="Faculty submit ranked course preferences and semester loads for the coming academic year." />
+        <PageHeader eyebrow="Faculty" title="Teaching Preferences" description="Faculty submit ranked course preferences and semester loads for the coming academic year." />
         <Alert tone="info" title="Sign In to Submit Your Preferences"
           action={<Link to="/login" state={{ from: "/preferences" }}><Button size="sm" variant="primary">Sign In</Button></Link>}>
           Your account is linked to your faculty roster entry, so submissions are attributed to you.
@@ -91,7 +91,7 @@ export default function Preferences() {
 
   return (
     <>
-      <PageHeader title="Teaching Preferences"
+      <PageHeader eyebrow="Faculty" title="Teaching Preferences"
         description="Rank the undergraduate courses you'd like to teach and set your semester loads. Electives are offered only when a faculty member wants to teach them."
         meta={last && <Badge tone="green">Last Submitted {fmtDate(last.submitted_at)}</Badge>}
         actions={<a className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg" target="_blank" rel="noreferrer"
@@ -102,7 +102,7 @@ export default function Preferences() {
       )}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
-        <form onSubmit={submit} className={`rounded-lg border border-line bg-surface px-5 ${flash("prefs-form")}`}>
+        <form onSubmit={submit} className={cx(CARD, "px-5", flash("prefs-form"))}>
           <Section n={1} title="Faculty Member" description={isAdmin ? "Schedulers can submit on behalf of any faculty member." : undefined}>
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Name">

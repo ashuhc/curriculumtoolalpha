@@ -1,5 +1,5 @@
 // Unresolved conflicts report + faculty workload, with CSV export.
-import { Download, Search } from "lucide-react";
+import { AlertTriangle, Download, Info, OctagonAlert, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type ConflictRow } from "../api";
@@ -49,7 +49,7 @@ export default function Conflicts() {
 
   return (
     <>
-      <PageHeader title="Conflicts"
+      <PageHeader eyebrow="Planning" title="Conflicts"
         description={<>Items that need review before <span className="font-medium text-fg">{settings.target_term}</span> is published. Reflects manual edits made on the Master Schedule.</>}
         actions={<Button icon={<Download className="h-3.5 w-3.5" />} onClick={() => exp(tab)}>Export {tab === "conflicts" ? "Conflicts" : "Workload"} CSV</Button>} />
       {error && <ErrorState error={error} onRetry={() => fetch(settings)} />}
@@ -58,7 +58,7 @@ export default function Conflicts() {
         <div className="space-y-6">
           <StatGrid cols={3}>
             {(["Critical", "Warning", "Info"] as Sev[]).map((v) => (
-              <Stat key={v} label={v === "Info" ? "Informational" : v === "Warning" ? "Warnings" : "Critical"} active={sev.has(v)} onClick={() => toggle(v)}
+              <Stat key={v} icon={v === "Critical" ? OctagonAlert : v === "Warning" ? AlertTriangle : Info} iconTone={v === "Info" ? "neutral" : "warning"} label={v === "Info" ? "Informational" : v === "Warning" ? "Warnings" : "Critical"} active={sev.has(v)} onClick={() => toggle(v)}
                 value={d.summary[v.toLowerCase() as "critical" | "warning" | "info"]} tone={v === "Critical" && d.summary.critical ? "danger" : v === "Warning" && d.summary.warning ? "warning" : undefined}
                 sub={sev.has(v) ? "Shown · click to hide" : "Hidden · click to show"} />
             ))}

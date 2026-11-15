@@ -49,10 +49,10 @@ function Sidebar() {
             <div className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wider text-faint">{g.group}</div>
             {g.items.map((n) => (
               <NavLink key={n.to} to={n.to} end={n.to === "/"} onClick={() => setNavOpen(false)}
-                className={({ isActive }) => cx("relative flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] transition-colors",
-                  isActive ? "bg-hover font-medium text-fg before:absolute before:inset-y-1.5 before:-left-2 before:w-0.5 before:rounded-full before:bg-nu"
+                className={({ isActive }) => cx("group relative flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] transition-colors",
+                  isActive ? "bg-red-50 font-medium text-fg dark:bg-red-500/10 before:absolute before:inset-y-1.5 before:-left-2 before:w-[3px] before:rounded-full before:bg-nu"
                     : "text-muted hover:bg-hover hover:text-fg")}>
-                <n.icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />{n.label}
+                <n.icon className="h-4 w-4 shrink-0 group-aria-[current=page]:text-[#D01C28] dark:group-aria-[current=page]:text-red-400" strokeWidth={1.75} />{n.label}
               </NavLink>
             ))}
           </div>
@@ -164,9 +164,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-2">
             <Presence />
             <div className="mx-1 h-4 w-px bg-line" />
-            <IconButton label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} onClick={toggleTheme}>
+            <button aria-label={theme === "dark" ? "Switch to Light Theme" : "Switch to Dark Theme"}
+              title={theme === "dark" ? "Switch to Light Theme" : "Switch to Dark Theme"} onClick={toggleTheme}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#D01C28] transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10">
               {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-            </IconButton>
+            </button>
           </div>
         </header>
         <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 md:px-8">{children}</main>

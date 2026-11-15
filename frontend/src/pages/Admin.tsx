@@ -36,7 +36,7 @@ export default function Admin() {
   if (!isAdmin) return <Alert tone="warning" title="Scheduler Access Required">Your account has the faculty role.</Alert>;
   return (
     <>
-      <PageHeader title="Administration" description="Manage preference submissions, the faculty roster and overloads, the course catalog, user accounts and enrollment data." />
+      <PageHeader eyebrow="Administration" title="Administration" description="Manage preference submissions, the faculty roster and overloads, the course catalog, user accounts and enrollment data." />
       <Tabs value={tab} onChange={setTab} className="mb-5" tabs={[
         { id: "submissions", label: "Submissions" }, { id: "faculty", label: "Faculty & Overloads" }, { id: "courses", label: "Course Catalog" },
         { id: "users", label: "Users & Roles" }, { id: "data", label: "Enrollment Data" }, { id: "publications", label: "Publications" }]} />

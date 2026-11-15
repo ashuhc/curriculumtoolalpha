@@ -1,5 +1,5 @@
 // Master Schedule: grid + weekly calendar with live collaboration, section drawer, publishing.
-import { CalendarRange, Download, FileCheck2, LayoutList, Lock, MessageSquare, Search, Send, TriangleAlert } from "lucide-react";
+import { AlertTriangle, BookOpen, CalendarRange, Download, FileCheck2, LayoutList, Lock, MessageSquare, PencilLine, Search, Send, ShieldCheck, Target, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, type ScheduleResponse } from "../api";
@@ -61,7 +61,7 @@ export default function Schedule() {
 
   return (
     <>
-      <PageHeader title="Master Schedule"
+      <PageHeader eyebrow="Planning" title="Master Schedule"
         description="Core courses are staffed first, then recitations, then preference-driven electives. Lectures use class sequences 1–5 and A–H; recitations use 65-minute slots in lab windows L–W."
         meta={pub && <><Badge tone="green"><FileCheck2 className="h-3 w-3" />Published v{pub.version}</Badge><span>{fmtDate(pub.published_at)} by {pub.published_by}{pub.note && ` · “${pub.note}”`}</span></>}
         actions={<>
@@ -81,12 +81,12 @@ export default function Schedule() {
           <>
             <div className={cx("transition-opacity", loading && "opacity-60")}>
               <StatGrid cols={6}>
-                <Stat label="Sections" value={sm.sections} />
-                <Stat label="Core Staffed" value={`${sm.core_staffed}/${sm.core_sections}`} tone={sm.core_staffed < sm.core_sections ? "danger" : undefined} />
-                <Stat label="Electives Offered" value={sm.electives_offered} />
-                <Stat label="Top-3 Preference Matches" value={sm.preference_matches} sub={`${sm.submissions} form submission${sm.submissions === 1 ? "" : "s"}`} />
-                <Stat label="Critical · Warnings" value={`${sm.critical} · ${sm.warning}`} tone={sm.critical ? "danger" : sm.warning ? "warning" : undefined} />
-                <Stat label="Manual Edits" value={sm.overrides_applied} sub={sm.overrides_stale.length ? `${sm.overrides_stale.length} no longer match a section` : `${data.locks.length} section${data.locks.length === 1 ? "" : "s"} locked`} />
+                <Stat icon={CalendarRange} label="Sections" value={sm.sections} />
+                <Stat icon={ShieldCheck} iconTone={sm.core_staffed < sm.core_sections ? "warning" : "primary"} label="Core Staffed" value={`${sm.core_staffed}/${sm.core_sections}`} tone={sm.core_staffed < sm.core_sections ? "danger" : undefined} />
+                <Stat icon={BookOpen} label="Electives Offered" value={sm.electives_offered} />
+                <Stat icon={Target} label="Top-3 Preference Matches" value={sm.preference_matches} sub={`${sm.submissions} form submission${sm.submissions === 1 ? "" : "s"}`} />
+                <Stat icon={AlertTriangle} iconTone="warning" label="Critical · Warnings" value={`${sm.critical} · ${sm.warning}`} tone={sm.critical ? "danger" : sm.warning ? "warning" : undefined} />
+                <Stat icon={PencilLine} iconTone="neutral" label="Manual Edits" value={sm.overrides_applied} sub={sm.overrides_stale.length ? `${sm.overrides_stale.length} no longer match a section` : `${data.locks.length} section${data.locks.length === 1 ? "" : "s"} locked`} />
               </StatGrid>
             </div>
             {sm.submissions === 0 && settings.history_fallback && (

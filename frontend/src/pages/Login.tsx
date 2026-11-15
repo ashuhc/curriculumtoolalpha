@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api";
-import { Alert, BrandMark, Button, Field, inputCls } from "../components/ui";
+import { Alert, BrandMark, Button, CARD, Field, cx, inputCls } from "../components/ui";
 import { useAuth } from "../store/auth";
 import { useUI } from "../store/ui";
 
@@ -41,7 +41,7 @@ export default function Login() {
         <p className="mt-1 text-[13px] text-muted">Faculty submit teaching preferences; schedulers edit, lock and publish the master schedule.</p>
       </div>
       {expired && <div className="mb-4"><Alert tone="warning">Your session expired. Please sign in again.</Alert></div>}
-      <form onSubmit={submit} className="space-y-4 rounded-lg border border-line bg-surface p-5">
+      <form onSubmit={submit} className={cx(CARD, "space-y-4 p-5")}>
         <Field label="Email"><input className={inputCls} type="email" autoComplete="username" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label="Password"><input className={inputCls} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
         {error && <Alert tone="error">{error}</Alert>}

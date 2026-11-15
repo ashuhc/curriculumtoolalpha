@@ -42,7 +42,7 @@ function GrowthSlider({ value, onChange }: { value: number; onChange: (v: number
   const v = Math.min(GROWTH.max, Math.max(GROWTH.min, Math.round(value * 100) / 100));
   return (
     <div className="mt-2">
-      <input type="range" className="range-nu" aria-label="Enrollment growth multiplier" aria-valuetext={`${v.toFixed(2)} times`}
+      <input type="range" className="range-nu" aria-label="Enrollment Growth Multiplier" aria-valuetext={`${v.toFixed(2)} times`}
         min={GROWTH.min} max={GROWTH.max} step={GROWTH.step} value={v}
         style={{ ["--fill" as string]: thumbLeft(v) }}
         // Round away floating-point drift (0.85 + 4 × 0.05 = 1.0500000000000003)

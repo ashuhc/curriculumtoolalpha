@@ -1,16 +1,48 @@
 // Design-system primitives: restrained, border-led, enterprise-dashboard styling.
-import { AlertCircle, AlertTriangle, CheckCircle2, GraduationCap, Info, Loader2, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, GraduationCap, Info, Loader2, X, type LucideIcon } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useEffect, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
 }
 
+/**
+ * Elevated card surface, theme-aware. Light: white on the slate-50 canvas with a
+ * soft border and xs shadow. Dark: translucent zinc with a white/10 hairline and
+ * a faint top highlight for depth.
+ */
+export const CARD = "rounded-lg border border-slate-200/80 bg-white shadow-xs dark:border-white/10 dark:bg-zinc-900/70 dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.04),0_1px_2px_rgb(0_0_0/0.4)]";
+/** Hover micro-interaction for clickable cards: lift slightly, border warms toward Northeastern Red. */
+export const CARD_INTERACTIVE = "transition duration-150 hover:-translate-y-px hover:border-nu/40 hover:shadow-md dark:hover:border-nu/50 dark:hover:shadow-[0_10px_28px_-14px_rgb(208_28_40/0.55)] motion-reduce:transform-none";
+
+/** Tinted icon badges (static class strings so Tailwind keeps them). */
+export const ICON_TONE = {
+  primary: "bg-red-50 text-[#D01C28] dark:bg-red-500/10 dark:text-red-400",
+  warning: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
+  success: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
+  neutral: "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-zinc-400",
+} as const;
+export type IconTone = keyof typeof ICON_TONE;
+
+export function IconBadge({ icon: Icon, tone = "primary", size = 30 }: { icon: LucideIcon; tone?: IconTone; size?: number }) {
+  return (
+    <span className={cx("inline-flex shrink-0 items-center justify-center rounded-md", ICON_TONE[tone])} style={{ width: size, height: size }}>
+      <Icon className="h-4 w-4" strokeWidth={1.9} />
+    </span>
+  );
+}
+
 // ------------------------------------------------------------------ layout ---
-export function PageHeader({ title, description, actions, meta }: { title: string; description?: ReactNode; actions?: ReactNode; meta?: ReactNode }) {
+export function PageHeader({ title, description, actions, meta, eyebrow }: { title: string; description?: ReactNode; actions?: ReactNode; meta?: ReactNode; eyebrow?: string }) {
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-line pb-5">
       <div className="min-w-0 flex-1 basis-80">
+        {eyebrow && (
+          <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-nu-text">
+            <span className="h-1.5 w-1.5 rounded-full bg-nu" />{eyebrow}
+          </div>
+        )}
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
         {description && <p className="mt-1 text-[13px] leading-relaxed text-muted text-pretty">{description}</p>}
         {meta && <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">{meta}</div>}
@@ -24,7 +56,7 @@ export function Panel({ title, description, actions, children, className, bodyCl
   title?: ReactNode; description?: ReactNode; actions?: ReactNode; children?: ReactNode; className?: string; bodyClass?: string; flush?: boolean;
 }) {
   return (
-    <section className={cx("rounded-lg border border-line bg-surface", className)}>
+    <section className={cx(CARD, className)}>
       {(title || actions) && (
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
           <div className="min-w-0 flex-1 basis-64">
@@ -41,21 +73,29 @@ export function Panel({ title, description, actions, children, className, bodyCl
 
 export function StatGrid({ children, cols = 4 }: { children: ReactNode; cols?: 3 | 4 | 5 | 6 }) {
   const c = { 3: "md:grid-cols-3", 4: "md:grid-cols-4", 5: "md:grid-cols-5", 6: "md:grid-cols-3 xl:grid-cols-6" }[cols];
-  // 1px gaps over a border-colored background draw hairline dividers between cells
-  return <div className={cx("grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line", c)}>{children}</div>;
+  return <div className={cx("grid grid-cols-2 gap-3", c)}>{children}</div>;
 }
 
-export function Stat({ label, value, sub, tone, onClick, active }: {
-  label: string; value: ReactNode; sub?: ReactNode; tone?: "danger" | "warning" | "success"; onClick?: () => void; active?: boolean;
+export function Stat({ label, value, sub, tone, icon, iconTone = "primary", onClick, active, to }: {
+  label: string; value: ReactNode; sub?: ReactNode; tone?: "danger" | "warning" | "success";
+  icon?: LucideIcon; iconTone?: IconTone; onClick?: () => void; active?: boolean; to?: string;
 }) {
-  const color = tone === "danger" ? "text-nu-text" : tone === "warning" ? "text-amber-500" : tone === "success" ? "text-emerald-500" : "";
-  return (
-    <div onClick={onClick} className={cx("bg-surface px-4 py-3", onClick && "cursor-pointer hover:bg-hover", active && "!bg-subtle")}>
-      <div className="text-xs text-muted">{label}</div>
-      <div className={cx("mt-1 text-xl font-semibold tabular-nums tracking-tight", color)}>{value}</div>
+  const color = tone === "danger" ? "text-nu-text" : tone === "warning" ? "text-amber-600 dark:text-amber-400" : tone === "success" ? "text-emerald-600 dark:text-emerald-400" : "";
+  const interactive = !!(onClick || to);
+  const body = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-xs font-medium text-muted">{label}</div>
+        {icon && <IconBadge icon={icon} tone={iconTone} size={28} />}
+      </div>
+      <div className={cx("mt-1 text-2xl font-semibold tabular-nums tracking-tight", color)}>{value}</div>
       {sub && <div className="mt-0.5 truncate text-xs text-faint">{sub}</div>}
-    </div>
+    </>
   );
+  const cls = cx(CARD, "block px-4 py-3.5", interactive && CARD_INTERACTIVE, interactive && "cursor-pointer",
+    active && "ring-1 ring-nu/40 dark:ring-nu/50");
+  if (to) return <Link to={to} className={cls}>{body}</Link>;
+  return <div onClick={onClick} className={cls}>{body}</div>;
 }
 
 // ---------------------------------------------------------------- controls ---
@@ -229,7 +269,7 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, width
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <aside className={cx("animate-slide-in absolute inset-y-0 right-0 flex max-w-full flex-col border-l border-line bg-surface shadow-xl", width)}>
+      <aside className={cx("animate-slide-in absolute inset-y-0 right-0 flex max-w-full flex-col border-l border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-900", width)}>
         <header className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
           <div className="min-w-0">
             <div className="text-[15px] font-semibold">{title}</div>
@@ -249,7 +289,7 @@ export function Modal({ open, onClose, title, children, footer }: { open: boolea
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="animate-fade-up relative w-full max-w-md rounded-lg border border-line bg-surface shadow-xl">
+      <div className="animate-fade-up relative w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-900">
         <header className="flex items-center justify-between border-b border-line px-5 py-3">
           <div className="text-[15px] font-semibold">{title}</div>
           <IconButton label="Close" onClick={onClose}><X className="h-4 w-4" /></IconButton>

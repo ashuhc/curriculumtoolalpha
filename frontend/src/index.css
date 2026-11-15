@@ -10,34 +10,36 @@
  * Northeastern Red is reserved for primary actions, the active nav item and alerts.
  */
 :root {
-  --bg: #0d1117;
-  --surface: #12171e;
-  --subtle: #181e26;
-  --hover: #1d242d;
-  --border: #262c35;
-  --border-strong: #353c47;
-  --fg: #e6e9ee;
-  --muted: #8b949e;
-  --faint: #6e7681;
+  /* Dark (default): zinc surfaces with translucent white borders */
+  --bg: #09090b;            /* zinc-950 canvas */
+  --surface: #111113;       /* chrome: sidebar, top bar, overlays, inputs */
+  --subtle: #1a1a1d;
+  --hover: #202024;
+  --border: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.14);
+  --fg: #ededef;
+  --muted: #a1a1aa;         /* zinc-400 */
+  --faint: #71717a;         /* zinc-500 */
   --nu: #d01c28;
   --nu-hover: #b31822;
   --nu-soft: rgba(208, 28, 40, 0.12);
-  --nu-text: #f0626b;
+  --nu-text: #f87171;       /* red-400 */
   color-scheme: dark;
 }
 
 [data-theme="light"] {
-  --bg: #f7f8fa;
+  /* Light: white cards on a soft slate-50 canvas */
+  --bg: #f8fafc;            /* slate-50 */
   --surface: #ffffff;
-  --subtle: #f3f4f6;
-  --hover: #eef0f3;
-  --border: #e5e7eb;
-  --border-strong: #d1d5db;
-  --fg: #111827;
-  --muted: #6b7280;
-  --faint: #9ca3af;
+  --subtle: #f1f5f9;        /* slate-100 */
+  --hover: #f1f5f9;
+  --border: rgb(226 232 240 / 0.8);   /* slate-200/80 */
+  --border-strong: #cbd5e1;           /* slate-300 */
+  --fg: #0f172a;            /* slate-900 */
+  --muted: #64748b;         /* slate-500 */
+  --faint: #94a3b8;         /* slate-400 */
   --nu-soft: rgba(208, 28, 40, 0.07);
-  --nu-text: #b31822;
+  --nu-text: #d01c28;
   color-scheme: light;
 }
 
@@ -61,6 +63,7 @@
 html { font-size: 14px; }
 body {
   background: var(--bg);
+  transition: background-color 0.2s ease, color 0.2s ease;
   color: var(--fg);
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;

@@ -1,8 +1,10 @@
-import { ArrowRight, BarChart3, CalendarRange, ClipboardList, FileCheck2, TriangleAlert } from "lucide-react";
+import {
+  AlertTriangle, ArrowRight, BarChart3, BookOpen, CalendarRange, ClipboardList, Database, FileCheck2, ShieldCheck, TriangleAlert, Users,
+} from "lucide-react";
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
-import { Badge, Button, ErrorState, PageHeader, Panel, Stat, StatGrid } from "../components/ui";
+import { Badge, Button, CARD, CARD_INTERACTIVE, ErrorState, IconBadge, PageHeader, Panel, Stat, StatGrid, cx } from "../components/ui";
 import { fmtDate, useAsync } from "../lib/hooks";
 import { useAuth } from "../store/auth";
 import { usePlan } from "../store/plan";
@@ -27,7 +29,7 @@ export default function Overview() {
 
   return (
     <>
-      <PageHeader title={user ? `Welcome Back, ${user.name}` : "Curriculum Planning"}
+      <PageHeader eyebrow="Dashboard" title={user ? `Welcome Back, ${user.name}` : "Curriculum Planning"}
         description="Plan the undergraduate economics curriculum: collect faculty preferences, forecast demand, build and publish the master schedule." />
 
       {user?.role === "faculty" && (
@@ -47,23 +49,26 @@ export default function Overview() {
         )}
       </div>
       <StatGrid cols={6}>
-        <Stat label="Sections Planned" value={s?.sections ?? "—"} />
-        <Stat label="Core Staffed" value={s ? `${s.core_staffed}/${s.core_sections}` : "—"} tone={s && s.core_staffed < s.core_sections ? "danger" : undefined} />
-        <Stat label="Electives Offered" value={s?.electives_offered ?? "—"} />
-        <Stat label="Critical Conflicts" value={s?.critical ?? "—"} tone={s?.critical ? "danger" : undefined} />
-        <Stat label="Preference Forms" value={health.data?.submissions ?? "—"} sub={`${health.data?.faculty ?? "—"} faculty on roster`} />
-        <Stat label="Enrollment History" value={health.data ? health.data.enrollment_records.toLocaleString() : "—"} sub={health.data ? `sections · ${health.data.database}` : undefined} />
+        <Stat to="/schedule" icon={CalendarRange} label="Sections Planned" value={s?.sections ?? "—"} sub="Open master schedule" />
+        <Stat to="/schedule" icon={ShieldCheck} label="Core Staffed" value={s ? `${s.core_staffed}/${s.core_sections}` : "—"}
+          tone={s && s.core_staffed < s.core_sections ? "danger" : undefined} iconTone={s && s.core_staffed < s.core_sections ? "warning" : "primary"} sub="Mandatory core sections" />
+        <Stat to="/schedule" icon={BookOpen} label="Electives Offered" value={s?.electives_offered ?? "—"} sub="Matched to willing faculty" />
+        <Stat to="/conflicts" icon={AlertTriangle} iconTone="warning" label="Critical Conflicts" value={s?.critical ?? "—"}
+          tone={s?.critical ? "danger" : undefined} sub={s ? `${s.warning} warnings to review` : undefined} />
+        <Stat to="/preferences" icon={Users} label="Preference Forms" value={health.data?.submissions ?? "—"} sub={`${health.data?.faculty ?? "—"} faculty on roster`} />
+        <Stat to="/demand" icon={Database} iconTone="neutral" label="Enrollment History" value={health.data ? health.data.enrollment_records.toLocaleString() : "—"}
+          sub={health.data ? `sections · ${health.data.database}` : undefined} />
       </StatGrid>
       {health.error && <div className="mt-4"><ErrorState error={health.error} onRetry={health.reload} /></div>}
 
       <h2 className="mb-2 mt-8 text-[13px] font-semibold">Planning Workflow</h2>
-      <div className="grid gap-px overflow-hidden rounded-lg border border-line bg-line md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2">
         {STEPS.map((st, i) => (
-          <Link key={st.to} to={st.to} className="group flex gap-4 bg-surface p-4 transition-colors hover:bg-hover">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line text-muted"><st.icon className="h-4 w-4" strokeWidth={1.75} /></div>
+          <Link key={st.to} to={st.to} className={cx(CARD, CARD_INTERACTIVE, "group flex gap-4 p-4")}>
+            <IconBadge icon={st.icon} tone={st.to === "/conflicts" ? "warning" : "primary"} size={32} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-[13px] font-medium"><span className="tabular-nums text-faint">{i + 1}</span>{st.title}
-                <ArrowRight className="ml-auto h-3.5 w-3.5 text-faint transition-transform group-hover:translate-x-0.5" /></div>
+                <ArrowRight className="ml-auto h-3.5 w-3.5 text-faint transition group-hover:translate-x-0.5 group-hover:text-nu-text" /></div>
               <p className="mt-1 text-xs leading-relaxed text-muted">{st.text}</p>
             </div>
           </Link>
