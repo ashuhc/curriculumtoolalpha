@@ -1,0 +1,45 @@
+{
+  "family": "econ-scheduler",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "web",
+      "image": "REPLACED_BY_CI",
+      "essential": true,
+      "portMappings": [{ "containerPort": 80, "protocol": "tcp" }],
+      "environment": [{ "name": "BACKEND_URL", "value": "http://localhost:8000" }],
+      "dependsOn": [{ "containerName": "api", "condition": "HEALTHY" }],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": { "awslogs-group": "/ecs/econ-scheduler", "awslogs-region": "us-east-1", "awslogs-stream-prefix": "web" }
+      }
+    },
+    {
+      "name": "api",
+      "image": "REPLACED_BY_CI",
+      "essential": true,
+      "portMappings": [{ "containerPort": 8000, "protocol": "tcp" }],
+      "environment": [
+        { "name": "SEED_DEMO_USERS", "value": "false" },
+        { "name": "CORS_ORIGINS", "value": "https://scheduler.example.northeastern.edu" }
+      ],
+      "secrets": [
+        { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:econ-scheduler/database-url" },
+        { "name": "AUTH_SECRET", "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:econ-scheduler/auth-secret" },
+        { "name": "ADMIN_PASSWORD", "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:econ-scheduler/admin-password" }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')\""],
+        "interval": 15, "timeout": 5, "retries": 3, "startPeriod": 30
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": { "awslogs-group": "/ecs/econ-scheduler", "awslogs-region": "us-east-1", "awslogs-stream-prefix": "api" }
+      }
+    }
+  ]
+}

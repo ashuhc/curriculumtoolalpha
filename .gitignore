@@ -1,0 +1,14 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+# backend
+backend/.venv/
+backend/scheduler.db
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+backend/.auth_secret

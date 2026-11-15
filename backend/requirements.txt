@@ -1,0 +1,9 @@
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.29      # includes the `websockets` library for /ws
+sqlalchemy>=2.0
+pydantic>=2.5
+python-multipart>=0.0.9
+psycopg2-binary>=2.9         # PostgreSQL driver (SQLite needs nothing extra)
+pandas>=2.0
+numpy>=1.24
+openpyxl>=3.1

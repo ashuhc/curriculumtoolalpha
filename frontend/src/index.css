@@ -1,0 +1,79 @@
+@import "@fontsource-variable/inter";
+@import "tailwindcss";
+
+/* `dark:` follows the in-app theme toggle, not the OS setting */
+@custom-variant dark (&:where(html:not([data-theme="light"]), html:not([data-theme="light"]) *));
+
+/*
+ * Design tokens. Dark is the default (same base palette as the original
+ * index.html portal); [data-theme="light"] switches the whole app.
+ * Northeastern Red is reserved for primary actions, the active nav item and alerts.
+ */
+:root {
+  --bg: #0d1117;
+  --surface: #12171e;
+  --subtle: #181e26;
+  --hover: #1d242d;
+  --border: #262c35;
+  --border-strong: #353c47;
+  --fg: #e6e9ee;
+  --muted: #8b949e;
+  --faint: #6e7681;
+  --nu: #d01c28;
+  --nu-hover: #b31822;
+  --nu-soft: rgba(208, 28, 40, 0.12);
+  --nu-text: #f0626b;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --subtle: #f3f4f6;
+  --hover: #eef0f3;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --fg: #111827;
+  --muted: #6b7280;
+  --faint: #9ca3af;
+  --nu-soft: rgba(208, 28, 40, 0.07);
+  --nu-text: #b31822;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-subtle: var(--subtle);
+  --color-hover: var(--hover);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-nu: var(--nu);
+  --color-nu-hover: var(--nu-hover);
+  --color-nu-soft: var(--nu-soft);
+  --color-nu-text: var(--nu-text);
+  --font-sans: "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+html { font-size: 14px; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+input, select, textarea, button { font: inherit; }
+::selection { background: var(--nu-soft); }
+
+input[type="range"], input[type="checkbox"], input[type="radio"] { accent-color: var(--nu); }
+
+/* Quiet scrollbars */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+
+@keyframes slide-in { from { transform: translateX(16px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes fade-up { from { transform: translateY(6px); opacity: 0 } to { transform: none; opacity: 1 } }
+.animate-slide-in { animation: slide-in 160ms ease-out; }
+.animate-fade-up { animation: fade-up 160ms ease-out; }
