@@ -70,6 +70,33 @@ input, select, textarea, button { font: inherit; }
 
 input[type="range"], input[type="checkbox"], input[type="radio"] { accent-color: var(--nu); }
 
+/*
+ * Custom range slider with fixed geometry so tick labels can be positioned
+ * exactly under the thumb. --thumb must match THUMB in SettingsPanel.tsx;
+ * --fill (thumb-center position) is set inline by the component.
+ */
+.range-nu {
+  --thumb: 14px;
+  -webkit-appearance: none; appearance: none;
+  display: block; width: 100%; height: var(--thumb); margin: 0; background: transparent; cursor: pointer;
+}
+.range-nu:focus-visible { outline: none; }
+.range-nu::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 9999px;
+  background: linear-gradient(to right, var(--nu) 0, var(--nu) var(--fill), var(--border-strong) var(--fill));
+}
+.range-nu::-webkit-slider-thumb {
+  -webkit-appearance: none; width: var(--thumb); height: var(--thumb); margin-top: calc((4px - var(--thumb)) / 2);
+  border-radius: 9999px; background: #fff; border: 2px solid var(--nu); box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+.range-nu:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px var(--nu-soft); }
+.range-nu::-moz-range-track { height: 4px; border-radius: 9999px; background: var(--border-strong); }
+.range-nu::-moz-range-progress { height: 4px; border-radius: 9999px; background: var(--nu); }
+.range-nu::-moz-range-thumb {
+  width: var(--thumb); height: var(--thumb); box-sizing: border-box;
+  border-radius: 9999px; background: #fff; border: 2px solid var(--nu); box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+
 /* Quiet scrollbars */
 * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 

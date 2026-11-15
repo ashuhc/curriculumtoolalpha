@@ -23,6 +23,42 @@ export function TermSelect({ compact }: { compact?: boolean }) {
   );
 }
 
+const GROWTH = { min: 0.85, max: 1.5, step: 0.05, ticks: [0.85, 1.0, 1.25, 1.5] };
+/** Thumb diameter in px — must match `--thumb` in index.css (.range-nu). */
+const THUMB = 14;
+
+/** Horizontal position of a value's thumb center, matching how browsers lay out a range thumb. */
+const thumbLeft = (v: number) => {
+  const pct = (v - GROWTH.min) / (GROWTH.max - GROWTH.min);
+  return `calc(${THUMB / 2}px + ${pct} * (100% - ${THUMB}px))`;
+};
+
+/**
+ * Enrollment growth slider. Tick labels are placed at their true values using the
+ * same geometry as the thumb, so 1.00× sits exactly under the thumb at 1.00×
+ * (it is ~23% along the 0.85–1.50 track, not the midpoint).
+ */
+function GrowthSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const v = Math.min(GROWTH.max, Math.max(GROWTH.min, Math.round(value * 100) / 100));
+  return (
+    <div className="mt-2">
+      <input type="range" className="range-nu" aria-label="Enrollment growth multiplier" aria-valuetext={`${v.toFixed(2)} times`}
+        min={GROWTH.min} max={GROWTH.max} step={GROWTH.step} value={v}
+        style={{ ["--fill" as string]: thumbLeft(v) }}
+        // Round away floating-point drift (0.85 + 4 × 0.05 = 1.0500000000000003)
+        onChange={(e) => onChange(Math.round(Number(e.target.value) * 100) / 100)} />
+      <div className="relative mt-1 h-5 text-[11px] tabular-nums text-faint" aria-hidden>
+        {GROWTH.ticks.map((t) => (
+          <span key={t} className="absolute top-0 flex -translate-x-1/2 flex-col items-center" style={{ left: thumbLeft(t) }}>
+            <span className={cx("h-1 w-px", t === 1 ? "bg-fg/60" : "bg-line-strong")} />
+            <span className={cx(t === 1 && "font-medium text-muted", Math.abs(t - v) < 0.001 && "text-fg")}>{t.toFixed(2)}×</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function NumberField({ label, value, min, max, step = 1, onChange, hint }: {
   label: string; value: number; min: number; max: number; step?: number; onChange: (v: number) => void; hint?: string;
 }) {
@@ -51,9 +87,7 @@ export function SettingsPanel({ mode, defaultOpen = true }: { mode: "demand" | "
         <Field label="Target Semester" hint="Upcoming terms forecast; past terms back-test."><TermSelect /></Field>
         <Field label={<span className="flex justify-between">Enrollment Growth Multiplier <span className="tabular-nums text-muted">{s.growth_multiplier.toFixed(2)}×</span></span>}
           hint="Scales projected demand, not section caps.">
-          <input type="range" className="mt-2 w-full" min={0.85} max={1.5} step={0.05} value={s.growth_multiplier}
-            onChange={(e) => u({ growth_multiplier: Number(e.target.value) })} />
-          <div className="flex justify-between text-[11px] text-faint"><span>0.85×</span><span>1.00×</span><span>1.50×</span></div>
+          <GrowthSlider value={s.growth_multiplier} onChange={(v) => u({ growth_multiplier: v })} />
         </Field>
         {mode === "demand" ? (
           <>
