@@ -2,20 +2,21 @@
 // own documentation + live data — no external AI service or API key required.
 import { ArrowUp, MessageSquare, RotateCcw, X } from "lucide-react";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api, type Course } from "../../api";
 import { useAuth } from "../../store/auth";
+import { useDemand } from "../../store/demand";
 import { usePlan } from "../../store/plan";
 import { useSchedule } from "../../store/schedule";
 import { useUI } from "../../store/ui";
 import { IconButton, cx } from "../ui";
 import { STARTER_PROMPTS, answer, type Answer } from "./knowledge";
 
-interface Msg { role: "user" | "assistant"; text: string; links?: Answer["links"] }
+interface Msg { role: "user" | "assistant"; text: string; links?: Answer["links"]; chips?: string[] }
 
 const GREETING: Msg = {
   role: "assistant",
-  text: "Hi, I'm the scheduler assistant. I can explain planning settings, metrics like seat fill, how recitations and time slots work, and how to submit preferences or resolve conflicts.",
+  text: "Hi, I'm the scheduler assistant. Ask about any column, number or course on screen (\"what does +6.4% mean?\", \"why is ECON 1115 at 96% seat fill?\"), or about settings, sections, conflicts and workloads.",
 };
 
 /** Minimal formatting: **bold**, line breaks and bullet lines. */
@@ -39,6 +40,7 @@ export function ChatWidget() {
   const schedule = useSchedule((s) => s.data);
   const role = useAuth((s) => s.user?.role ?? null);
   const navigate = useNavigate();
+  const page = useLocation().pathname;
   const [msgs, setMsgs] = useState<Msg[]>([GREETING]);
   const [input, setInput] = useState("");
   const [courses, setCourses] = useState<Course[] | null>(null);
@@ -52,22 +54,32 @@ export function ChatWidget() {
   }, [open, courses]);
   useEffect(() => { scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" }); }, [msgs, typing]);
 
-  const ask = (q: string) => {
+  const ask = async (q: string) => {
     const text = q.trim();
     if (!text) return;
     setInput("");
     setMsgs((m) => [...m, { role: "user", text }]);
     setTyping(true);
+    // Answer from the same live data the pages show (fetched if this page hasn't loaded it yet)
+    const started = Date.now();
+    const [demand, sched, cat] = await Promise.all([
+      useDemand.getState().fetch(settings).catch(() => null),
+      schedule && schedule.term === settings.target_term ? Promise.resolve(schedule)
+        : useSchedule.getState().fetch(settings, { silent: true }).then(() => useSchedule.getState().data).catch(() => null),
+      courses ? Promise.resolve(courses) : api.courses().then((c) => { setCourses(c); return c; }).catch(() => null),
+    ]);
     // Short pause so the reply reads as a response rather than an instant swap
-    setTimeout(() => {
-      const a = answer(text, { settings, schedule, courses, role });
-      setMsgs((m) => [...m, { role: "assistant", text: a.text, links: a.links }]);
-      setTyping(false);
-    }, 280);
+    await new Promise((r) => setTimeout(r, Math.max(0, 280 - (Date.now() - started))));
+    const a = answer(text, { settings, schedule: sched, demand, courses: cat, role, page });
+    setMsgs((m) => [...m, { role: "assistant", text: a.text, links: a.links, chips: a.chips }]);
+    setTyping(false);
   };
 
+  // Quick-action chips: follow-ups for the latest answer, otherwise the starter prompts
   const asked = new Set(msgs.filter((m) => m.role === "user").map((m) => m.text));
-  const chips = STARTER_PROMPTS.filter((p) => !asked.has(p)).slice(0, 3);
+  const last = msgs[msgs.length - 1];
+  const chips = ((last.role === "assistant" && last.chips?.length ? last.chips : STARTER_PROMPTS) as string[])
+    .filter((p) => !asked.has(p)).slice(0, 3);
 
   return (
     <>

@@ -1,10 +1,11 @@
 // Demand Estimator: projected enrollment, section sizing, recitation scaling, prerequisites.
-import { Download, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Armchair, BookOpen, Download, MessagesSquare, MonitorSmartphone, Presentation, Search, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { Alert, Badge, Button, CategoryDot, ErrorState, PageHeader, Panel, Spinner, Stat, StatGrid, Switch, Table, cx, inputBase } from "../components/ui";
-import { useAsync, useDebounced } from "../lib/hooks";
+import { useDebounced } from "../lib/hooks";
+import { useDemand } from "../store/demand";
 import { usePlan } from "../store/plan";
 import { useUI } from "../store/ui";
 
@@ -13,12 +14,13 @@ export default function Demand() {
   const toast = useUI((s) => s.toast);
   const success = useUI((s) => s.success);
   const s = useDebounced(settings);
-  const res = useAsync(() => (s.target_term ? api.demand(s) : Promise.resolve(null)), [JSON.stringify(s), dataVersion]);
+  const { data: d, loading, error, fetch } = useDemand();
+  useEffect(() => { fetch(s); }, [s, dataVersion, fetch]);
+  const res = { loading, error, reload: () => fetch(s, { force: true }) };
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("");
   const [plannedOnly, setPlannedOnly] = useState(true);
 
-  const d = res.data;
   const rows = useMemo(() => (d?.demand ?? []).filter((r) =>
     (!q || `${r.course} ${r.title}`.toLowerCase().includes(q.toLowerCase())) && (!cat || r.category === cat) &&
     (!plannedOnly || r.planned_sections > 0)), [d, q, cat, plannedOnly]);
@@ -29,7 +31,7 @@ export default function Demand() {
 
   return (
     <>
-      <PageHeader title="Demand Estimator"
+      <PageHeader eyebrow="Planning" title="Demand Estimator"
         description={<>Projected undergraduate enrollment and section plan for <span className="font-medium text-fg">{settings.target_term}</span>. Projection = recency-weighted average of prior same-season terms × annual trend × growth multiplier.</>}
         actions={<Button icon={<Download className="h-3.5 w-3.5" />} onClick={() => api.exportPlan("demand", settings).then(() => success("Demand estimate exported", settings.target_term))
           .catch((e) => toast({ title: "Export failed", body: e.message, tone: "error" }))}>Export CSV</Button>} />
@@ -42,13 +44,13 @@ export default function Demand() {
           <>
             <div className={cx("transition-opacity", res.loading && "opacity-60")}>
               <StatGrid cols={6}>
-                <Stat label="Courses Planned" value={d.summary.courses} />
-                <Stat label="Lecture Sections" value={d.summary.lecture_sections} />
-                <Stat label="Recitations" value={d.summary.recitation_sections} />
-                <Stat label="Projected Students" value={d.summary.projected_students.toLocaleString()} />
-                <Stat label="Seats Offered" value={d.summary.seats_offered.toLocaleString()}
+                <Stat icon={BookOpen} label="Courses Planned" value={d.summary.courses} />
+                <Stat icon={Presentation} label="Lecture Sections" value={d.summary.lecture_sections} />
+                <Stat icon={MessagesSquare} label="Recitations" value={d.summary.recitation_sections} />
+                <Stat icon={Users} label="Projected Students" value={d.summary.projected_students.toLocaleString()} />
+                <Stat icon={Armchair} label="Seats Offered" value={d.summary.seats_offered.toLocaleString()}
                   sub={`${Math.round((100 * d.summary.projected_students) / Math.max(1, d.summary.seats_offered))}% seat fill`} />
-                <Stat label="Remote Sections" value={d.summary.remote_sections} sub={`≤ ${settings.virtual_cap} students each`} />
+                <Stat icon={MonitorSmartphone} iconTone="neutral" label="Remote Sections" value={d.summary.remote_sections} sub={`≤ ${settings.virtual_cap} students each`} />
               </StatGrid>
             </div>
 
