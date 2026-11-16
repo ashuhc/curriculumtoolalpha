@@ -145,3 +145,35 @@ def test_faculty_group_rename_and_courseloads(client, admin):
     assert (r["fall_courseload"], r["spring_courseload"]) == (1, None)
     assert client.put(f"/api/faculty/{f['id']}", json={"fall_courseload": 9}, headers=admin).status_code == 422
     client.put(f"/api/faculty/{f['id']}", json={"clear_type": True, "fall_courseload": None}, headers=admin)
+
+
+def test_bulk_revert_skips_sections_locked_by_others(client, admin, admin2):
+    sched = client.post("/api/plan/schedule", json=S).json()
+    a, b = [r["section_id"] for r in sched["master"] if r["component"] == "Lecture"][:2]
+    for sid in (a, b):
+        assert client.put("/api/plan/overrides", json={"term": TERM, "section_id": sid, "sequence": "A"}, headers=admin).status_code == 200
+    assert client.post("/api/locks", json={"term": TERM, "section_id": b}, headers=admin2).status_code in (200, 201)
+    r = client.delete(f"/api/plan/overrides?term={TERM}", headers=admin).json()
+    other = client.get("/api/auth/me", headers=admin2).json()["name"]
+    assert r["reverted"] == [a] and r["skipped"] == [{"section_id": b, "locked_by": other}]
+    client.delete(f"/api/locks?term={TERM}&section_id={b}", headers=admin2)
+    r = client.delete(f"/api/plan/overrides?term={TERM}&section_id={b}", headers=admin).json()
+    assert r["reverted"] == [b] and client.get(f"/api/plan/overrides?term={TERM}").json() == []
+
+
+def test_faculty_reset_to_default(client, admin):
+    rows = client.get("/api/faculty").json()
+    f, g = rows[1], rows[2]
+    assert f["customized"] == [] and g["customized"] == []
+    client.put(f"/api/faculty/{f['id']}", json={"faculty_type": "Adjunct", "fall_courseload": 2,
+                                                  "overloading": not f["default_overloading"]}, headers=admin)
+    client.put(f"/api/faculty/{g['id']}", json={"spring_courseload": 1}, headers=admin)
+    cur = {x["id"]: x for x in client.get("/api/faculty").json()}
+    assert cur[f["id"]]["customized"] == ["Faculty Group", "Fall Courseload", "Approved Overload"]
+    assert cur[g["id"]]["customized"] == ["Spring Courseload"]
+    one = client.post(f"/api/faculty/{f['id']}/reset", headers=admin).json()
+    assert one["customized"] == [] and one["type_source"] != "Confirmed" and one["fall_courseload"] is None
+    assert one["overloading"] == f["default_overloading"]
+    r = client.post("/api/faculty/reset", headers=admin).json()
+    assert g["name"] in r["faculty"]
+    assert all(x["customized"] == [] for x in client.get("/api/faculty").json())

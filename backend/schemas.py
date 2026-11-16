@@ -117,6 +117,10 @@ class FacultyOut(BaseModel):
     annual_reduction: int             # history-inferred (graduate teaching); informational
     fall_courseload: Optional[int] = None     # scheduler-set; None = not set
     spring_courseload: Optional[int] = None
+    # Baseline (seeded) overload approval, and which fields differ from the baseline
+    default_overloading: bool = False
+    default_overload_semester: str = "None"
+    customized: List[str] = []        # e.g. ["Faculty Group", "Fall Courseload", "Approved Overload"]
     overloading: bool
     overload_semester: str
     ug_lectures_per_year: float = 0

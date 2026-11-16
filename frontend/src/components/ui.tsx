@@ -321,6 +321,28 @@ export function Modal({ open, onClose, title, children, footer }: { open: boolea
   );
 }
 
+/** Themed confirmation dialog (replaces window.confirm). Escape or the backdrop cancels. */
+export function ConfirmDialog({ open, title, children, confirmLabel, tone = "primary", busy, onConfirm, onCancel }: {
+  open: boolean; title: string; children: ReactNode; confirmLabel: string; tone?: "primary" | "danger";
+  busy?: boolean; onConfirm: () => void; onCancel: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !busy) onCancel(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, busy, onCancel]);
+  return (
+    <Modal open={open} onClose={() => !busy && onCancel()} title={title}
+      footer={<>
+        <Button variant="ghost" onClick={onCancel} disabled={busy}>Cancel</Button>
+        <Button variant={tone === "danger" ? "danger" : "primary"} loading={busy} onClick={onConfirm} autoFocus>{confirmLabel}</Button>
+      </>}>
+      <div className="space-y-3 text-[13px] leading-relaxed text-muted">{children}</div>
+    </Modal>
+  );
+}
+
 // ------------------------------------------------------------ domain bits ---
 export const SEVERITY_TONE = { Critical: "red", Warning: "amber", Info: "neutral" } as const;
 

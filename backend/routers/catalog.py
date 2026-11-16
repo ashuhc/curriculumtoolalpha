@@ -91,6 +91,9 @@ def faculty_out(db: Session, include_inactive=True) -> List[FacultyOut]:
             fall_courseload=f.fall_courseload, spring_courseload=f.spring_courseload,
             overloading=bool(f.overload and f.overload.overloading),
             overload_semester=f.overload.semester if f.overload else "None",
+            default_overloading=svc.baseline_overload_for(f.name)[0],
+            default_overload_semester=svc.baseline_overload_for(f.name)[1],
+            customized=svc.customized_fields(f),
             ug_lectures_per_year=float(r["UG Lectures / Yr (hist.)"]) if r is not None else 0.0,
             grad_sections_per_year=float(r["Grad Sections / Yr (hist.)"]) if r is not None else 0.0,
             submissions=len(f.submissions),
@@ -140,6 +143,28 @@ def update_faculty(fid: int, body: FacultyUpdate, db: Session = Depends(get_db),
             f.overload.semester = "None"
         elif f.overload.semester == "None":
             f.overload.semester = "Both"
+    db.commit()
+    svc.bump_version("faculty")
+    return next(o for o in faculty_out(db) if o.id == fid)
+
+
+@router.post("/faculty/reset")
+def reset_all_faculty(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    """Restore every customized row to its inferred group, automatic courseloads and seeded overload."""
+    names = [f.name for f in db.query(Faculty).all() if svc.reset_faculty_to_default(f)]
+    db.commit()
+    if names:
+        svc.bump_version("faculty")
+    return {"reset": len(names), "faculty": names}
+
+
+@router.post("/faculty/{fid}/reset", response_model=FacultyOut)
+def reset_faculty(fid: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    """Restore one row to its inferred group, automatic courseloads and seeded overload."""
+    f = db.get(Faculty, fid)
+    if not f:
+        raise HTTPException(404, "Faculty not found")
+    svc.reset_faculty_to_default(f)
     db.commit()
     svc.bump_version("faculty")
     return next(o for o in faculty_out(db) if o.id == fid)

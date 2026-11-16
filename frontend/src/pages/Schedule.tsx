@@ -1,5 +1,5 @@
 // Term Schedule: grid + weekly calendar with live collaboration, section drawer, publishing.
-import { AlertTriangle, BookOpen, CalendarRange, Download, FileCheck2, LayoutList, Lock, MessageSquare, PencilLine, Search, Send, ShieldCheck, Target, TriangleAlert } from "lucide-react";
+import { AlertTriangle, BookOpen, CalendarRange, Download, FileCheck2, LayoutList, Lock, MessageSquare, PencilLine, RotateCcw, Search, Send, ShieldCheck, Target, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, type ScheduleResponse } from "../api";
@@ -7,12 +7,12 @@ import { SectionDrawer } from "../components/SectionDrawer";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { WeekCalendar } from "../components/WeekCalendar";
 import {
-  Alert, Badge, Button, CATEGORIES, CategoryDot, ErrorState, Field, Modal, PageHeader, Panel, Segmented, Spinner, Stat, StatGrid, Switch, Table,
+  Alert, Badge, Button, CATEGORIES, CategoryDot, ConfirmDialog, ErrorState, Field, Modal, PageHeader, Panel, Segmented, Spinner, Stat, StatGrid, Switch, Table,
   cx, inputBase, textareaCls,
 } from "../components/ui";
 import { fmtDate, useDebounced } from "../lib/hooks";
 import { titleCase } from "../lib/text";
-import { useIsAdmin } from "../store/auth";
+import { useAuth, useIsAdmin } from "../store/auth";
 import { usePlan } from "../store/plan";
 import { useSchedule } from "../store/schedule";
 import { useFlash, useUI } from "../store/ui";
@@ -41,12 +41,48 @@ export default function Schedule() {
   const [onlyFlagged, setOnlyFlagged] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const openId = params.get("section");
+  const me = useAuth((st) => st.user);
+  // Sections whose revert is in flight: the badge clears immediately, the refetch settles it
+  const [reverting, setReverting] = useState<Set<string>>(new Set());
+  const [revertAllOpen, setRevertAllOpen] = useState(false);
+  const [revertAllBusy, setRevertAllBusy] = useState(false);
 
   useEffect(() => { fetch(s); }, [s, dataVersion, fetch]);
 
   const flagged = useMemo(() => flaggedSections(data), [data]);
   const locked = useMemo(() => new Map((data?.locks ?? []).map((l) => [l.section_id, l.user_name])), [data]);
   const overridden = useMemo(() => new Set(data?.overridden ?? []), [data]);
+  const lockOwner = useMemo(() => new Map((data?.locks ?? []).map((l) => [l.section_id, l])), [data]);
+  const lockedByOther = (id: string) => { const l = lockOwner.get(id); return l && l.user_id !== me?.id ? l.user_name : null; };
+
+  const revertOne = async (id: string) => {
+    if (reverting.has(id)) return;
+    setReverting((cur) => new Set(cur).add(id));
+    try {
+      await api.resetOverrides(settings.target_term, id);
+      await fetch(settings, { silent: true });
+      success("Reverted to generated assignment", id, `section:${id}`);
+    } catch (e) {
+      toast({ title: "Revert failed", body: (e as Error).message, tone: "error" });
+    } finally {
+      setReverting((cur) => { const n = new Set(cur); n.delete(id); return n; });
+    }
+  };
+  const revertAll = async () => {
+    setRevertAllBusy(true);
+    try {
+      const r = await api.resetOverrides(settings.target_term);
+      await fetch(settings, { silent: true });
+      setRevertAllOpen(false);
+      if (r.reverted.length)
+        success("All manual edits reverted", `${r.reverted.length} section${r.reverted.length === 1 ? "" : "s"} back to the generated schedule`, r.reverted.map((id) => `section:${id}`));
+      if (r.skipped.length)
+        toast({ title: `${r.skipped.length} section${r.skipped.length === 1 ? "" : "s"} skipped`, tone: "info",
+          body: r.skipped.map((x) => `${x.section_id} (being edited by ${x.locked_by})`).join(", ") });
+    } catch (e) {
+      toast({ title: "Revert failed", body: (e as Error).message, tone: "error" });
+    } finally { setRevertAllBusy(false); }
+  };
   const rows = useMemo(() => (data?.master ?? []).filter((r) =>
     (!q || `${r.section_id} ${r.title} ${r.instructor}`.toLowerCase().includes(q.toLowerCase())) &&
     (!cat || r.category === cat) && (!inst || r.instructor === inst) && (!onlyFlagged || flagged.has(r.section_id))),
@@ -108,10 +144,8 @@ export default function Schedule() {
                 </select>
                 <Switch checked={onlyFlagged} onChange={setOnlyFlagged} label="Conflicts Only" />
                 {isAdmin && sm.overrides_applied > 0 && (
-                  <Button size="sm" variant="ghost" onClick={() => confirm(`Discard all ${sm.overrides_applied} manual edits for ${settings.target_term}?`) &&
-                    api.resetOverrides(settings.target_term)
-                      .then(() => success("Manual edits discarded", `${sm.overrides_applied} section${sm.overrides_applied === 1 ? "" : "s"} back to the generated schedule`, data.overridden.map((id) => `section:${id}`)))
-                      .catch((e) => toast({ title: "Reset failed", body: e.message, tone: "error" }))}>Reset Edits</Button>
+                  <Button size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => setRevertAllOpen(true)}
+                    title="Revert Every Manual Edit for This Term">Revert All Edits</Button>
                 )}
               </>}>
               {view === "calendar" ? (
@@ -132,7 +166,25 @@ export default function Schedule() {
                           <span className={cx(r.instructor === "UNSTAFFED" && "font-medium text-nu-text")}>{r.instructor}</span>
                           {r.faculty_type !== "—" && <div className="text-[11px] text-faint">{r.faculty_type}</div>}
                         </td>
-                        <td className="text-xs">{overridden.has(r.section_id) ? <Badge tone="amber">Manual Edit</Badge> : <span className="text-muted">{titleCase(r.match_basis)}</span>}</td>
+                        <td className="text-xs">
+                          {reverting.has(r.section_id) ? <span className="text-faint">Reverting…</span>
+                            : overridden.has(r.section_id) ? (
+                              <span className="flex items-center gap-1">
+                                <Badge tone="amber">Manual Edit</Badge>
+                                {isAdmin && (() => {
+                                  const by = lockedByOther(r.section_id);
+                                  return (
+                                    <button type="button" aria-label={`Revert ${r.section_id}`} disabled={!!by}
+                                      title={by ? `Locked by ${by}` : "Revert to Generated Assignment"}
+                                      onClick={(e) => { e.stopPropagation(); revertOne(r.section_id); }}
+                                      className="inline-flex h-6 items-center gap-1 rounded px-1.5 text-[11px] font-medium text-muted outline-none transition-colors hover:bg-hover hover:text-fg focus-visible:ring-2 focus-visible:ring-fg/20 disabled:cursor-not-allowed disabled:opacity-40">
+                                      <RotateCcw className="h-3 w-3" />Revert
+                                    </button>
+                                  );
+                                })()}
+                              </span>
+                            ) : <span className="text-muted">{titleCase(r.match_basis)}</span>}
+                        </td>
                         <td><Badge>{r.sequence === "ASYNC" ? "Async" : r.sequence}</Badge></td>
                         <td className="whitespace-nowrap text-xs tabular-nums text-muted">{r.meeting_time}</td>
                         <td className="whitespace-nowrap text-right tabular-nums text-muted">{r.projected_enrollment} / {r.section_cap}</td>
@@ -159,6 +211,13 @@ export default function Schedule() {
         <SectionDrawer row={openRow} data={data} meta={meta} onClose={() => open(null)} onChanged={() => fetch(settings, { silent: true })} />
       )}
       {data && <PublishModal open={publishOpen} onClose={() => setPublishOpen(false)} critical={data.summary.critical} />}
+      {data && (
+        <ConfirmDialog open={revertAllOpen} title="Revert All Edits?" confirmLabel="Revert All Edits" tone="danger" busy={revertAllBusy}
+          onConfirm={revertAll} onCancel={() => setRevertAllOpen(false)}>
+          <p>This restores the generated instructor and time block for all <span className="font-medium text-fg">{data.summary.overrides_applied}</span> manually edited section{data.summary.overrides_applied === 1 ? "" : "s"} in <span className="font-medium text-fg">{settings.target_term}</span>.</p>
+          <p>Sections another scheduler is editing right now are skipped. This can't be undone.</p>
+        </ConfirmDialog>
+      )}
     </>
   );
 }
@@ -187,7 +246,7 @@ function PublishModal({ open, onClose, critical }: { open: boolean; onClose: () 
       <div className="space-y-4 text-[13px]">
         <p className="text-muted">Publishing freezes the current schedule, including manual edits, as a new numbered version. Everyone is notified, and the catalog CSV export uses the latest published version.</p>
         {critical > 0 && (
-          <Alert tone="warning" title={`${critical} critical conflict${critical > 1 ? "s" : ""} remain`}>
+          <Alert tone="warning" title={`${critical} Critical ${critical > 1 ? "Conflicts Remain" : "Conflict Remains"}`}>
             <div className="mt-2"><Switch checked={override} onChange={setOverride} label="Publish Anyway" /></div>
           </Alert>
         )}

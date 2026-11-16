@@ -14,7 +14,7 @@ from auth import login_required, require_admin
 from database import get_db
 from models import Publication, ScheduleOverride, SectionComment, SectionLock, User
 from realtime import hub
-from routers.collab import assert_editable, lock_out, purge_expired
+from routers.collab import active_lock, assert_editable, lock_out, purge_expired
 from schemas import OverrideIn, OverrideOut, PlanRequest, PublishIn
 
 router = APIRouter(prefix="/api", tags=["planning"])
@@ -144,17 +144,27 @@ def upsert_override(body: OverrideIn, db: Session = Depends(get_db), user: User 
     return {"id": o.id, "term": o.term, "section_id": o.section_id, "instructor": o.instructor, "sequence": o.sequence}
 
 
-@router.delete("/plan/overrides", status_code=204)
+@router.delete("/plan/overrides")
 def reset_overrides(term: str, section_id: Optional[str] = None, db: Session = Depends(get_db),
                     user: User = Depends(require_admin)):
-    if section_id:
-        assert_editable(db, term, section_id, user)
+    """Revert manual edits to the generated assignment: one section, or every section in the term.
+    A bulk revert skips sections another scheduler currently has locked for editing."""
     q = db.query(ScheduleOverride).filter(ScheduleOverride.term == term)
     if section_id:
+        assert_editable(db, term, section_id, user)
         q = q.filter(ScheduleOverride.section_id == section_id)
-    q.delete()
+    reverted, skipped = [], []
+    for o in q.all():
+        lk = active_lock(db, term, o.section_id)
+        if not section_id and lk and lk.user_id != user.id:
+            skipped.append({"section_id": o.section_id, "locked_by": lk.user_name})
+            continue
+        reverted.append(o.section_id)
+        db.delete(o)
     db.commit()
-    hub.publish({"type": "schedule", "term": term, "section_id": section_id, "by": user.name})
+    if reverted:
+        hub.publish({"type": "schedule", "term": term, "section_id": section_id, "by": user.name})
+    return {"reverted": reverted, "skipped": skipped}
 
 
 # --------------------------------------------------------------- publishing ---

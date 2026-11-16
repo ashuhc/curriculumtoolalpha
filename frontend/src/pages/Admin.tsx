@@ -1,10 +1,10 @@
 // Administration (scheduler role): submissions, faculty & overloads, catalog, users, data, publications.
-import { Check, Download, Plus, Search, Trash2, Upload, X } from "lucide-react";
+import { Check, Download, Plus, RotateCcw, Search, Trash2, Upload, X } from "lucide-react";
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { api, type Course, type Faculty, type Role } from "../api";
 import { matchCourse } from "../components/CourseSelect";
-import { Alert, Badge, Button, ErrorState, Field, IconButton, PageHeader, Panel, Spinner, Switch, Table, Tabs, inputBase, inputCls } from "../components/ui";
+import { Alert, Badge, Button, ConfirmDialog, ErrorState, Field, IconButton, PageHeader, Panel, Spinner, Switch, Table, Tabs, inputBase, inputCls } from "../components/ui";
 import { fmtDate, useAsync } from "../lib/hooks";
 import { useAuth, useIsAdmin } from "../store/auth";
 import { usePlan } from "../store/plan";
@@ -121,16 +121,11 @@ function FacultyAdmin() {
   // Writes for one row go out one at a time: concurrent PUTs can commit out of order on the
   // server, which would let an older choice win. The UI still updates instantly (optimistic).
   const queue = useRef<Record<number, Promise<unknown>>>({});
-  const update = async (f: Faculty, patch: Record<string, unknown>) => {
+  const mutate = async (f: Faculty, optimistic: Partial<Faculty>, request: () => Promise<Faculty>, [title, body]: [string, string]) => {
     const n = (seq.current[f.id] = (seq.current[f.id] ?? 0) + 1);
-    const optimistic: Partial<Faculty> = { ...(patch as Partial<Faculty>) };
-    if (typeof patch.faculty_type === "string") optimistic.type_source = "Confirmed";
-    if (patch.clear_type) optimistic.type_source = "Inferred from history";
-    delete (optimistic as Record<string, unknown>).clear_type;
     fac.setData((l) => l?.map((x) => (x.id === f.id ? { ...x, ...optimistic } : x)) ?? null);
-    const [title, body] = facultyToast(f, patch);
     try {
-      const send = (queue.current[f.id] ?? Promise.resolve()).catch(() => undefined).then(() => api.updateFaculty(f.id, patch));
+      const send = (queue.current[f.id] ?? Promise.resolve()).catch(() => undefined).then(request);
       queue.current[f.id] = send;
       const u = await send;
       if (seq.current[f.id] !== n) return;
@@ -140,6 +135,30 @@ function FacultyAdmin() {
       fail(e);
       if (seq.current[f.id] === n) fac.reload();
     }
+  };
+  const update = (f: Faculty, patch: Record<string, unknown>) => {
+    const optimistic: Partial<Faculty> = { ...(patch as Partial<Faculty>) };
+    if (typeof patch.faculty_type === "string") optimistic.type_source = "Confirmed";
+    if (patch.clear_type) optimistic.type_source = "Inferred from history";
+    delete (optimistic as Record<string, unknown>).clear_type;
+    return mutate(f, optimistic, () => api.updateFaculty(f.id, patch), facultyToast(f, patch));
+  };
+  // Reset to Default: inferred group, automatic courseloads, seeded overload approval
+  const resetRow = (f: Faculty) => mutate(f, {
+    type_source: "Inferred from history", fall_courseload: null, spring_courseload: null,
+    overloading: f.default_overloading, overload_semester: f.default_overload_semester,
+  }, () => api.resetFaculty(f.id), ["Faculty row reset to default", `${f.name}: ${customizedOf(f).join(", ")} restored`]);
+  const [resetAllOpen, setResetAllOpen] = useState(false);
+  const [resetAllBusy, setResetAllBusy] = useState(false);
+  const resetAll = async () => {
+    setResetAllBusy(true);
+    try {
+      const r = await api.resetAllFaculty();
+      fac.reload();
+      setResetAllOpen(false);
+      success("All faculty reset to default", `${r.reset} ${r.reset === 1 ? "row" : "rows"} restored to inferred groups, automatic courseloads and seeded overloads`,
+        (fac.data ?? []).filter((x) => r.faculty.includes(x.name)).map((x) => `faculty:${x.id}`));
+    } catch (e) { fail(e); } finally { setResetAllBusy(false); }
   };
   const add = async (e: FormEvent) => {
     e.preventDefault();
@@ -153,6 +172,7 @@ function FacultyAdmin() {
   if (fac.loading && !fac.data) return <Spinner />;
   if (fac.error) return <ErrorState error={fac.error} onRetry={fac.reload} />;
   const inferred = fac.data!.filter((f) => f.type_source !== "Confirmed" && f.active).length;
+  const customizedRows = fac.data!.filter((f) => customizedOf(f).length > 0);
   return (
     <div className="space-y-4">
       {inferred > 0
@@ -163,6 +183,10 @@ function FacultyAdmin() {
         actions={<>
           <div className="relative"><Search className="absolute left-2.5 top-2 h-4 w-4 text-faint" />
             <input className={inputBase + " w-48 pl-8"} placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+          <Button size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} disabled={!customizedRows.length} onClick={() => setResetAllOpen(true)}
+            title={customizedRows.length ? `Reset ${customizedRows.length} Customized ${customizedRows.length === 1 ? "Row" : "Rows"} to Default` : "No Rows Differ From Their Defaults"}>
+            Reset All to Default
+          </Button>
           <form onSubmit={add} className="flex gap-2">
             <input className={inputBase + " w-44"} placeholder="Last, First" value={name} onChange={(e) => setName(e.target.value)} />
             <Button size="sm" type="submit" icon={<Plus className="h-3.5 w-3.5" />} disabled={name.trim().length < 3}>Add</Button>
@@ -172,7 +196,16 @@ function FacultyAdmin() {
           <thead><tr><th>Name</th><th>Faculty Group</th><th>Fall Courseload</th><th>Spring Courseload</th><th>Approved Overload</th><th className="text-right">History (UG / Grad per Year)</th><th className="text-right">Forms</th><th>Active</th><th /></tr></thead>
           <tbody>{shown.map((f) => (
             <tr key={f.id} className={`${f.active ? "" : "opacity-50"} ${flash(`faculty:${f.id}`)}`}>
-              <td className="whitespace-nowrap font-medium">{f.name}</td>
+              <td className="whitespace-nowrap font-medium">
+                {/* Kept beside the name so it stays visible when the wide table scrolls sideways */}
+                <span className="flex items-center gap-1.5">
+                  {f.name}
+                  {customizedOf(f).length > 0 && (
+                    <IconButton label={`Reset to Default (${customizedOf(f).join(", ")})`} onClick={() => resetRow(f)}
+                      className="h-6 w-6 text-faint hover:text-fg"><RotateCcw className="h-3.5 w-3.5" /></IconButton>
+                  )}
+                </span>
+              </td>
               <td>
                 <FacultyGroupCell f={f} types={types}
                   onChange={(v) => update(f, { faculty_type: v })}
@@ -201,8 +234,25 @@ function FacultyAdmin() {
           ))}</tbody>
         </Table>
       </Panel>
+      <ConfirmDialog open={resetAllOpen} title="Reset All to Default?" confirmLabel="Reset All to Default" tone="danger" busy={resetAllBusy}
+        onConfirm={resetAll} onCancel={() => setResetAllOpen(false)}>
+        <p><span className="font-medium text-fg">{customizedRows.length}</span> faculty {customizedRows.length === 1 ? "row differs" : "rows differ"} from {customizedRows.length === 1 ? "its" : "their"} defaults. Resetting restores the history-inferred faculty group, automatic Fall and Spring courseloads, and the originally approved overloads.</p>
+        <p>Active status, names and preference submissions are not changed. This can't be undone.</p>
+      </ConfirmDialog>
     </div>
   );
+}
+
+/** Fields that differ from the inferred / seeded baseline (mirrors the server's `customized`). */
+function customizedOf(f: Faculty): string[] {
+  const out: string[] = [];
+  if (f.type_source === "Confirmed") out.push("Faculty Group");
+  if (f.fall_courseload !== null) out.push("Fall Courseload");
+  if (f.spring_courseload !== null) out.push("Spring Courseload");
+  const sem = (on: boolean, s: string) => (on ? s : "None");
+  if (f.overloading !== f.default_overloading || sem(f.overloading, f.overload_semester) !== sem(f.default_overloading, f.default_overload_semester))
+    out.push("Approved Overload");
+  return out;
 }
 
 /** Semester courseload: blank = not set (placeholder "Auto"); 0–6 courses otherwise. */

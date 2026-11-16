@@ -43,6 +43,8 @@ export interface Faculty {
   id: number; name: string; email: string; active: boolean; faculty_type: string; type_source: string; annual_reduction: number;
   /** Courses per semester set by a scheduler; null = not set (form, then history). */
   fall_courseload: number | null; spring_courseload: number | null;
+  /** Seeded overload approval, and the fields that differ from the inferred/seeded baseline. */
+  default_overloading: boolean; default_overload_semester: string; customized: string[];
   overloading: boolean; overload_semester: string; ug_lectures_per_year: number; grad_sections_per_year: number; submissions: number;
 }
 export interface PreferenceIn {
@@ -197,6 +199,8 @@ export const api = {
   createFaculty: (f: { name: string; email: string }) => request<Faculty>("/api/faculty", { method: "POST", body: f }),
   updateFaculty: (id: number, f: Record<string, unknown>) => request<Faculty>(`/api/faculty/${id}`, { method: "PUT", body: f }),
   deleteFaculty: (id: number) => request(`/api/faculty/${id}`, { method: "DELETE" }),
+  resetFaculty: (id: number) => request<Faculty>(`/api/faculty/${id}/reset`, { method: "POST" }),
+  resetAllFaculty: () => request<{ reset: number; faculty: string[] }>("/api/faculty/reset", { method: "POST" }),
 
   submitPreferences: (p: PreferenceIn) => request<Preference>("/api/preferences", { method: "POST", body: p }),
   myPreferences: () => request<Preference[]>("/api/preferences/mine"),
@@ -209,8 +213,10 @@ export const api = {
   schedule: (settings: PlanSettings) => request<ScheduleResponse>("/api/plan/schedule", { method: "POST", body: { settings } }),
   overrides: (term: string) => request<{ section_id: string; instructor: string | null; sequence: string | null }[]>(`/api/plan/overrides?term=${q(term)}`),
   setOverride: (o: { term: string; section_id: string; instructor?: string | null; sequence?: string | null }) => request("/api/plan/overrides", { method: "PUT", body: o }),
+  /** Revert manual edits (one section, or the whole term). Bulk reverts skip sections another scheduler has locked. */
   resetOverrides: (term: string, sectionId?: string) =>
-    request(`/api/plan/overrides?term=${q(term)}${sectionId ? `&section_id=${q(sectionId)}` : ""}`, { method: "DELETE" }),
+    request<{ reverted: string[]; skipped: { section_id: string; locked_by: string }[] }>(
+      `/api/plan/overrides?term=${q(term)}${sectionId ? `&section_id=${q(sectionId)}` : ""}`, { method: "DELETE" }),
   exportPlan: (kind: "demand" | "master" | "catalog" | "conflicts" | "workload", settings: PlanSettings) =>
     download(`/api/export/${kind}`, { settings }, `${kind}.csv`),
 

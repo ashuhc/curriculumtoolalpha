@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 import engine as eng
 from realtime import hub
-from models import Course, EnrollmentRecord, Faculty, PreferenceSubmission, ScheduleOverride
+from models import Course, EnrollmentRecord, Faculty, Overload, PreferenceSubmission, ScheduleOverride
 
 _lock = threading.Lock()
 _version = 0
@@ -85,6 +85,50 @@ def preferences(db: Session) -> dict[str, dict]:
             "overload_semester": sem, "circumstances": s.unique_circumstances or "",
         }
     return out
+
+
+def baseline_overloads() -> dict:
+    """Default overload approvals: the seeded faculty_overloads.json (missing file = none)."""
+    if "baseline_overloads" not in _enr_cache:
+        _enr_cache["baseline_overloads"] = eng.load_overloads()
+    return _enr_cache["baseline_overloads"]
+
+
+def baseline_overload_for(name: str) -> tuple[bool, str]:
+    b = baseline_overloads().get(name) or {}
+    on = bool(b.get("overloading"))
+    sem = str(b.get("semester", "None")).title() if on else "None"
+    return on, ("Both" if on and sem == "None" else sem)
+
+
+def customized_fields(f: Faculty) -> list[str]:
+    """Which roster settings differ from the inferred / seeded baseline."""
+    out = []
+    if f.faculty_type:
+        out.append("Faculty Group")
+    if f.fall_courseload is not None:
+        out.append("Fall Courseload")
+    if f.spring_courseload is not None:
+        out.append("Spring Courseload")
+    on = bool(f.overload and f.overload.overloading)
+    cur = (on, f.overload.semester if on else "None")
+    if cur != baseline_overload_for(f.name):
+        out.append("Approved Overload")
+    return out
+
+
+def reset_faculty_to_default(f: Faculty) -> bool:
+    """Restore inferred group, automatic courseloads and the seeded overload. Returns True if anything changed."""
+    changed = bool(customized_fields(f)) or f.annual_reduction is not None
+    f.faculty_type = f.annual_reduction = f.fall_courseload = f.spring_courseload = None
+    on, sem = baseline_overload_for(f.name)
+    if on:
+        if not f.overload:
+            f.overload = Overload(overloading=True, semester=sem)
+        f.overload.overloading, f.overload.semester = True, sem
+    elif f.overload:
+        f.overload.overloading, f.overload.semester = False, "None"
+    return changed
 
 
 def active_faculty(db: Session) -> list[Faculty]:
