@@ -41,13 +41,15 @@ export interface Meta {
 export interface Course { code: number; title: string; description: string; active: boolean; label: string; level: number; category: string; prerequisites: string; times_offered: number }
 export interface Faculty {
   id: number; name: string; email: string; active: boolean; faculty_type: string; type_source: string; annual_reduction: number;
+  /** Courses per semester set by a scheduler; null = not set (form, then history). */
+  fall_courseload: number | null; spring_courseload: number | null;
   overloading: boolean; overload_semester: string; ug_lectures_per_year: number; grad_sections_per_year: number; submissions: number;
 }
 export interface PreferenceIn {
   faculty_id: number; email: string; principles: number[]; ranks: number[]; fall_target: number; spring_target: number;
   overload: boolean; overload_semester: string; unique_circumstances: string;
 }
-export interface Preference extends PreferenceIn { id: number; faculty_name: string; submitted_at: string }
+export interface Preference extends PreferenceIn { id: number; faculty_name: string; submitted_at: string; submitted_by: string | null }
 
 export interface DemandRow {
   course: string; title: string; category: string; level: number; modality: string; history_terms_used: number;

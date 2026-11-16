@@ -28,7 +28,10 @@ class Faculty(Base):
     email: Mapped[str] = mapped_column(String(200), default="")
     # None => group is inferred from teaching history until an admin confirms it
     faculty_type: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
-    annual_reduction: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    annual_reduction: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)   # legacy; no longer edited
+    # Courses per semester set by a scheduler; None => preference form, then teaching history
+    fall_courseload: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    spring_courseload: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     overload: Mapped[Optional["Overload"]] = relationship(
@@ -64,6 +67,8 @@ class PreferenceSubmission(Base):
     overload: Mapped[bool] = mapped_column(Boolean, default=False)
     overload_semester: Mapped[str] = mapped_column(String(10), default="None")
     unique_circumstances: Mapped[str] = mapped_column(Text, default="")
+    # Who actually submitted it ("Name <email>"), so on-behalf submissions are auditable
+    submitted_by: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
 
     faculty: Mapped[Faculty] = relationship(back_populates="submissions")
 

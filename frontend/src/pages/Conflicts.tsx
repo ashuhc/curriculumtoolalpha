@@ -22,7 +22,7 @@ function statusTone(s: string) {
 const stripEmoji = (s: string) => s.replace(/^[^\p{L}]+/u, "");
 
 export default function Conflicts() {
-  const { settings, dataVersion } = usePlan();
+  const { settings, dataVersion, meta } = usePlan();
   const { data: d, loading, error, fetch } = useSchedule();
   const toast = useUI((s) => s.toast);
   const success = useUI((s) => s.success);
@@ -79,11 +79,11 @@ export default function Conflicts() {
               ) : (
                 <select className={inputBase + " w-48"} value={type} onChange={(e) => setType(e.target.value)}>
                   <option value="">All Faculty Groups</option>
-                  {["Tenured", "Full-Time Teaching", "Temporary", "Adjunct", "Recitation Leader"].map((t) => <option key={t}>{t}</option>)}
+                  {Object.keys(meta?.faculty_types ?? {}).map((t) => <option key={t}>{t}</option>)}
                 </select>
               )}
             </>} title={tab === "conflicts" ? "Unresolved Conflicts" : "Annual Load vs. Contract"}
-              description={tab === "workload" ? "Tenured 3/yr (may teach fewer) · Full-time teaching & temporary 6/yr · Adjunct 1–2/yr. Approved overloads raise the ceiling; reductions lower it." : undefined}>
+              description={tab === "workload" ? "Tenured track / tenured 3/yr (may teach fewer) · Full-time teaching & temporary 6/yr · Adjunct 1–2/yr. Scheduler-set courseloads take priority over the preference form; approved overloads raise the ceiling." : undefined}>
               <div className={cx("transition-opacity", loading && "opacity-60")}>
                 {tab === "conflicts" ? (
                   conflicts.length === 0 ? <div className="p-6 text-center text-[13px] text-muted">No conflicts match these filters.</div> : (

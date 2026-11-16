@@ -4,10 +4,16 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
+from typing_extensions import Annotated
 
 SemesterChoice = Literal["None", "Fall", "Spring", "Both"]
-FacultyTypeName = Literal["Tenured", "Full-Time Teaching", "Temporary", "Adjunct", "Recitation Leader"]
+TENURED = "Tenured Track / Tenured"
+# Older clients/databases may still send "Tenured"; accept it as the renamed group.
+FacultyTypeName = Annotated[
+    Literal["Tenured Track / Tenured", "Full-Time Teaching", "Temporary", "Adjunct", "Recitation Leader"],
+    BeforeValidator(lambda v: TENURED if v == "Tenured" else v),
+]
 
 
 # ---------------------------------------------------------------- planning ---
@@ -83,7 +89,8 @@ class FacultyIn(BaseModel):
     name: str = Field(..., min_length=3, max_length=120, description="'Last, First'")
     email: str = ""
     faculty_type: Optional[FacultyTypeName] = None
-    annual_reduction: Optional[int] = Field(None, ge=0, le=6)
+    fall_courseload: Optional[int] = Field(None, ge=0, le=6)
+    spring_courseload: Optional[int] = Field(None, ge=0, le=6)
     active: bool = True
 
 
@@ -92,7 +99,9 @@ class FacultyUpdate(BaseModel):
     email: Optional[str] = None
     faculty_type: Optional[FacultyTypeName] = None
     clear_type: bool = False                     # revert to history-inferred group
-    annual_reduction: Optional[int] = Field(None, ge=0, le=6)
+    # Courses per semester; send null to clear (falls back to the form, then history)
+    fall_courseload: Optional[int] = Field(None, ge=0, le=6)
+    spring_courseload: Optional[int] = Field(None, ge=0, le=6)
     active: Optional[bool] = None
     overloading: Optional[bool] = None
     overload_semester: Optional[SemesterChoice] = None
@@ -105,7 +114,9 @@ class FacultyOut(BaseModel):
     active: bool
     faculty_type: str                 # effective group (confirmed or inferred)
     type_source: str                  # "Confirmed" / "Inferred from history"
-    annual_reduction: int
+    annual_reduction: int             # history-inferred (graduate teaching); informational
+    fall_courseload: Optional[int] = None     # scheduler-set; None = not set
+    spring_courseload: Optional[int] = None
     overloading: bool
     overload_semester: str
     ug_lectures_per_year: float = 0
@@ -119,8 +130,8 @@ class PreferenceIn(BaseModel):
     email: str = Field(..., min_length=3, max_length=200)
     principles: List[int] = []
     ranks: List[int] = Field(default_factory=list, max_length=6)
-    fall_target: int = Field(2, ge=0, le=5)
-    spring_target: int = Field(2, ge=0, le=5)
+    fall_target: int = Field(2, ge=0, le=6)
+    spring_target: int = Field(2, ge=0, le=6)
     overload: bool = False
     overload_semester: SemesterChoice = "None"
     unique_circumstances: str = Field("", max_length=4000)
@@ -165,6 +176,7 @@ class PreferenceOut(BaseModel):
     overload: bool
     overload_semester: str
     unique_circumstances: str
+    submitted_by: Optional[str] = None
 
 
 # -------------------------------------------------------------------- auth ---

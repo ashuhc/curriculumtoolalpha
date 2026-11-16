@@ -23,17 +23,13 @@ def _out(s: PreferenceSubmission) -> PreferenceOut:
                          submitted_at=s.submitted_at, email=s.email, principles=s.principles or [],
                          ranks=s.ranks or [], fall_target=s.fall_target, spring_target=s.spring_target,
                          overload=s.overload, overload_semester=s.overload_semester,
-                         unique_circumstances=s.unique_circumstances or "")
+                         unique_circumstances=s.unique_circumstances or "", submitted_by=s.submitted_by)
 
 
 @router.post("", response_model=PreferenceOut, status_code=201)
 def submit(body: PreferenceIn, db: Session = Depends(get_db), user: User = Depends(require_user)):
-    """Faculty submit for themselves (their linked roster entry); admins may submit for anyone."""
-    if user.role != "admin":
-        if user.faculty_id is None:
-            raise HTTPException(403, "Your account is not linked to a faculty roster entry. Ask a scheduler to link it.")
-        if body.faculty_id != user.faculty_id:
-            raise HTTPException(403, "You can only submit preferences for yourself")
+    """Any signed-in user may submit for a roster instructor (themselves by default, or on
+    someone's behalf); the submitter is recorded on every submission for auditing."""
     f = db.get(Faculty, body.faculty_id)
     if not f or not f.active:
         raise HTTPException(404, "Faculty member not found")
@@ -46,7 +42,7 @@ def submit(body: PreferenceIn, db: Session = Depends(get_db), user: User = Depen
         data["overload_semester"] = "None"
     elif data["overload_semester"] == "None":
         raise HTTPException(422, "Choose which semester you are overloading")
-    s = PreferenceSubmission(**data, submitted_at=datetime.utcnow())
+    s = PreferenceSubmission(**data, submitted_at=datetime.utcnow(), submitted_by=f"{user.name} <{user.email}>"[:200])
     db.add(s)
     if not f.email:
         f.email = body.email
@@ -102,6 +98,7 @@ def export(db: Session = Depends(get_db), _: User = Depends(require_admin)):
             "Fall Desired Courses": s.fall_target, "Spring Desired Courses": s.spring_target,
             "Course Overload": "Yes" if s.overload else "No", "Overload Semester": s.overload_semester,
             "Unique Circumstances": s.unique_circumstances or "None",
+            "Submitted By": s.submitted_by or "",
         })
     return Response(pd.DataFrame(rows).to_csv(index=False), media_type="text/csv",
                     headers={"Content-Disposition": 'attachment; filename="teacher_preferences_export.csv"'})

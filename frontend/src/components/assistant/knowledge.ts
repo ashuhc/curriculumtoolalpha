@@ -80,11 +80,11 @@ function explainRow(m: Metric, r: DemandRow, ctx: Ctx): string {
         (y && r.hist_weighted_avg ? `\n\nIt's compounded into the projection: Hist. Avg **${r.hist_weighted_avg}** × (1 ${up ? "+" : "−"} ${Math.abs(r.annual_trend * 100).toFixed(1)}%)^${y.toFixed(1)} years × ${s.growth_multiplier.toFixed(2)}× growth ≈ **${r.projected_enrollment}** projected.` : "");
     }
     case "histavg":
-      if (r.hist_weighted_avg === null) return `**${label(r)}** has no Hist. Avg: recitations aren't forecast from their own history. Their count comes from the lecture enrollment (⌈students ÷ ${s.recitation_cap}⌉).`;
+      if (r.hist_weighted_avg === null) return `**${label(r)}** has no Hist. Avg: recitations aren't forecast from their own history. Their count comes from the students in the lecture's large sections (⌈large-lecture students ÷ ${s.recitation_cap}⌉).`;
       return `**${label(r)}** has a Hist. Avg of **${r.hist_weighted_avg}**: the weighted average of its enrollment in the last ${plural(n, `${season} term`)} it was offered (your History Window is ${s.history_window}). The most recent term counts most (weights 1, 2, 3 …).` +
         (r.notes ? `\n\nNote: ${r.notes}.` : "");
     case "projected": {
-      if (r.category === "Recitation") return `**${r.course}** covers **${r.projected_enrollment}** students: the total projected on-campus enrollment of its lecture, which sets how many recitations are needed.`;
+      if (r.category === "Recitation") return `**${r.course}** covers **${r.projected_enrollment}** students: those seated in its lecture's large (${s.large_lecture_cap}-seat) sections, which sets how many recitations are needed. Smaller sections of the same course have no recitation.`;
       const y = impliedYears(r, s.growth_multiplier);
       return `**${label(r)}** is projected at **${r.projected_enrollment}** students` +
         (r.hist_weighted_avg !== null ? ` = Hist. Avg **${r.hist_weighted_avg}**` +
@@ -96,7 +96,7 @@ function explainRow(m: Metric, r: DemandRow, ctx: Ctx): string {
     case "caps": {
       if (r.planned_sections === 0) return `**${label(r)}** has **0 sections** planned: ${r.notes || `its projected ${r.projected_enrollment} students is below the ${s.min_elective_demand}-student minimum for electives`}.`;
       let rule: string;
-      if (r.category === "Recitation") rule = `Recitations are ⌈${r.projected_enrollment} on-campus lecture students ÷ ${s.recitation_cap} per recitation⌉ = ${r.planned_sections}, each a weekly 65-minute session linked to one lecture.`;
+      if (r.category === "Recitation") rule = `Recitations are ⌈${r.projected_enrollment} large-lecture students ÷ ${s.recitation_cap} per recitation⌉ = ${r.planned_sections}, each a weekly 65-minute session linked to one large lecture section.`;
       else if (r.virtual) rule = `Remote sections are capped at ${s.virtual_cap} students, so ⌈${r.projected_enrollment} ÷ ${s.virtual_cap}⌉ = ${r.planned_sections}.`;
       else if (r.code === 1115 || r.code === 1116) rule = `Principles run as ${s.large_lecture_cap}-seat large lectures while at least ${Math.round(0.75 * s.large_lecture_cap)} students remain, then ${s.small_section_cap}-seat small sections for the rest. ${r.projected_enrollment} students → ${caps}.`;
       else rule = `It uses the course's typical historical cap, and a new section opens only when demand is more than 10% over a full section.`;
@@ -197,7 +197,7 @@ const TOPICS: Topic[] = [
     answer: (ctx) => {
       const s = ctx.settings;
       return {
-        text: withExample(`**Sections** and **Section Caps** come from projected enrollment:\n• **Principles (1115/1116), in person:** ${s.large_lecture_cap}-seat large lectures while at least ${Math.round(0.75 * s.large_lecture_cap)} students remain, then ${s.small_section_cap}-seat small sections.\n• **Remote:** at most **${s.virtual_cap}** per section.\n• **Recitations:** **${s.recitation_cap}** per section, ⌈lecture students ÷ ${s.recitation_cap}⌉.\n• **Everything else:** the course's typical historical cap (usually 40–45; capstones about 20). A new section opens only when demand is more than 10% over a full one.\n• Electives under ${s.min_elective_demand} students get 0 sections.\n\n**Proj. / Cap** on the Term Schedule shows each section's share of students vs. its cap.`, ctx, "sections"),
+        text: withExample(`**Sections** and **Section Caps** come from projected enrollment:\n• **Principles (1115/1116), in person:** ${s.large_lecture_cap}-seat large lectures while at least ${Math.round(0.75 * s.large_lecture_cap)} students remain, then ${s.small_section_cap}-seat small sections.\n• **Remote:** at most **${s.virtual_cap}** per section.\n• **Recitations:** only for the large lectures: **${s.recitation_cap}** per section, ⌈large-lecture students ÷ ${s.recitation_cap}⌉. Small sections have none.\n• **Everything else:** the course's typical historical cap (usually 40–45; capstones about 20). A new section opens only when demand is more than 10% over a full one.\n• Electives under ${s.min_elective_demand} students get 0 sections.\n\n**Proj. / Cap** on the Term Schedule shows each section's share of students vs. its cap.`, ctx, "sections"),
         links: [LINK_DEMAND], chips: ["What does seat fill mean?", "How are recitations calculated?"],
       };
     },
@@ -255,8 +255,8 @@ const TOPICS: Topic[] = [
       const cap = ctx.settings.recitation_cap;
       const live = rec.map((r) => `**${r.course}:** ⌈${r.projected_enrollment} ÷ ${cap}⌉ = **${r.planned_sections}**`).join("\n");
       return {
-        text: `Recitations are weekly **65-minute** sessions: **ECON 1125** for Macro (1115) and **ECON 1126** for Micro (1116).\n**Count = ⌈on-campus lecture students ÷ recitation cap (${cap})⌉.**` + (live ? `\n${live}` : "") +
-          `\n\nEach recitation is linked to one lecture section (spread in proportion to lecture size) and placed in a 65-minute lab-window slot (sequences L–W) that **never overlaps its linked lecture**. Recitation leaders staff them, and they don't count toward faculty loads.`,
+        text: `Recitations are weekly **65-minute** sessions: **ECON 1125** for Macro (1115) and **ECON 1126** for Micro (1116).\n**Only large lecture sections (${ctx.settings.large_lecture_cap} seats) get recitations. Count = ⌈students in large lectures ÷ recitation cap (${cap})⌉.** Smaller (e.g. ${ctx.settings.small_section_cap}-seat) and remote sections don't need one.` + (live ? `\n${live}` : "") +
+          `\n\nEach recitation is linked to one large lecture section (spread in proportion to lecture size) and placed in a 65-minute lab-window slot (sequences L–W) that **never overlaps its linked lecture**. Recitation leaders staff them, and they don't count toward faculty loads.`,
         links: [LINK_DEMAND], chips: ["How are time slots assigned?", "What does seat fill mean?"],
       };
     },
@@ -300,8 +300,8 @@ const TOPICS: Topic[] = [
     id: "workload",
     aliases: ["workload", "workloads", "teaching load", "load", "loads", "contract", "ceiling", "allowed", "annual", "term target", "other semester", "assigned", "target from", "over-allocation", "under-allocation", "over allocated", "under allocated", "overallocated", "underallocated"],
     answer: () => ({
-      text: `**Faculty workload** compares each person's projected annual load with their contract:\n• **Tenured:** 3 per year (may teach fewer)\n• **Full-Time Teaching / Temporary:** 6 per year\n• **Adjunct:** 1–2 per year\n\n**Annual = Assigned (this term) + Other Semester** (planned load for the other semester, from the form or teaching history). **Allowed** = contract range − annual reduction + approved overloads. **Status** is Within Contract, Under Contract, Over Contract, or Overload in Use.`,
-      links: [{ label: "See Workload", to: "/conflicts" }], chips: ["What is an overload?", "What is a reduction?"],
+      text: `**Faculty workload** compares each person's projected annual load with their contract:\n• **Tenured Track / Tenured:** 3 per year (may teach fewer)\n• **Full-Time Teaching / Temporary:** 6 per year\n• **Adjunct:** 1–2 per year\n\n**Annual = Assigned (this term) + Other Semester** (planned load for the other semester: scheduler courseload, then the form, then teaching history). **Allowed** = contract range − graduate-teaching reduction + approved overloads. **Status** is Within Contract, Under Contract, Over Contract, or Overload in Use.`,
+      links: [{ label: "See Workload", to: "/conflicts" }], chips: ["What is an overload?", "What is a courseload?"],
     }),
   },
   {
@@ -309,21 +309,22 @@ const TOPICS: Topic[] = [
     aliases: ["overload", "overloads", "overloading", "extra compensation", "approved overload", "overload in use", "overload record mismatch"],
     answer: () => ({
       text: `An **overload** is an extra course beyond the contract, for additional compensation. Faculty request one on their preference form, and schedulers approve it under **Administration → Faculty & Overloads**. An approved overload raises that person's annual ceiling by one per approved semester, and their status shows **Overload in Use** when it's used. If the form and the approval disagree, you'll see **Overload Record Mismatch**.`,
-      chips: ["What does Over Contract mean?", "What is a reduction?"],
+      chips: ["What does Over Contract mean?", "What is a courseload?"],
     }),
   },
   {
     id: "reduction",
-    aliases: ["reduction", "reductions", "reduction per year", "buyout", "course release", "sabbatical", "grad teaching", "graduate teaching"],
+    aliases: ["courseload", "courseloads", "course load", "fall courseload", "spring courseload", "reduction", "reductions", "reduction per year", "buyout", "course release", "sabbatical", "grad teaching", "graduate teaching"],
     answer: () => ({
-      text: `An **annual reduction** lowers a faculty member's required and maximum undergraduate load: graduate teaching, a course buyout, a joint appointment or a sabbatical. Until a scheduler sets it, it's estimated from graduate sections taught per year. Edit it under **Administration → Faculty & Overloads → Reduction per Year**.`,
+      text: `**Fall Courseload** and **Spring Courseload** are the number of courses a faculty member teaches each semester, set by a scheduler under **Administration → Faculty & Overloads**. They take priority over the preference form and teaching history when the term schedule is built, and they prefill the Teaching Load fields on that person's preference form. Leave one blank ("Auto") to fall back to the form, then history.
+Use them to reflect course buyouts, releases, joint appointments or sabbaticals. Graduate teaching is still estimated from history and lowers the contract ceiling.`,
     }),
   },
   {
     id: "facultygroup",
-    aliases: ["faculty group", "faculty type", "tenured", "adjunct", "full-time", "full time", "temporary", "recitation leader", "inferred", "confirmed"],
+    aliases: ["faculty group", "faculty type", "tenured", "tenure track", "tenured track", "adjunct", "full-time", "full time", "temporary", "recitation leader", "inferred", "confirmed"],
     answer: () => ({
-      text: `**Faculty Group** sets the workload rule: Tenured 3/yr, Full-Time Teaching and Temporary 6/yr, Adjunct 1–2/yr, and Recitation Leader (no contract). Groups marked **Inferred** were guessed from teaching history; confirm them under **Administration → Faculty & Overloads** so workload checks are accurate.`,
+      text: `**Faculty Group** sets the workload rule: Tenured Track / Tenured 3/yr, Full-Time Teaching and Temporary 6/yr, Adjunct 1–2/yr, and Recitation Leader (no contract). Groups marked **Inferred** were guessed from teaching history; confirm them under **Administration → Faculty & Overloads** so workload checks are accurate.`,
     }),
   },
   {

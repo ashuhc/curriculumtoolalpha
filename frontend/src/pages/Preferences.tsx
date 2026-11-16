@@ -1,8 +1,8 @@
 // Faculty teaching-preference form (replaces TEACHER_PREFERENCES.py).
 import { ExternalLink, Search } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { api, type Course } from "../api";
+import { api, type Course, type Faculty } from "../api";
 import { scrollContentToTop } from "../components/AppShell";
 import { CourseSelect, matchCourse } from "../components/CourseSelect";
 import { Alert, Badge, Button, CARD, ErrorState, Field, PageHeader, Panel, Spinner, cx, inputCls, textareaCls } from "../components/ui";
@@ -12,7 +12,7 @@ import { usePlan } from "../store/plan";
 import { useFlash, useUI } from "../store/ui";
 
 const EMPTY = {
-  faculty_id: 0, email: "", principles: [] as number[], ranks: [null, null, null, null, null, null] as (number | null)[],
+  name: "", email: "", principles: [] as number[], ranks: [null, null, null, null, null, null] as (number | null)[],
   fall_target: 2, spring_target: 2, overload: false, overload_semester: "None", unique_circumstances: "",
 };
 
@@ -39,33 +39,53 @@ export default function Preferences() {
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const isAdmin = user?.role === "admin";
+  const roster = faculty.data ?? [];
+  const findFaculty = (name: string) => roster.find((f) => f.name.toLowerCase() === name.trim().toLowerCase());
+  const matched = findFaculty(form.name);
 
-  // Faculty are bound to their own roster entry; prefill from their latest submission
+  // Prefill once per account: name & email from the signed-in user, semester loads from the
+  // scheduler-set courseloads (then the latest submission), and the rest of their last form.
+  // Later data refreshes never overwrite what the user has typed.
+  const prefilledFor = useRef<number | null>(null);
   useEffect(() => {
-    if (!user) return;
+    if (!user || !faculty.data || mine.loading || prefilledFor.current === user.id) return;
+    prefilledFor.current = user.id;
+    const own = faculty.data.find((f) => f.id === user.faculty_id);
     const last = mine.data?.[0];
     setForm((f) => ({
-      ...f, faculty_id: user.role === "faculty" ? user.faculty_id ?? 0 : f.faculty_id, email: f.email || user.email,
+      ...f, name: own?.name ?? user.name, email: user.email,
       ...(last ? {
         principles: last.principles, ranks: [...last.ranks, null, null, null, null, null, null].slice(0, 6),
-        fall_target: last.fall_target, spring_target: last.spring_target, overload: last.overload,
-        overload_semester: last.overload_semester, unique_circumstances: last.unique_circumstances,
+        overload: last.overload, overload_semester: last.overload_semester, unique_circumstances: last.unique_circumstances,
       } : {}),
+      fall_target: own?.fall_courseload ?? last?.fall_target ?? f.fall_target,
+      spring_target: own?.spring_courseload ?? last?.spring_target ?? f.spring_target,
     }));
-  }, [user, mine.data]);
+  }, [user, faculty.data, mine.data, mine.loading]);
 
   const set = <K extends keyof typeof EMPTY>(k: K, v: (typeof EMPTY)[K]) => setForm((f) => ({ ...f, [k]: v }));
+  // Choosing another roster instructor pulls in their contact email and scheduler-set courseloads
+  const setName = (name: string) => setForm((f) => {
+    const next = findFaculty(name);
+    if (!next || next.id === findFaculty(f.name)?.id) return { ...f, name };
+    return {
+      ...f, name: next.name,
+      email: next.id === user?.faculty_id ? user.email : next.email || f.email,
+      fall_target: next.fall_courseload ?? f.fall_target, spring_target: next.spring_courseload ?? f.spring_target,
+    };
+  });
   const principles = (courses.data ?? []).filter((c) => c.code === 1115 || c.code === 1116);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!form.faculty_id) return setError("Select the faculty member these preferences are for.");
+    if (!form.name.trim()) return setError("Enter the name of the faculty member these preferences are for.");
+    if (!matched) return setError(`“${form.name.trim()}” isn't on the faculty roster. Choose a name from the suggestions (Last, First).`);
     if (form.overload && form.overload_semester === "None") return setError("Choose which semester you're overloading.");
     setBusy(true);
     try {
-      const res = await api.submitPreferences({ ...form, ranks: form.ranks.filter((r): r is number => r !== null),
+      const { name: _name, ...rest } = form;
+      const res = await api.submitPreferences({ ...rest, faculty_id: matched.id, ranks: form.ranks.filter((r): r is number => r !== null),
         overload_semester: form.overload ? form.overload_semester : "None" });
       success("Preferences submitted", `Saved for ${res.faculty_name} · your latest submission is the one used`, "prefs-form");
       mine.reload();
@@ -85,10 +105,10 @@ export default function Preferences() {
       </>
     );
   }
-  if (courses.loading || faculty.loading) return <Spinner />;
+  if ((courses.loading && !courses.data) || (faculty.loading && !faculty.data)) return <Spinner />;
   if (courses.error || faculty.error) return <ErrorState error={courses.error ?? faculty.error ?? ""} onRetry={() => { courses.reload(); faculty.reload(); }} />;
-  const myFaculty = faculty.data!.find((f) => f.id === user.faculty_id);
   const last = mine.data?.[0];
+  const onBehalf = !!matched && matched.id !== user.faculty_id;
 
   return (
     <>
@@ -99,22 +119,20 @@ export default function Preferences() {
           href="https://catalog.northeastern.edu/undergraduate/social-sciences-humanities/economics/#coursestext">Undergraduate Catalog <ExternalLink className="h-3 w-3" /></a>} />
 
       {user.role === "faculty" && !user.faculty_id && (
-        <div className="mb-6"><Alert tone="warning" title="Account Not Linked">Ask a scheduler to link your account to your faculty roster entry before submitting.</Alert></div>
+        <div className="mb-6"><Alert tone="warning" title="Account Not Linked">Your account isn't linked to a faculty roster entry yet, so enter the instructor's name as it appears on the roster. A scheduler can link your account for automatic prefill.</Alert></div>
       )}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
         <form onSubmit={submit} className={cx(CARD, "px-5", flash("prefs-form"))}>
-          <Section n={1} title="Faculty Member" description={isAdmin ? "Schedulers can submit on behalf of any faculty member." : undefined}>
+          <Section n={1} title="Faculty Member" description="Prefilled from your account. Change the name to submit on behalf of another instructor on the roster.">
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Name">
-                {isAdmin ? (
-                  <select className={inputCls} value={form.faculty_id} onChange={(e) => set("faculty_id", Number(e.target.value))}>
-                    <option value={0}>Select a Faculty Member</option>
-                    {faculty.data!.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-                  </select>
-                ) : <input className={inputCls} disabled value={myFaculty?.name ?? "Not Linked"} />}
+              <Field label="Name" hint={onBehalf ? <span className="text-amber-600 dark:text-amber-400">Submitting on behalf of {matched!.name}. Your account is recorded as the submitter.</span>
+                : form.name.trim() && !matched ? "Not on the roster. Choose a name from the suggestions (Last, First)." : undefined}>
+                <input className={inputCls} list="faculty-roster" autoComplete="off" placeholder="Last, First" value={form.name}
+                  onChange={(e) => setName(e.target.value)} />
+                <datalist id="faculty-roster">{roster.map((f) => <option key={f.id} value={f.name} />)}</datalist>
               </Field>
-              <Field label="Contact Email"><input className={inputCls} type="email" value={form.email} onChange={(e) => set("email", e.target.value)} /></Field>
+              <Field label="Contact Email"><input className={inputCls} type="email" autoComplete="email" value={form.email} onChange={(e) => set("email", e.target.value)} /></Field>
             </div>
           </Section>
 
@@ -143,11 +161,12 @@ export default function Preferences() {
           </Section>
 
           <Section n={4} title="Teaching Load" description="Courses per semester, including any overload (e.g. teaching 3 plus 1 overload → 4).">
+            <CourseloadNote f={matched} />
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Fall Courses"><input type="number" min={0} max={5} className={inputCls} value={form.fall_target}
-                onChange={(e) => set("fall_target", Math.max(0, Math.min(5, Number(e.target.value))))} /></Field>
-              <Field label="Spring Courses"><input type="number" min={0} max={5} className={inputCls} value={form.spring_target}
-                onChange={(e) => set("spring_target", Math.max(0, Math.min(5, Number(e.target.value))))} /></Field>
+              <Field label="Fall Courses"><input type="number" min={0} max={6} className={inputCls} value={form.fall_target}
+                onChange={(e) => set("fall_target", Math.max(0, Math.min(6, Number(e.target.value))))} /></Field>
+              <Field label="Spring Courses"><input type="number" min={0} max={6} className={inputCls} value={form.spring_target}
+                onChange={(e) => set("spring_target", Math.max(0, Math.min(6, Number(e.target.value))))} /></Field>
               <Field label="Overload for Additional Compensation">
                 <select className={inputCls} value={form.overload ? "yes" : "no"}
                   onChange={(e) => setForm((f) => ({ ...f, overload: e.target.value === "yes", overload_semester: e.target.value === "yes" ? (f.overload_semester === "None" ? "Fall" : f.overload_semester) : "None" }))}>
@@ -169,14 +188,30 @@ export default function Preferences() {
           <div className="flex items-center gap-3 border-t border-line py-4">
             {error && <div className="flex-1"><Alert tone="error">{error}</Alert></div>}
             <div className="ml-auto flex gap-2">
-              <Button type="button" variant="ghost" onClick={() => { setForm({ ...EMPTY, faculty_id: form.faculty_id, email: form.email }); success("Form cleared", "Nothing is submitted until you click Submit preferences"); }}>Clear</Button>
-              <Button variant="primary" type="submit" loading={busy} disabled={user.role === "faculty" && !user.faculty_id}>Submit Preferences</Button>
+              <Button type="button" variant="ghost" onClick={() => {
+                setForm({ ...EMPTY, name: form.name, email: form.email,
+                  fall_target: matched?.fall_courseload ?? EMPTY.fall_target, spring_target: matched?.spring_courseload ?? EMPTY.spring_target });
+                success("Form cleared", "Nothing is submitted until you click Submit Preferences");
+              }}>Clear</Button>
+              <Button variant="primary" type="submit" loading={busy}>Submit Preferences</Button>
             </div>
           </div>
         </form>
         <CatalogBrowser courses={courses.data!} />
       </div>
     </>
+  );
+}
+
+/** Shows the scheduler-set semester courseloads that prefilled the teaching load fields. */
+function CourseloadNote({ f }: { f: Faculty | undefined }) {
+  if (!f || (f.fall_courseload === null && f.spring_courseload === null)) return null;
+  const fmt = (n: number | null) => (n === null ? "not set" : `${n} ${n === 1 ? "course" : "courses"}`);
+  return (
+    <div className="mb-4 rounded-md border border-line bg-subtle px-3 py-2 text-xs text-muted">
+      <span className="font-medium text-fg">Scheduler Courseload for {f.name}:</span> Fall {fmt(f.fall_courseload)} · Spring {fmt(f.spring_courseload)}.
+      These values prefill the fields below and take priority when the term schedule is built.
+    </div>
   );
 }
 

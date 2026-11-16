@@ -100,19 +100,22 @@ def inferred_roster(db: Session, faculty: list[Faculty]) -> pd.DataFrame:
     enr = clean_enrollment(db)
     if enr.empty:
         return pd.DataFrame(columns=["Faculty", "Type", "Annual Reduction", "UG Lectures / Yr (hist.)",
-                                     "Grad Sections / Yr (hist.)", "Source"])
+                                     "Grad Sections / Yr (hist.)", "Source", "Fall Courseload", "Spring Courseload"])
     key = ("roster", _version)
     if key not in _enr_cache:
         roster = eng.infer_roster(enr, [f.name for f in faculty], saved={})
-        # Admin-confirmed groups win; a confirmed group without an explicit
-        # reduction keeps the history-inferred reduction (grad teaching).
+        # Admin-confirmed groups win. Scheduler-set semester courseloads (Administration →
+        # Faculty & Overloads) override form/history term targets; blank = not set.
+        roster["Fall Courseload"] = None
+        roster["Spring Courseload"] = None
+        roster = roster.astype({"Fall Courseload": object, "Spring Courseload": object})
         for f in faculty:
+            mask = roster["Faculty"] == f.name
             if f.faculty_type:
-                mask = roster["Faculty"] == f.name
-                roster.loc[mask, "Type"] = f.faculty_type
+                roster.loc[mask, "Type"] = eng.normalize_faculty_type(f.faculty_type)
                 roster.loc[mask, "Source"] = "Confirmed"
-                if f.annual_reduction is not None:
-                    roster.loc[mask, "Annual Reduction"] = f.annual_reduction
+            roster.loc[mask, "Fall Courseload"] = f.fall_courseload
+            roster.loc[mask, "Spring Courseload"] = f.spring_courseload
         _enr_cache[key] = roster
     return _enr_cache[key]
 

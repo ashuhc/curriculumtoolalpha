@@ -175,7 +175,7 @@ else:
             + ("Faculty are matched using their **teaching history** (sidebar option)." if fallback
                else "History fallback is off, so only core recitations/forced assignments can be staffed."))
 if (res["roster"]["Source"] == "Inferred from history").any():
-    st.caption("ℹ️ Some faculty groups (Tenured / Full-Time / Temporary / Adjunct) are inferred from teaching "
+    st.caption("ℹ️ Some faculty groups (Tenured Track / Tenured / Full-Time / Temporary / Adjunct) are inferred from teaching "
                "history. Confirm them in the **Faculty Roster** tab.")
 
 tabs = st.tabs(["📈 Demand & Sections", "🗂️ Master Curriculum",
@@ -317,7 +317,7 @@ with tabs[2]:
 with tabs[3]:
     st.markdown(f"### Faculty Workload — {target_term}")
     st.caption("Annual load = sections assigned this term + planned load for the other semester (from the form, "
-               "or teaching history). Contracts: Tenured 3/yr (may teach fewer) · Full-Time Teaching 6/yr · "
+               "or teaching history). Contracts: Tenured Track / Tenured 3/yr (may teach fewer) · Full-Time Teaching 6/yr · "
                "Temporary 6/yr · Adjunct 1–2/yr. Approved overloads in `faculty_overloads.json` raise the "
                "ceiling (extra compensation); roster reductions (grad teaching, buyouts, sabbatical) lower it.")
     if workload.empty:

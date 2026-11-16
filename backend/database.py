@@ -45,7 +45,36 @@ def get_db():
         db.close()
 
 
+# Additive columns introduced after the first deploy: create_all() only creates missing
+# tables, so existing databases (e.g. a hosted Postgres) get these via ALTER TABLE.
+_ADDED_COLUMNS = {
+    "faculty": {"fall_courseload": "INTEGER", "spring_courseload": "INTEGER"},
+    "preference_submissions": {"submitted_by": "VARCHAR(200)"},
+}
+# Renamed faculty-group labels stored in older databases
+_RENAMED_FACULTY_TYPES = {"Tenured": "Tenured Track / Tenured"}
+
+
+def _migrate():
+    from sqlalchemy import inspect, text
+
+    insp = inspect(engine)
+    with engine.begin() as conn:
+        for table, cols in _ADDED_COLUMNS.items():
+            if not insp.has_table(table):
+                continue
+            have = {c["name"] for c in insp.get_columns(table)}
+            for name, sql_type in cols.items():
+                if name not in have:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {sql_type}"))
+        if insp.has_table("faculty"):
+            for old, new in _RENAMED_FACULTY_TYPES.items():
+                conn.execute(text("UPDATE faculty SET faculty_type = :new WHERE faculty_type = :old"),
+                             {"new": new, "old": old})
+
+
 def init_db():
     from models import Base as _Base  # noqa: F401 — registers all models
 
     Base.metadata.create_all(bind=engine)
+    _migrate()

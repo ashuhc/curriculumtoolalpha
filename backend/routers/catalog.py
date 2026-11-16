@@ -85,10 +85,10 @@ def faculty_out(db: Session, include_inactive=True) -> List[FacultyOut]:
         r = roster.loc[f.name] if f.name in roster.index else None
         out.append(FacultyOut(
             id=f.id, name=f.name, email=f.email or "", active=f.active,
-            faculty_type=f.faculty_type or (r["Type"] if r is not None else "Adjunct"),
+            faculty_type=eng.normalize_faculty_type(f.faculty_type or (r["Type"] if r is not None else "Adjunct")),
             type_source="Confirmed" if f.faculty_type else "Inferred from history",
-            annual_reduction=int(f.annual_reduction if f.annual_reduction is not None
-                                 else (r["Annual Reduction"] if r is not None else 0)),
+            annual_reduction=int(r["Annual Reduction"]) if r is not None else 0,
+            fall_courseload=f.fall_courseload, spring_courseload=f.spring_courseload,
             overloading=bool(f.overload and f.overload.overloading),
             overload_semester=f.overload.semester if f.overload else "None",
             ug_lectures_per_year=float(r["UG Lectures / Yr (hist.)"]) if r is not None else 0.0,
@@ -120,11 +120,15 @@ def update_faculty(fid: int, body: FacultyUpdate, db: Session = Depends(get_db),
     if not f:
         raise HTTPException(404, "Faculty not found")
     data = body.model_dump(exclude_none=True)
+    sent = body.model_dump(exclude_unset=True)
     if data.pop("clear_type", False):
         f.faculty_type, f.annual_reduction = None, None
-    for k in ("name", "email", "faculty_type", "annual_reduction", "active"):
+    for k in ("name", "email", "faculty_type", "active"):
         if k in data:
             setattr(f, k, data[k].strip() if isinstance(data[k], str) else data[k])
+    for k in ("fall_courseload", "spring_courseload"):
+        if k in sent:                                   # explicit null clears the value
+            setattr(f, k, sent[k])
     if "overloading" in data or "overload_semester" in data:
         if not f.overload:
             f.overload = Overload(overloading=False, semester="None")

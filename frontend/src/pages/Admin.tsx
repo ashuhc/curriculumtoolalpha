@@ -24,7 +24,15 @@ function facultyToast(f: Faculty, patch: Record<string, unknown>): [string, stri
     return f.type_source === "Confirmed" && patch.faculty_type !== f.faculty_type
       ? ["Faculty group updated", `${f.name}: ${f.faculty_type} → ${patch.faculty_type}`]
       : ["Faculty group confirmed", `${f.name}: ${patch.faculty_type}`];
-  if ("annual_reduction" in patch) return ["Faculty settings updated", `${f.name}: annual reduction set to ${patch.annual_reduction}`];
+  for (const sem of ["fall", "spring"] as const) {
+    const k = `${sem}_courseload`;
+    if (k in patch) {
+      const label = sem === "fall" ? "Fall" : "Spring";
+      return ["Courseload updated", patch[k] === null
+        ? `${f.name}: ${label} courseload cleared (uses the preference form, then teaching history)`
+        : `${f.name}: ${label} courseload set to ${patch[k]} ${patch[k] === 1 ? "course" : "courses"}`];
+    }
+  }
   if ("overloading" in patch && patch.overloading === false) return ["Faculty settings updated", `${f.name}: overload approval removed`];
   if ("overload_semester" in patch)
     return ["Faculty settings updated", `${f.name}: overload approved for ${patch.overload_semester === "Both" ? "both semesters" : patch.overload_semester}`];
@@ -75,11 +83,12 @@ function Submissions() {
       </>}>
       {rows.length === 0 ? <div className="p-6 text-center text-[13px] text-muted">No submissions yet.</div> : (
         <Table>
-          <thead><tr><th>Submitted</th><th>Faculty</th><th>Principles</th><th>Ranked Courses</th><th className="text-right">Fall</th><th className="text-right">Spring</th><th>Overload</th><th>Circumstances</th><th /></tr></thead>
+          <thead><tr><th>Submitted</th><th>Faculty</th><th>Submitted By</th><th>Principles</th><th>Ranked Courses</th><th className="text-right">Fall</th><th className="text-right">Spring</th><th>Overload</th><th>Circumstances</th><th /></tr></thead>
           <tbody>{rows.map((s) => (
             <tr key={s.id}>
               <td className="whitespace-nowrap text-muted">{fmtDate(s.submitted_at)}</td>
               <td className="whitespace-nowrap font-medium">{s.faculty_name}<div className="text-xs font-normal text-faint">{s.email}</div></td>
+              <td className="whitespace-nowrap text-xs text-muted">{s.submitted_by ?? "—"}</td>
               <td className="text-muted">{s.principles.join(", ") || "—"}</td>
               <td className="min-w-64 text-xs">{s.ranks.map((c, i) => <div key={c}><span className="tabular-nums text-faint">{i + 1}.</span> ECON {c} <span className="text-muted">{title(c)}</span></div>)}</td>
               <td className="text-right tabular-nums">{s.fall_target}</td><td className="text-right tabular-nums">{s.spring_target}</td>
@@ -109,6 +118,9 @@ function FacultyAdmin() {
   // PUT response (or a reload on failure) settles it. A per-row counter drops stale
   // responses so quick successive edits can't be overwritten by an older reply.
   const seq = useRef<Record<number, number>>({});
+  // Writes for one row go out one at a time: concurrent PUTs can commit out of order on the
+  // server, which would let an older choice win. The UI still updates instantly (optimistic).
+  const queue = useRef<Record<number, Promise<unknown>>>({});
   const update = async (f: Faculty, patch: Record<string, unknown>) => {
     const n = (seq.current[f.id] = (seq.current[f.id] ?? 0) + 1);
     const optimistic: Partial<Faculty> = { ...(patch as Partial<Faculty>) };
@@ -118,7 +130,9 @@ function FacultyAdmin() {
     fac.setData((l) => l?.map((x) => (x.id === f.id ? { ...x, ...optimistic } : x)) ?? null);
     const [title, body] = facultyToast(f, patch);
     try {
-      const u = await api.updateFaculty(f.id, patch);
+      const send = (queue.current[f.id] ?? Promise.resolve()).catch(() => undefined).then(() => api.updateFaculty(f.id, patch));
+      queue.current[f.id] = send;
+      const u = await send;
       if (seq.current[f.id] !== n) return;
       fac.setData((l) => l?.map((x) => (x.id === f.id ? u : x)) ?? null);
       success(title, body, `faculty:${f.id}`);
@@ -145,7 +159,7 @@ function FacultyAdmin() {
         ? <Alert tone="warning" title={`${inferred} ${inferred === 1 ? "Faculty Group Needs" : "Faculty Groups Need"} Confirmation`}>These groups were inferred from teaching history. Workload checks depend on them, so confirm each one with the checkmark, or choose a different group from the list to save it as confirmed.</Alert>
         : <Alert tone="success" title="All Faculty Groups Confirmed">Workload checks use the confirmed group for every active faculty member.</Alert>}
       <Panel flush title={`Faculty Roster (${fac.data!.length})`}
-        description="Tenured 3/yr · Full-time teaching & temporary 6/yr · Adjunct 1–2/yr. An approved overload raises the annual ceiling for extra compensation; a reduction lowers it."
+        description="Tenured track / tenured 3/yr · Full-time teaching & temporary 6/yr · Adjunct 1–2/yr. Fall and Spring Courseload set how many courses each person teaches per semester; leave one blank to use their preference form, then teaching history. An approved overload raises the annual ceiling for extra compensation."
         actions={<>
           <div className="relative"><Search className="absolute left-2.5 top-2 h-4 w-4 text-faint" />
             <input className={inputBase + " w-48 pl-8"} placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} /></div>
@@ -155,7 +169,7 @@ function FacultyAdmin() {
           </form>
         </>}>
         <Table>
-          <thead><tr><th>Name</th><th>Faculty Group</th><th>Reduction per Year</th><th>Approved Overload</th><th className="text-right">History (UG / Grad per Year)</th><th className="text-right">Forms</th><th>Active</th><th /></tr></thead>
+          <thead><tr><th>Name</th><th>Faculty Group</th><th>Fall Courseload</th><th>Spring Courseload</th><th>Approved Overload</th><th className="text-right">History (UG / Grad per Year)</th><th className="text-right">Forms</th><th>Active</th><th /></tr></thead>
           <tbody>{shown.map((f) => (
             <tr key={f.id} className={`${f.active ? "" : "opacity-50"} ${flash(`faculty:${f.id}`)}`}>
               <td className="whitespace-nowrap font-medium">{f.name}</td>
@@ -165,8 +179,9 @@ function FacultyAdmin() {
                   onConfirm={() => update(f, { faculty_type: f.faculty_type })}
                   onRevert={() => update(f, { clear_type: true })} />
               </td>
-              <td><input type="number" min={0} max={6} className={inputBase + " h-7 w-16 text-xs tabular-nums"} value={f.annual_reduction}
-                onChange={(e) => update(f, { annual_reduction: Number(e.target.value) })} /></td>
+              {(["fall", "spring"] as const).map((sem) => (
+                <td key={sem}><CourseloadInput f={f} sem={sem} onChange={(v) => update(f, { [`${sem}_courseload`]: v })} /></td>
+              ))}
               <td>
                 <div className="flex items-center gap-2">
                   <Switch checked={f.overloading} onChange={(v) => update(f, { overloading: v, overload_semester: v ? "Both" : "None" })} />
@@ -190,6 +205,23 @@ function FacultyAdmin() {
   );
 }
 
+/** Semester courseload: blank = not set (placeholder "Auto"); 0–6 courses otherwise. */
+function CourseloadInput({ f, sem, onChange }: { f: Faculty; sem: "fall" | "spring"; onChange: (v: number | null) => void }) {
+  const label = sem === "fall" ? "Fall" : "Spring";
+  const value = sem === "fall" ? f.fall_courseload : f.spring_courseload;
+  return (
+    <input type="number" inputMode="numeric" min={0} max={6} placeholder="Auto" aria-label={`${label} Courseload for ${f.name}`}
+      title={`${label} courses for ${f.name}. Leave blank to use their preference form, then teaching history.`}
+      className={inputBase + " h-7 w-[72px] text-xs tabular-nums placeholder:text-faint"} value={value ?? ""}
+      onChange={(e) => {
+        const raw = e.target.value.trim();
+        if (raw === "") return onChange(null);
+        const n = Math.round(Number(raw));
+        if (Number.isFinite(n)) onChange(Math.max(0, Math.min(6, n)));
+      }} />
+  );
+}
+
 /** Faculty Group column: a dropdown that always saves, plus the status control (confirm ✓ or revertible Confirmed badge). */
 function FacultyGroupCell({ f, types, onChange, onConfirm, onRevert }: {
   f: Faculty; types: string[]; onChange: (v: string) => void; onConfirm: () => void; onRevert: () => void;
@@ -197,7 +229,7 @@ function FacultyGroupCell({ f, types, onChange, onConfirm, onRevert }: {
   const confirmed = f.type_source === "Confirmed";
   return (
     <div className="flex items-center gap-2">
-      <select aria-label={`Faculty Group for ${f.name}`} className={"h-7 w-[168px] text-xs " + inputBase} value={f.faculty_type}
+      <select aria-label={`Faculty Group for ${f.name}`} className={"h-7 w-[196px] text-xs " + inputBase} value={f.faculty_type}
         onChange={(e) => onChange(e.target.value)}>
         {types.map((t) => <option key={t}>{t}</option>)}
       </select>

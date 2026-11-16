@@ -108,13 +108,23 @@ PREREQUISITE_OVERRIDES = {
 }
 
 # Faculty groups -> annual course load (min, standard, max). None = no contract.
+TENURED = "Tenured Track / Tenured"
 FACULTY_TYPES = {
-    "Tenured": {"min": 0, "standard": 3, "max": 3},
+    TENURED: {"min": 0, "standard": 3, "max": 3},
     "Full-Time Teaching": {"min": 6, "standard": 6, "max": 6},
     "Temporary": {"min": 6, "standard": 6, "max": 6},
     "Adjunct": {"min": 1, "standard": 2, "max": 2},
     "Recitation Leader": None,
 }
+
+# Older labels still found in saved rosters / databases
+LEGACY_FACULTY_TYPES = {"Tenured": TENURED}
+
+
+def normalize_faculty_type(name):
+    """Map a legacy group label (e.g. "Tenured") to its current name."""
+    return LEGACY_FACULTY_TYPES.get(name, name)
+
 
 VIRTUAL_CAP_LIMIT = 25
 
@@ -509,6 +519,18 @@ class Settings:
         return parse_term_label(self.target_term)
 
 
+def _large_lecture_count(code: int, virtual: bool, projected: int, s: Settings) -> int:
+    """Number of large-lecture sections (s.large_lecture_cap seats) planned for a course.
+    Large lectures run while at least 75% of a lecture's seats would still be filled."""
+    if virtual or code not in LARGE_LECTURE_COURSES or projected <= 0:
+        return 0
+    n, remaining = 0, projected
+    while remaining >= 0.75 * s.large_lecture_cap:
+        n += 1
+        remaining -= s.large_lecture_cap
+    return n
+
+
 def _section_caps_for(code: int, virtual: bool, projected: int, hist_cap: float, s: Settings) -> list[int]:
     """Return the list of section capacities needed to seat `projected` students."""
     if projected <= 0:
@@ -518,10 +540,9 @@ def _section_caps_for(code: int, virtual: bool, projected: int, hist_cap: float,
         return [cap] * max(1, math.ceil(projected / cap))
     if code in LARGE_LECTURE_COURSES:
         # Large lectures (100-200+) while demand supports them, rest in small sections
-        caps, remaining = [], projected
-        while remaining >= 0.75 * s.large_lecture_cap:
-            caps.append(s.large_lecture_cap)
-            remaining -= s.large_lecture_cap
+        n_large = _large_lecture_count(code, virtual, projected, s)
+        caps = [s.large_lecture_cap] * n_large
+        remaining = projected - n_large * s.large_lecture_cap
         if remaining > 0:
             caps += [s.small_section_cap] * math.ceil(remaining / s.small_section_cap)
         return caps
@@ -627,6 +648,7 @@ def estimate_demand(enr: pd.DataFrame, settings: Settings, catalog: dict[int, st
             "_code": code,
             "_virtual": virt,
             "_caps": caps,
+            "_n_large": _large_lecture_count(code, virt, projected, settings) if caps else 0,
             "Course": f"ECON {code}",
             "Title": catalog.get(code, ""),
             "Category": course_category(code),
@@ -647,15 +669,17 @@ def estimate_demand(enr: pd.DataFrame, settings: Settings, catalog: dict[int, st
 
     demand = pd.DataFrame(rows)
 
-    # --- Recitations scale with total in-person lecture enrollment ---------------
+    # --- Recitations: only students in large lecture sections need them ----------
+    # Small (e.g. 45-seat) and remote sections of the same course have no recitation.
     rec_rows = []
     for rec_code, lecture in RECITATION_FOR.items():
         lec = demand[(demand["_code"] == lecture) & (~demand["_virtual"])]
-        total = int(lec["Projected Enrollment"].sum()) if not lec.empty else 0
+        n_large = int(lec["_n_large"].sum()) if not lec.empty else 0
+        total = int(sum(_large_lecture_students(r) for _, r in lec.iterrows()))
         n = math.ceil(total / settings.recitation_cap) if total else 0
         act = enr[(enr["course"] == rec_code) & (enr["ordinal"] == target_ord)]
         rec_rows.append({
-            "_code": rec_code, "_virtual": False, "_caps": [settings.recitation_cap] * n,
+            "_code": rec_code, "_virtual": False, "_caps": [settings.recitation_cap] * n, "_n_large": 0,
             "Course": f"ECON {rec_code}", "Title": catalog.get(rec_code, f"Recitation for ECON {lecture}"),
             "Category": "Recitation", "Level": 1000, "Modality": "In-Person",
             "History Terms Used": 0, "Hist. Weighted Avg": None, "Annual Trend": 0.0,
@@ -665,11 +689,22 @@ def estimate_demand(enr: pd.DataFrame, settings: Settings, catalog: dict[int, st
             "Seat Fill %": (total / (n * settings.recitation_cap)) if n else 0.0,
             "Actual Enrollment (if known)": int(act["ug_enr"].sum()) if not act.empty else None,
             "Actual Sections (if known)": int(len(act)) if not act.empty else None,
-            "Notes": f"ceil({total} lecture students / {settings.recitation_cap}) — 1×/week, 65 min",
+            "Notes": (f"ceil({total} students in {n_large} large lecture{'s' if n_large != 1 else ''} "
+                      f"/ {settings.recitation_cap}) — 1×/week, 65 min" if n_large else
+                      f"No large lecture sections planned — smaller sections of ECON {lecture} don't need recitations"),
         })
     demand = pd.concat([demand, pd.DataFrame(rec_rows)], ignore_index=True)
     demand["_core"] = demand["_code"].apply(is_core)
     return demand.sort_values(["_core", "_code", "_virtual"], ascending=[False, True, True]).reset_index(drop=True)
+
+
+def _large_lecture_students(row) -> int:
+    """Students seated in a demand row's large-lecture sections (same split as plan_sections)."""
+    caps, n = row["_caps"], int(row.get("_n_large", 0) or 0)
+    if not caps or not n:
+        return 0
+    total_cap = sum(caps)
+    return int(sum(min(cap, round(row["Projected Enrollment"] * cap / total_cap)) for cap in caps[:n]))
 
 
 def plan_sections(demand: pd.DataFrame, settings: Settings) -> list[dict]:
@@ -678,7 +713,7 @@ def plan_sections(demand: pd.DataFrame, settings: Settings) -> list[dict]:
     across sections in proportion to capacity. Recitations are distributed over
     the in-person lecture sections of their parent course (largest remainder),
     and each recitation is linked to one lecture section so the scheduler can
-    keep them from overlapping.
+    keep them from overlapping. Only large lecture sections get recitations.
     """
     sections: list[dict] = []
     counters: dict[int, int] = {}
@@ -692,7 +727,8 @@ def plan_sections(demand: pd.DataFrame, settings: Settings) -> list[dict]:
         if not caps:
             continue
         total_cap = sum(caps)
-        for cap in caps:
+        n_large = int(row.get("_n_large", 0) or 0)
+        for i, cap in enumerate(caps):
             code = int(row["_code"])
             no = next_no(code)
             sections.append({
@@ -701,7 +737,8 @@ def plan_sections(demand: pd.DataFrame, settings: Settings) -> list[dict]:
                 "category": row["Category"], "level": int(row["Level"]),
                 "virtual": bool(row["_virtual"]), "cap": int(cap),
                 "projected": int(min(cap, round(row["Projected Enrollment"] * cap / total_cap))),
-                "kind": "Lecture", "parent": None, "large": cap >= 100,
+                "kind": "Lecture", "parent": None, "large": cap >= 100 or i < n_large,
+                "large_lecture": i < n_large,
                 "instructor": None, "basis": "", "slot": None,
             })
 
@@ -710,7 +747,9 @@ def plan_sections(demand: pd.DataFrame, settings: Settings) -> list[dict]:
         if row.empty or not row.iloc[0]["_caps"]:
             continue
         n_rec = len(row.iloc[0]["_caps"])
-        lectures = [s for s in sections if s["code"] == lecture and not s["virtual"]]
+        lectures = [s for s in sections if s["code"] == lecture and s.get("large_lecture") and not s["virtual"]]
+        if not lectures:
+            continue
         total = sum(s["projected"] for s in lectures) or 1
         raw = [n_rec * s["projected"] / total for s in lectures]
         alloc = [int(math.floor(x)) for x in raw]
@@ -725,7 +764,7 @@ def plan_sections(demand: pd.DataFrame, settings: Settings) -> list[dict]:
                     "category": "Recitation", "level": 1000, "virtual": False,
                     "cap": settings.recitation_cap,
                     "projected": int(min(settings.recitation_cap, math.ceil(lec["projected"] / k))),
-                    "kind": "Recitation", "parent": lec["id"], "large": False,
+                    "kind": "Recitation", "parent": lec["id"], "large": False, "large_lecture": False,
                     "instructor": None, "basis": "", "slot": None,
                 })
     return sections
@@ -829,16 +868,16 @@ def infer_roster(enr: pd.DataFrame, names: list[str], saved: dict | None = None)
         elif total_per_year >= 4.5:
             ftype = "Full-Time Teaching"       # teaching-track load (6/yr)
         elif len(grad):
-            ftype = "Tenured"                  # research faculty also teaching grad
+            ftype = TENURED                    # research faculty also teaching grad
         elif per_year <= 2 and h["ordinal"].nunique() <= 4:
             ftype = "Adjunct"
         else:
-            ftype = "Tenured"
+            ftype = TENURED
         # Graduate teaching (out of scope here) still consumes contracted load
         reduction = int(round(grad_per_year)) if ftype not in ("Recitation Leader", "Adjunct") else 0
         source = "Inferred from history"
         if name in saved:
-            ftype = saved[name].get("type", ftype)
+            ftype = normalize_faculty_type(saved[name].get("type", ftype))
             reduction = safe_int(saved[name].get("reduction"), reduction)
             source = "Confirmed"
         rows.append({"Faculty": name, "Type": ftype, "Annual Reduction": reduction,
@@ -876,6 +915,13 @@ class FacultyProfile:
         return self.term_target - len(self.assigned)
 
 
+def _opt_int(v):
+    """int, or None for missing / NaN values."""
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return None
+    return int(v)
+
+
 def _semester_matches(sem_value: str, sem: str) -> bool:
     return str(sem_value).title() in (sem, "Both")
 
@@ -901,7 +947,8 @@ def build_faculty_profiles(enr, roster, prefs, overloads, settings: Settings) ->
     names = list(dict.fromkeys(list(roster_map) + list(prefs)))
     for name in names:
         r = roster_map.get(name, {"Type": "Adjunct", "Annual Reduction": 0})
-        ftype = r["Type"] if r["Type"] in FACULTY_TYPES else "Adjunct"
+        ftype = normalize_faculty_type(r["Type"])
+        ftype = ftype if ftype in FACULTY_TYPES else "Adjunct"
         contract = FACULTY_TYPES[ftype]
         p = prefs.get(name)
         ov = overloads.get(name, {})
@@ -933,6 +980,13 @@ def build_faculty_profiles(enr, roster, prefs, overloads, settings: Settings) ->
                 scale = allowed / (target + other_plan)
                 target = int(math.floor(target * scale + 0.5))
                 other_plan = max(0, allowed - target)
+
+        # Scheduler-set semester courseloads (Administration) are authoritative
+        set_this, set_other = _opt_int(r.get(f"{sem} Courseload")), _opt_int(r.get(f"{other} Courseload"))
+        if set_this is not None:
+            target, source = set_this, "Scheduler courseload"
+        if set_other is not None:
+            other_plan = set_other
 
         # --- willingness scores per course -----------------------------------
         scores: dict[int, tuple[float, str]] = {}
@@ -1256,7 +1310,7 @@ def workload_summary(master: pd.DataFrame, profiles: dict[str, FacultyProfile], 
                 status = "⚠️ Under contract"
             elif annual > base_hi:
                 status = "💲 Overload in use"
-            elif p.ftype == "Tenured" and annual < contract["standard"] - p.reduction:
+            elif p.ftype == TENURED and annual < contract["standard"] - p.reduction:
                 status = "ℹ️ Below standard (tenured)"
             else:
                 status = "✅ Within contract"
