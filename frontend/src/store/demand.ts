@@ -1,4 +1,4 @@
-// Shared demand-forecast cache: used by the Demand Estimator page and by the
+// Shared demand-forecast cache: used by the Enrollment Projections page and by the
 // Scheduler Assistant (so it can explain the exact numbers on screen).
 import { create } from "zustand";
 import { api, type DemandResponse, type PlanSettings } from "../api";

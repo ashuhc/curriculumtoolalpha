@@ -14,9 +14,9 @@ import { Avatar, BrandMark, IconButton, cx } from "./ui";
 const NAV = [
   { group: "Planning", items: [
     { to: "/", label: "Overview", icon: LayoutDashboard },
-    { to: "/demand", label: "Demand Estimator", icon: BarChart3 },
-    { to: "/schedule", label: "Master Schedule", icon: CalendarRange },
-    { to: "/conflicts", label: "Conflicts", icon: AlertTriangle },
+    { to: "/demand", label: "Enrollment Projections", icon: BarChart3 },
+    { to: "/schedule", label: "Term Schedule", icon: CalendarRange },
+    { to: "/conflicts", label: "Conflicts & Audits", icon: AlertTriangle },
   ] },
   { group: "Faculty", items: [{ to: "/preferences", label: "Teaching Preferences", icon: ClipboardList }] },
   { group: "Administration", admin: true, items: [{ to: "/admin", label: "Administration", icon: Settings2 }] },

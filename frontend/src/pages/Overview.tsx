@@ -11,10 +11,10 @@ import { usePlan } from "../store/plan";
 import { useSchedule } from "../store/schedule";
 
 const STEPS = [
-  { to: "/preferences", icon: ClipboardList, title: "Collect Teaching Preferences", text: "Faculty rank up to six courses, set Fall/Spring loads and note overloads or special circumstances." },
-  { to: "/demand", icon: BarChart3, title: "Forecast Demand", text: "Project enrollment from history, apply a growth multiplier and size lectures, small sections and recitations." },
-  { to: "/schedule", icon: CalendarRange, title: "Build the Master Schedule", text: "Core courses are staffed first, then electives; sections are placed on Course_Sequences.pdf time blocks." },
-  { to: "/conflicts", icon: TriangleAlert, title: "Resolve Conflicts and Publish", text: "Clear unstaffed core sections, workload issues and overlaps, then publish and export for the catalog." },
+  { to: "/preferences", icon: ClipboardList, title: "Collect Teaching Preferences", text: "Faculty rank up to six preferred courses, set fall and spring teaching loads, and note overloads or special circumstances." },
+  { to: "/demand", icon: BarChart3, title: "Review Enrollment Projections", text: "Forecast course demand from historical enrollment and set the number of lectures, small sections, and recitations." },
+  { to: "/schedule", icon: CalendarRange, title: "Build the Term Schedule", text: "Staff core requirements first, then place each section on a standard lecture or recitation time block." },
+  { to: "/conflicts", icon: TriangleAlert, title: "Resolve Conflicts & Audits", text: "Clear unstaffed core sections, workload issues, and time overlaps, then publish the term for catalog export." },
 ];
 
 export default function Overview() {
@@ -30,7 +30,7 @@ export default function Overview() {
   return (
     <>
       <PageHeader eyebrow="Dashboard" title={user ? `Welcome Back, ${user.name}` : "Curriculum Planning"}
-        description="Plan the undergraduate economics curriculum: collect faculty preferences, forecast demand, build and publish the master schedule." />
+        description="Coordinate undergraduate economics course offerings, faculty teaching assignments, and term schedules." />
 
       {user?.role === "faculty" && (
         <Panel className="mb-6" title="Your Teaching Preferences"
@@ -49,7 +49,7 @@ export default function Overview() {
         )}
       </div>
       <StatGrid cols={6}>
-        <Stat to="/schedule" icon={CalendarRange} label="Sections Planned" value={s?.sections ?? "—"} sub="Open master schedule" />
+        <Stat to="/schedule" icon={CalendarRange} label="Sections Planned" value={s?.sections ?? "—"} sub="View in Term Schedule" />
         <Stat to="/schedule" icon={ShieldCheck} label="Core Staffed" value={s ? `${s.core_staffed}/${s.core_sections}` : "—"}
           tone={s && s.core_staffed < s.core_sections ? "danger" : undefined} iconTone={s && s.core_staffed < s.core_sections ? "warning" : "primary"} sub="Mandatory core sections" />
         <Stat to="/schedule" icon={BookOpen} label="Electives Offered" value={s?.electives_offered ?? "—"} sub="Matched to willing faculty" />

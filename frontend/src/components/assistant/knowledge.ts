@@ -36,9 +36,9 @@ const pct1 = (t: number) => `${t > 0 ? "+" : ""}${(t * 100).toFixed(1)}%`;
 const label = (r: DemandRow) => `${r.course} (${r.virtual ? "Remote" : "In Person"})`;
 const seasonOf = (term: string) => term.split(" ")[0] || "same-season";
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
-const LINK_DEMAND = { label: "Open Demand Estimator", to: "/demand" };
-const LINK_SCHEDULE = { label: "Open Master Schedule", to: "/schedule" };
-const LINK_CONFLICTS = { label: "Open Conflicts", to: "/conflicts" };
+const LINK_DEMAND = { label: "Open Enrollment Projections", to: "/demand" };
+const LINK_SCHEDULE = { label: "Open Term Schedule", to: "/schedule" };
+const LINK_CONFLICTS = { label: "Open Conflicts & Audits", to: "/conflicts" };
 
 function norm(s: string) {
   return s.toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9%+.\-–−/×'\s]/g, " ").replace(/\s+/g, " ").trim();
@@ -197,7 +197,7 @@ const TOPICS: Topic[] = [
     answer: (ctx) => {
       const s = ctx.settings;
       return {
-        text: withExample(`**Sections** and **Section Caps** come from projected enrollment:\n• **Principles (1115/1116), in person:** ${s.large_lecture_cap}-seat large lectures while at least ${Math.round(0.75 * s.large_lecture_cap)} students remain, then ${s.small_section_cap}-seat small sections.\n• **Remote:** at most **${s.virtual_cap}** per section.\n• **Recitations:** **${s.recitation_cap}** per section, ⌈lecture students ÷ ${s.recitation_cap}⌉.\n• **Everything else:** the course's typical historical cap (usually 40–45; capstones about 20). A new section opens only when demand is more than 10% over a full one.\n• Electives under ${s.min_elective_demand} students get 0 sections.\n\n**Proj. / Cap** on the Master Schedule shows each section's share of students vs. its cap.`, ctx, "sections"),
+        text: withExample(`**Sections** and **Section Caps** come from projected enrollment:\n• **Principles (1115/1116), in person:** ${s.large_lecture_cap}-seat large lectures while at least ${Math.round(0.75 * s.large_lecture_cap)} students remain, then ${s.small_section_cap}-seat small sections.\n• **Remote:** at most **${s.virtual_cap}** per section.\n• **Recitations:** **${s.recitation_cap}** per section, ⌈lecture students ÷ ${s.recitation_cap}⌉.\n• **Everything else:** the course's typical historical cap (usually 40–45; capstones about 20). A new section opens only when demand is more than 10% over a full one.\n• Electives under ${s.min_elective_demand} students get 0 sections.\n\n**Proj. / Cap** on the Term Schedule shows each section's share of students vs. its cap.`, ctx, "sections"),
         links: [LINK_DEMAND], chips: ["What does seat fill mean?", "How are recitations calculated?"],
       };
     },
@@ -235,7 +235,7 @@ const TOPICS: Topic[] = [
     id: "settings",
     aliases: ["planning settings", "settings", "target semester", "target term", "persist", "saved settings", "configure", "defaults"],
     answer: (ctx) => ({
-      text: `**Planning Settings** drive every forecast and schedule. They're saved in your browser and shared across Demand Estimator, Master Schedule and Conflicts.\n• **Target Semester** (top bar): upcoming terms are forecasts; past terms are back-tests with actuals.\n• **Enrollment Growth Multiplier** (0.85×–1.50×): scales projected students.\n• **History Window:** how many prior ${seasonOf(ctx.settings.target_term)} terms feed Hist. Avg.\n• **Apply Historical Trend:** year-over-year trend, capped ±10%/yr.\n• **Caps:** large lecture, small section, remote (max 25), recitation.\n\nNow: **${ctx.settings.target_term || "—"}**, **${ctx.settings.growth_multiplier.toFixed(2)}×** growth, ${ctx.settings.history_window}-term window.`,
+      text: `**Planning Settings** drive every forecast and schedule. They're saved in your browser and shared across Enrollment Projections, Term Schedule, and Conflicts & Audits.\n• **Target Semester** (top bar): upcoming terms are forecasts; past terms are back-tests with actuals.\n• **Enrollment Growth Multiplier** (0.85×–1.50×): scales projected students.\n• **History Window:** how many prior ${seasonOf(ctx.settings.target_term)} terms feed Hist. Avg.\n• **Apply Historical Trend:** year-over-year trend, capped ±10%/yr.\n• **Caps:** large lecture, small section, remote (max 25), recitation.\n\nNow: **${ctx.settings.target_term || "—"}**, **${ctx.settings.growth_multiplier.toFixed(2)}×** growth, ${ctx.settings.history_window}-term window.`,
       links: [LINK_DEMAND], chips: ["What does Trend per Year mean?", "What does Hist. Avg mean?"],
     }),
   },
@@ -281,9 +281,9 @@ const TOPICS: Topic[] = [
   },
   {
     id: "conflicts",
-    aliases: ["conflict", "conflicts", "resolve", "fix", "critical", "warning", "warnings", "severity", "flagged", "flag", "issue", "issues", "problem", "problems", "suggested action"],
+    aliases: ["conflict", "conflicts", "audit", "audits", "conflicts & audits", "resolve", "fix", "critical", "warning", "warnings", "severity", "flagged", "flag", "issue", "issues", "problem", "problems", "suggested action"],
     answer: (ctx) => ({
-      text: `To resolve conflicts:\n1. Open **Conflicts** and start with **Critical**: unstaffed core sections, instructor double-bookings, recitation/lecture overlaps, remote caps over 25.\n2. Click the row to jump to that section on **Master Schedule**, then **Edit Section** (this locks it for you).\n3. Change the instructor or time block. Conflicts recompute instantly for everyone.\n4. Discuss trade-offs in the section's comments, then **Done Editing**.\n5. **Warnings** (over/under-allocation, overload mismatches) usually mean updating faculty groups or overload approvals under Administration.` +
+      text: `To resolve conflicts:\n1. Open **Conflicts & Audits** and start with **Critical**: unstaffed core sections, instructor double-bookings, recitation/lecture overlaps, remote caps over 25.\n2. Click the row to jump to that section on the **Term Schedule**, then **Edit Section** (this locks it for you).\n3. Change the instructor or time block. Conflicts recompute instantly for everyone.\n4. Discuss trade-offs in the section's comments, then **Done Editing**.\n5. **Warnings** (over/under-allocation, overload mismatches) usually mean updating faculty groups or overload approvals under Administration.` +
         (ctx.schedule ? `\n\n**${ctx.schedule.term}** currently has **${ctx.schedule.summary.critical} critical** and **${ctx.schedule.summary.warning} warnings**.` : ""),
       links: [LINK_CONFLICTS], chips: ["What does Under-Allocation mean?", "What is a time overlap?"],
     }),
@@ -347,7 +347,7 @@ const TOPICS: Topic[] = [
     id: "electives",
     aliases: ["elective", "electives", "electives offered", "elective not offered", "minimum elective"],
     answer: (ctx) => ({
-      text: `Electives are **preference-driven**. One is planned if demand is at least ${ctx.settings.min_elective_demand} students (Minimum Elective Enrollment), but it only **runs** if a faculty member who ranked it (or has taught it) still has capacity after core courses are staffed. Otherwise it shows as **Elective Not Offered** (Info) in Conflicts.` +
+      text: `Electives are **preference-driven**. One is planned if demand is at least ${ctx.settings.min_elective_demand} students (Minimum Elective Enrollment), but it only **runs** if a faculty member who ranked it (or has taught it) still has capacity after core courses are staffed. Otherwise it shows as **Elective Not Offered** (Info) in Conflicts & Audits.` +
         (ctx.schedule ? ` ${ctx.schedule.term} has **${ctx.schedule.summary.electives_offered}** electives running.` : ""),
     }),
   },
@@ -379,7 +379,7 @@ const TOPICS: Topic[] = [
 
 // Words that mark a question as being about this app (for the smart fallback)
 // (Scheduler vocabulary only; generic question words like "what is" or "why" don't count.)
-const DOMAIN = /\b(econ|courses?|class(es)?|sections?|schedul\w*|term|semester|fall|spring|faculty|professors?|instructors?|teach\w*|students?|enroll\w*|demand|seats?|caps?|table|column|metrics?|numbers?|percent\w*|values?|rows?|page|dashboard|overview|planning|recitations?|electives?|core|conflicts?|workloads?|calendar|forecast\w*|registrar|catalog)\b|%/;
+const DOMAIN = /\b(econ|courses?|class(es)?|sections?|schedul\w*|term|semester|fall|spring|faculty|professors?|instructors?|teach\w*|students?|enroll\w*|demand|seats?|caps?|table|column|metrics?|numbers?|percent\w*|values?|rows?|page|dashboard|overview|planning|recitations?|electives?|core|conflicts?|audits?|projections?|workloads?|calendar|forecast\w*|registrar|catalog)\b|%/;
 
 // ------------------------------------------------------- entity extraction ---
 function findPercents(raw: string) {
@@ -438,7 +438,7 @@ function rowsFor(ctx: Ctx, code: number, virtual: boolean | null): DemandRow[] {
 function percentAnswer(raw: string, q: string, ctx: Ctx, topic: Topic | null): Answer | null {
   const pcts = findPercents(raw);
   if (!pcts.length) return null;
-  if (!ctx.demand) return { text: `I'd need the forecast to look up that number. Open the Demand Estimator, then ask again. In general, signed percentages like +6.4% are **Trend per Year** (annual enrollment growth, capped ±10%), and plain ones like 98% are **Seat Fill** (projected ÷ planned seats).`, links: [LINK_DEMAND] };
+  if (!ctx.demand) return { text: `I'd need the forecast to look up that number. Open Enrollment Projections, then ask again. In general, signed percentages like +6.4% are **Trend per Year** (annual enrollment growth, capped ±10%), and plain ones like 98% are **Seat Fill** (projected ÷ planned seats).`, links: [LINK_DEMAND] };
   const codes = findCourseCodes(raw, ctx);
   const virt = modalityFilter(q);
   const pool = ctx.demand.demand.filter((r) => (!codes.length || codes.includes(r.code)) && (virt === null || r.virtual === virt));
@@ -583,7 +583,7 @@ function categoryAnswer(q: string, ctx: Ctx): Answer | null {
 function pageSummary(ctx: Ctx): Answer {
   const d = ctx.demand, s = ctx.schedule;
   if (ctx.page.startsWith("/demand") && d)
-    return { text: `On the **Demand Estimator** for **${d.term}**: ${d.summary.courses} courses planned, ${d.summary.lecture_sections} lecture sections and ${d.summary.recitation_sections} recitations, ${d.summary.projected_students.toLocaleString()} projected students in ${d.summary.seats_offered.toLocaleString()} seats. Each row's **Projected = Hist. Avg × trend × growth**, and **Seat Fill = Projected ÷ seats**. Ask about any column, value or course.`,
+    return { text: `On **Enrollment Projections** for **${d.term}**: ${d.summary.courses} courses planned, ${d.summary.lecture_sections} lecture sections and ${d.summary.recitation_sections} recitations, ${d.summary.projected_students.toLocaleString()} projected students in ${d.summary.seats_offered.toLocaleString()} seats. Each row's **Projected = recency-weighted Hist. Avg of prior same-season terms × annual trend × growth multiplier**, and **Seat Fill = Projected ÷ seats**. Ask about any column, value or course.`,
       chips: ["What does Trend per Year mean?", "What does Hist. Avg mean?", "What does seat fill mean?"] };
   if ((ctx.page.startsWith("/schedule") || ctx.page.startsWith("/conflicts") || ctx.page === "/") && s)
     return { text: `For **${s.term}**: ${s.summary.sections} sections, core staffed **${s.summary.core_staffed}/${s.summary.core_sections}**, ${s.summary.electives_offered} electives running, **${s.summary.critical} critical** and **${s.summary.warning} warnings**. Ask about a section (e.g. "ECON 2315-01"), a faculty member, a conflict type or any column.`,

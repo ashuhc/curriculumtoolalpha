@@ -77,7 +77,7 @@ export function SettingsPanel({ mode, defaultOpen = true }: { mode: "demand" | "
   const [open, setOpen] = useState(defaultOpen);
   const flash = useFlash();
   return (
-    <Panel className={flash("settings")} title="Planning Settings" description="Saved in this browser and shared across Demand, Schedule and Conflicts."
+    <Panel className={flash("settings")} title="Planning Settings" description="Saved in this browser and shared across Enrollment Projections, Term Schedule, and Conflicts & Audits."
       actions={<>
         <Button size="sm" variant="ghost" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={reset}>Defaults</Button>
         <Button size="sm" onClick={() => setOpen(!open)}>{open ? "Collapse" : "Expand"}</Button>

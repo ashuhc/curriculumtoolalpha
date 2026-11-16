@@ -1,4 +1,4 @@
-// Shared master-schedule cache used by Overview, Schedule and Conflicts. Live
+// Shared term-schedule cache used by Overview, Term Schedule and Conflicts & Audits. Live
 // events patch locks/comment counts in place and trigger silent refetches.
 import { create } from "zustand";
 import { api, type Lock, type PlanSettings, type ScheduleResponse } from "../api";

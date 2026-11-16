@@ -1,9 +1,9 @@
-// Demand Estimator: projected enrollment, section sizing, recitation scaling, prerequisites.
+// Enrollment Projections: projected enrollment, section sizing, recitation scaling, prerequisites.
 import { Armchair, BookOpen, Download, MessagesSquare, MonitorSmartphone, Presentation, Search, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { SettingsPanel } from "../components/SettingsPanel";
-import { Alert, Badge, Button, CategoryDot, ErrorState, PageHeader, Panel, Spinner, Stat, StatGrid, Switch, Table, cx, inputBase } from "../components/ui";
+import { Alert, Badge, Button, CategoryDot, ErrorState, InfoTip, PageHeader, Panel, Spinner, Stat, StatGrid, Switch, Table, cx, inputBase } from "../components/ui";
 import { useDebounced } from "../lib/hooks";
 import { useDemand } from "../store/demand";
 import { usePlan } from "../store/plan";
@@ -31,15 +31,16 @@ export default function Demand() {
 
   return (
     <>
-      <PageHeader eyebrow="Planning" title="Demand Estimator"
-        description={<>Projected undergraduate enrollment and section plan for <span className="font-medium text-fg">{settings.target_term}</span>. Projection = recency-weighted average of prior same-season terms × annual trend × growth multiplier.</>}
-        actions={<Button icon={<Download className="h-3.5 w-3.5" />} onClick={() => api.exportPlan("demand", settings).then(() => success("Demand estimate exported", settings.target_term))
+      <PageHeader eyebrow="Planning" title="Enrollment Projections"
+        description={<>Forecast student demand and determine section allocations for <span className="font-medium text-fg">{settings.target_term}</span> based on historical enrollment trends.{" "}
+          <InfoTip label="How Projections Are Calculated">Projected enrollment = recency-weighted average of prior same-season terms × annual trend × enrollment growth multiplier. Ask the Scheduler Assistant for a course-by-course breakdown.</InfoTip></>}
+        actions={<Button icon={<Download className="h-3.5 w-3.5" />} onClick={() => api.exportPlan("demand", settings).then(() => success("Enrollment projections exported", settings.target_term))
           .catch((e) => toast({ title: "Export failed", body: e.message, tone: "error" }))}>Export CSV</Button>} />
 
       <div className="space-y-6">
         <SettingsPanel mode="demand" />
         {res.error && <ErrorState error={res.error} onRetry={res.reload} />}
-        {!d && res.loading && <Spinner label="Forecasting demand" />}
+        {!d && res.loading && <Spinner label="Forecasting enrollment" />}
         {d && (
           <>
             <div className={cx("transition-opacity", res.loading && "opacity-60")}>

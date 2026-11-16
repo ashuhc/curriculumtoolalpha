@@ -376,8 +376,8 @@ function Publications() {
   if (pubs.loading && !pubs.data) return <Spinner />;
   if (pubs.error) return <ErrorState error={pubs.error} onRetry={pubs.reload} />;
   return (
-    <Panel flush title="Published Schedules" description="Each publish freezes the master schedule for a term as a new version. Exports use the registrar catalog-import layout.">
-      {pubs.data!.length === 0 ? <div className="p-6 text-center text-[13px] text-muted">Nothing published yet. Publish from the Master Schedule.</div> : (
+    <Panel flush title="Published Schedules" description="Each publication freezes a term schedule as a numbered version. Exports follow the registrar's catalog-import format.">
+      {pubs.data!.length === 0 ? <div className="p-6 text-center text-[13px] text-muted">No schedules published yet. Publish a term from the Term Schedule.</div> : (
         <Table>
           <thead><tr><th>Term</th><th>Version</th><th>Published</th><th>By</th><th className="text-right">Sections</th><th>Open Issues</th><th>Note</th><th /></tr></thead>
           <tbody>{pubs.data!.map((p) => (

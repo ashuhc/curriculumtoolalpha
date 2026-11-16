@@ -49,8 +49,8 @@ export default function Conflicts() {
 
   return (
     <>
-      <PageHeader eyebrow="Planning" title="Conflicts"
-        description={<>Items that need review before <span className="font-medium text-fg">{settings.target_term}</span> is published. Reflects manual edits made on the Master Schedule.</>}
+      <PageHeader eyebrow="Planning" title="Conflicts & Audits"
+        description={<>Review time-block overlaps, prerequisite coverage, and faculty workload limits prior to publishing <span className="font-medium text-fg">{settings.target_term}</span>.</>}
         actions={<Button icon={<Download className="h-3.5 w-3.5" />} onClick={() => exp(tab)}>Export {tab === "conflicts" ? "Conflicts" : "Workload"} CSV</Button>} />
       {error && <ErrorState error={error} onRetry={() => fetch(settings)} />}
       {!d && loading && <Spinner />}

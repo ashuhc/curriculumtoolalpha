@@ -1,4 +1,4 @@
-// Master Schedule: grid + weekly calendar with live collaboration, section drawer, publishing.
+// Term Schedule: grid + weekly calendar with live collaboration, section drawer, publishing.
 import { AlertTriangle, BookOpen, CalendarRange, Download, FileCheck2, LayoutList, Lock, MessageSquare, PencilLine, Search, Send, ShieldCheck, Target, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -54,15 +54,15 @@ export default function Schedule() {
   const openRow = data?.master.find((r) => r.section_id === openId) ?? null;
   const open = (id: string | null) => setParams(id ? { section: id } : {}, { replace: true });
   const exportKind = (k: "master" | "catalog") => api.exportPlan(k, settings)
-    .then(() => success(k === "master" ? "Master schedule exported" : "Catalog CSV downloaded", `${settings.target_term} · current schedule`))
+    .then(() => success(k === "master" ? "Term schedule exported" : "Catalog CSV downloaded", `${settings.target_term} · current schedule`))
     .catch((e) => toast({ title: "Export failed", body: e.message, tone: "error" }));
   const sm = data?.summary;
   const pub = data?.publication;
 
   return (
     <>
-      <PageHeader eyebrow="Planning" title="Master Schedule"
-        description="Core courses are staffed first, then recitations, then preference-driven electives. Lectures use class sequences 1–5 and A–H; recitations use 65-minute slots in lab windows L–W."
+      <PageHeader eyebrow="Planning" title="Term Schedule"
+        description="Assign faculty and time slots across standard lecture sequences (1–5, A–H) and recitation windows (L–W), prioritizing core requirements."
         meta={pub && <><Badge tone="green"><FileCheck2 className="h-3 w-3" />Published v{pub.version}</Badge><span>{fmtDate(pub.published_at)} by {pub.published_by}{pub.note && ` · “${pub.note}”`}</span></>}
         actions={<>
           <Button icon={<Download className="h-3.5 w-3.5" />} onClick={() => exportKind("master")}>Export CSV</Button>

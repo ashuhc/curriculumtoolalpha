@@ -1,7 +1,7 @@
 // Design-system primitives: restrained, border-led, enterprise-dashboard styling.
 import { AlertCircle, AlertTriangle, CheckCircle2, GraduationCap, Info, Loader2, X, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useEffect, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useId, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
@@ -116,6 +116,23 @@ export function Button({ variant = "secondary", size = "md", icon, loading, clas
       {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : icon}
       {children}
     </button>
+  );
+}
+
+/** Small info icon that reveals supplementary detail on hover or keyboard focus. */
+export function InfoTip({ label, children }: { label: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <span className="group relative inline-flex align-middle">
+      <button type="button" aria-label={label} aria-describedby={id}
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-faint outline-none transition-colors hover:text-fg focus-visible:text-fg focus-visible:ring-2 focus-visible:ring-fg/20">
+        <Info className="h-3.5 w-3.5" />
+      </button>
+      <span role="tooltip" id={id}
+        className="pointer-events-none invisible absolute left-1/2 top-full z-30 mt-1.5 w-72 max-w-[80vw] -translate-x-1/2 rounded-md border border-line bg-surface px-3 py-2 text-xs font-normal leading-relaxed text-muted opacity-0 shadow-md transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
+        {children}
+      </span>
+    </span>
   );
 }
 

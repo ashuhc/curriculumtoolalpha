@@ -12,3 +12,4 @@ frontend/dist/
 frontend/.env
 
 backend/.auth_secret
+*.tsbuildinfo
