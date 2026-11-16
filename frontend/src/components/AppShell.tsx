@@ -150,6 +150,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pageName = NAV.flatMap((g) => g.items).find((n) => n.to === location.pathname)?.label ?? "Sign In";
 
   useEffect(() => { sendPresence({ page: pageName, term, section_id: null }); }, [pageName, term, sendPresence]);
+  useEffect(() => { document.title = `${pageName} · Northeastern Economics Course Scheduler`; }, [pageName]);
 
   // New page starts at the top of the content pane
   const scroller = useRef<HTMLDivElement>(null);

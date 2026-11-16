@@ -29,8 +29,8 @@ export default function Overview() {
 
   return (
     <>
-      <PageHeader eyebrow="Dashboard" title={user ? `Welcome Back, ${user.name}` : "Curriculum Planning"}
-        description="Coordinate undergraduate economics course offerings, faculty teaching assignments, and term schedules." />
+      <PageHeader eyebrow="Planning" title="Overview"
+        description={`${user ? `Welcome back, ${user.name}. ` : ""}Coordinate undergraduate economics course offerings, faculty teaching assignments, and term schedules.`} />
 
       {user?.role === "faculty" && (
         <Panel className="mb-6" title="Your Teaching Preferences"
