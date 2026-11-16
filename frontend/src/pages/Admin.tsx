@@ -1,10 +1,10 @@
 // Administration (scheduler role): submissions, faculty & overloads, catalog, users, data, publications.
-import { Check, Download, Plus, RotateCcw, Search, Trash2, Upload, X } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { Check, Download, Plus, Search, Trash2, Upload, X } from "lucide-react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { api, type Course, type Faculty, type Role } from "../api";
 import { matchCourse } from "../components/CourseSelect";
-import { Alert, Badge, Button, ErrorState, Field, IconButton, PageHeader, Panel, Spinner, Switch, Table, Tabs, cx, inputBase, inputCls } from "../components/ui";
+import { Alert, Badge, Button, ErrorState, Field, IconButton, PageHeader, Panel, Spinner, Switch, Table, Tabs, inputBase, inputCls } from "../components/ui";
 import { fmtDate, useAsync } from "../lib/hooks";
 import { useAuth, useIsAdmin } from "../store/auth";
 import { usePlan } from "../store/plan";
@@ -17,15 +17,19 @@ function useFail() {
   return (e: unknown) => toast({ title: "Action failed", body: (e as Error).message, tone: "error" });
 }
 
-/** Plain-language summary of a faculty edit for the confirmation toast. */
-function describeFacultyChange(patch: Record<string, unknown>): string {
-  if (patch.clear_type) return "group reverted to the history-inferred value";
-  if ("annual_reduction" in patch) return `annual reduction set to ${patch.annual_reduction}`;
-  if ("overloading" in patch && patch.overloading === false) return "overload approval removed";
-  if ("overload_semester" in patch) return `overload approved for ${patch.overload_semester === "Both" ? "both semesters" : patch.overload_semester}`;
-  if ("active" in patch) return patch.active ? "reactivated" : "deactivated";
-  if ("faculty_type" in patch) return `group set to ${patch.faculty_type}`;
-  return "updated";
+/** Toast title and body for a faculty edit. */
+function facultyToast(f: Faculty, patch: Record<string, unknown>): [string, string] {
+  if (patch.clear_type) return ["Faculty group unconfirmed", `${f.name}: reverted to the history-inferred group`];
+  if (typeof patch.faculty_type === "string")
+    return f.type_source === "Confirmed" && patch.faculty_type !== f.faculty_type
+      ? ["Faculty group updated", `${f.name}: ${f.faculty_type} → ${patch.faculty_type}`]
+      : ["Faculty group confirmed", `${f.name}: ${patch.faculty_type}`];
+  if ("annual_reduction" in patch) return ["Faculty settings updated", `${f.name}: annual reduction set to ${patch.annual_reduction}`];
+  if ("overloading" in patch && patch.overloading === false) return ["Faculty settings updated", `${f.name}: overload approval removed`];
+  if ("overload_semester" in patch)
+    return ["Faculty settings updated", `${f.name}: overload approved for ${patch.overload_semester === "Both" ? "both semesters" : patch.overload_semester}`];
+  if ("active" in patch) return ["Faculty settings updated", `${f.name}: ${patch.active ? "reactivated" : "deactivated"}`];
+  return ["Faculty settings updated", f.name];
 }
 
 export default function Admin() {
@@ -101,36 +105,26 @@ function FacultyAdmin() {
   const [q, setQ] = useState("");
   const [name, setName] = useState("");
   const types = Object.keys(meta?.faculty_types ?? {});
+  // Every edit is optimistic: the row, badge and banner count change at once, then the
+  // PUT response (or a reload on failure) settles it. A per-row counter drops stale
+  // responses so quick successive edits can't be overwritten by an older reply.
+  const seq = useRef<Record<number, number>>({});
   const update = async (f: Faculty, patch: Record<string, unknown>) => {
+    const n = (seq.current[f.id] = (seq.current[f.id] ?? 0) + 1);
+    const optimistic: Partial<Faculty> = { ...(patch as Partial<Faculty>) };
+    if (typeof patch.faculty_type === "string") optimistic.type_source = "Confirmed";
+    if (patch.clear_type) optimistic.type_source = "Inferred from history";
+    delete (optimistic as Record<string, unknown>).clear_type;
+    fac.setData((l) => l?.map((x) => (x.id === f.id ? { ...x, ...optimistic } : x)) ?? null);
+    const [title, body] = facultyToast(f, patch);
     try {
       const u = await api.updateFaculty(f.id, patch);
+      if (seq.current[f.id] !== n) return;
       fac.setData((l) => l?.map((x) => (x.id === f.id ? u : x)) ?? null);
-      success("Faculty settings updated", `${f.name}: ${describeFacultyChange(patch)}`, `faculty:${f.id}`);
-    } catch (e) { fail(e); }
-  };
-  // Unsaved dropdown choices for inferred rows, and rows with a confirmation in flight
-  const [drafts, setDrafts] = useState<Record<number, string>>({});
-  const [saving, setSaving] = useState<Set<number>>(new Set());
-  const setDraft = (id: number, v: string | undefined) => setDrafts((d) => {
-    const n = { ...d };
-    if (v === undefined) delete n[id]; else n[id] = v;
-    return n;
-  });
-  const replace = (row: Faculty) => fac.setData((l) => l?.map((x) => (x.id === row.id ? row : x)) ?? null);
-  const confirmGroup = async (f: Faculty, group: string) => {
-    if (saving.has(f.id)) return;
-    // Optimistic: the badge, banner count and row controls flip immediately
-    replace({ ...f, faculty_type: group, type_source: "Confirmed" });
-    setDraft(f.id, undefined);
-    setSaving((s) => new Set(s).add(f.id));
-    try {
-      replace(await api.updateFaculty(f.id, { faculty_type: group }));
-      success("Faculty group confirmed", `${f.name}: ${group}`, `faculty:${f.id}`);
+      success(title, body, `faculty:${f.id}`);
     } catch (e) {
-      replace(f);
       fail(e);
-    } finally {
-      setSaving((s) => { const n = new Set(s); n.delete(f.id); return n; });
+      if (seq.current[f.id] === n) fac.reload();
     }
   };
   const add = async (e: FormEvent) => {
@@ -148,7 +142,7 @@ function FacultyAdmin() {
   return (
     <div className="space-y-4">
       {inferred > 0
-        ? <Alert tone="warning" title={`${inferred} ${inferred === 1 ? "Faculty Group Needs" : "Faculty Groups Need"} Confirmation`}>These groups were inferred from teaching history. Workload checks depend on them, so choose the correct group for each faculty member and select the checkmark to confirm it.</Alert>
+        ? <Alert tone="warning" title={`${inferred} ${inferred === 1 ? "Faculty Group Needs" : "Faculty Groups Need"} Confirmation`}>These groups were inferred from teaching history. Workload checks depend on them, so confirm each one with the checkmark, or choose a different group from the list to save it as confirmed.</Alert>
         : <Alert tone="success" title="All Faculty Groups Confirmed">Workload checks use the confirmed group for every active faculty member.</Alert>}
       <Panel flush title={`Faculty Roster (${fac.data!.length})`}
         description="Tenured 3/yr · Full-time teaching & temporary 6/yr · Adjunct 1–2/yr. An approved overload raises the annual ceiling for extra compensation; a reduction lowers it."
@@ -166,10 +160,9 @@ function FacultyAdmin() {
             <tr key={f.id} className={`${f.active ? "" : "opacity-50"} ${flash(`faculty:${f.id}`)}`}>
               <td className="whitespace-nowrap font-medium">{f.name}</td>
               <td>
-                <FacultyGroupCell f={f} types={types} draft={drafts[f.id]} busy={saving.has(f.id)}
-                  onDraft={(v) => setDraft(f.id, v === f.faculty_type ? undefined : v)}
-                  onConfirm={() => confirmGroup(f, drafts[f.id] ?? f.faculty_type)}
+                <FacultyGroupCell f={f} types={types}
                   onChange={(v) => update(f, { faculty_type: v })}
+                  onConfirm={() => update(f, { faculty_type: f.faculty_type })}
                   onRevert={() => update(f, { clear_type: true })} />
               </td>
               <td><input type="number" min={0} max={6} className={inputBase + " h-7 w-16 text-xs tabular-nums"} value={f.annual_reduction}
@@ -197,38 +190,34 @@ function FacultyAdmin() {
   );
 }
 
-/** Faculty Group column: the group dropdown, its status badge, and confirm / discard / revert actions. */
-function FacultyGroupCell({ f, types, draft, busy, onDraft, onConfirm, onChange, onRevert }: {
-  f: Faculty; types: string[]; draft: string | undefined; busy: boolean;
-  onDraft: (v: string) => void; onConfirm: () => void; onChange: (v: string) => void; onRevert: () => void;
+/** Faculty Group column: a dropdown that always saves, plus the status control (confirm ✓ or revertible Confirmed badge). */
+function FacultyGroupCell({ f, types, onChange, onConfirm, onRevert }: {
+  f: Faculty; types: string[]; onChange: (v: string) => void; onConfirm: () => void; onRevert: () => void;
 }) {
   const confirmed = f.type_source === "Confirmed";
-  const select = "h-7 w-[168px] text-xs " + inputBase;
-  const action = "inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors disabled:opacity-50";
-  if (confirmed) {
-    return (
-      <div className="flex items-center gap-2">
-        <select aria-label={`Faculty Group for ${f.name}`} className={select} value={f.faculty_type} onChange={(e) => onChange(e.target.value)}>
-          {types.map((t) => <option key={t}>{t}</option>)}
-        </select>
-        <Badge tone="green" className="w-[72px] justify-center"><Check className="h-3 w-3" />Confirmed</Badge>
-        <button type="button" aria-label={`Revert ${f.name} to Inferred Group`} title="Revert to Inferred Group" disabled={busy} onClick={onRevert}
-          className={cx(action, "border-transparent text-faint hover:bg-hover hover:text-fg")}><RotateCcw className="h-3.5 w-3.5" /></button>
-      </div>
-    );
-  }
-  const value = draft ?? f.faculty_type;
   return (
     <div className="flex items-center gap-2">
-      <select aria-label={`Faculty Group for ${f.name}`} className={select} value={value} onChange={(e) => onDraft(e.target.value)}>
+      <select aria-label={`Faculty Group for ${f.name}`} className={"h-7 w-[168px] text-xs " + inputBase} value={f.faculty_type}
+        onChange={(e) => onChange(e.target.value)}>
         {types.map((t) => <option key={t}>{t}</option>)}
       </select>
-      <Badge tone="amber" className="w-[72px] justify-center">{draft ? "Changed" : "Inferred"}</Badge>
-      <button type="button" aria-label={`Confirm ${value} for ${f.name}`} title={`Confirm ${value}`} disabled={busy} onClick={onConfirm}
-        className={cx(action, "border-emerald-600/30 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400")}><Check className="h-4 w-4" /></button>
-      {draft && (
-        <button type="button" aria-label={`Discard Change for ${f.name}`} title={`Discard Change (Keep ${f.faculty_type})`} onClick={() => onDraft(f.faculty_type)}
-          className={cx(action, "border-transparent text-faint hover:bg-hover hover:text-fg")}><X className="h-3.5 w-3.5" /></button>
+      {confirmed ? (
+        // Clicking the badge un-confirms; on hover/focus it previews that with an X
+        <button type="button" onClick={onRevert} aria-label={`Confirmed: Revert ${f.name} to Inferred`} title="Revert to Inferred"
+          className="group/st inline-flex h-6 w-[100px] items-center justify-center gap-1 rounded border border-transparent bg-emerald-500/10 text-[11px] font-medium text-emerald-600 outline-none transition-colors hover:border-line hover:bg-subtle hover:text-muted focus-visible:border-line focus-visible:bg-subtle focus-visible:text-muted focus-visible:ring-2 focus-visible:ring-fg/20 dark:text-emerald-400">
+          <Check className="h-3 w-3 group-hover/st:hidden group-focus-visible/st:hidden" />
+          <X className="hidden h-3 w-3 group-hover/st:block group-focus-visible/st:block" />
+          <span className="group-hover/st:hidden group-focus-visible/st:hidden">Confirmed</span>
+          <span className="hidden group-hover/st:inline group-focus-visible/st:inline">Unconfirm</span>
+        </button>
+      ) : (
+        <div className="flex w-[100px] items-center gap-1.5">
+          <Badge tone="amber" className="h-6 flex-1 justify-center">Inferred</Badge>
+          <button type="button" onClick={onConfirm} aria-label={`Confirm ${f.faculty_type} for ${f.name}`} title={`Confirm ${f.faculty_type}`}
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-emerald-600/30 bg-emerald-500/10 text-emerald-600 outline-none transition-colors hover:bg-emerald-500/20 focus-visible:ring-2 focus-visible:ring-emerald-500/40 dark:text-emerald-400">
+            <Check className="h-3.5 w-3.5" />
+          </button>
+        </div>
       )}
     </div>
   );

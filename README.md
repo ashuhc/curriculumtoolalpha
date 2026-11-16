@@ -5,10 +5,10 @@ A collaborative web app for planning the **undergraduate** economics curriculum.
 | Area | What it does |
 |---|---|
 | **Teaching Preferences** | Signed-in faculty rank up to six courses, choose Principles courses, and set Fall/Spring loads, overloads and unique circumstances. Each person's latest submission counts. |
-| **Demand Estimator** | Projects enrollment from historical data with a growth multiplier (0.85×–1.50×), a history window and a trend. Sizes sections: large Principles lectures (100–200+), small classes (40–45), remote sections capped at 25. Scales weekly 65-min recitations (ECON 1125/1126) at 30 students per section. Checks prerequisite rules by course level. |
-| **Master Schedule** | Matches instructors with a min-cost-flow optimizer that staffs mandatory core courses first. Places sections on `Course_Sequences.pdf` blocks: 1–5 and A–H for lectures, lab windows L–W for recitations, which never overlap their lecture. Offers a grid and a weekly calendar view. |
+| **Enrollment Projections** | Projects enrollment from historical data with a growth multiplier (0.85×–1.50×), a history window and a trend. Sizes sections: large Principles lectures (100–200+), small classes (40–45), remote sections capped at 25. Scales weekly 65-min recitations (ECON 1125/1126) at 30 students per section. Checks prerequisite rules by course level. |
+| **Term Schedule** | Matches instructors with a min-cost-flow optimizer that staffs mandatory core courses first. Places sections on `Course_Sequences.pdf` blocks: 1–5 and A–H for lectures, lab windows L–W for recitations, which never overlap their lecture. Offers a grid and a weekly calendar view. |
 | **Collaboration** | Live updates over WebSockets, presence, section locks while editing, threaded comments on sections, and versioned publishing with a registrar catalog CSV export. |
-| **Conflicts** | Flags unstaffed core sections, instructor time overlaps, recitations overlapping their lecture, and remote-cap violations. Also flags over/under-allocation against contracts (Tenured 3/yr; Full-time/Temporary 6/yr; Adjunct 1–2/yr) and mismatches between approved and requested overloads. |
+| **Conflicts & Audits** | Flags unstaffed core sections, instructor time overlaps, recitations overlapping their lecture, and remote-cap violations. Also flags over/under-allocation against contracts (Tenured 3/yr; Full-time/Temporary 6/yr; Adjunct 1–2/yr) and mismatches between approved and requested overloads. |
 | **Assistant** | A floating help widget that explains settings, metrics and workflows, and looks up courses and live numbers. It runs locally on rule-based intents; no API key is needed. |
 | **Administration** | Scheduler-only management of submissions, the faculty roster and groups, overloads, the course catalog, user accounts and roles, enrollment uploads, and the publication history. |
 
@@ -105,7 +105,7 @@ npm run dev                               # http://localhost:5173
 
 Set `SEED_DEMO_USERS=false` to create only the admin. Create real faculty accounts in **Administration → Users & roles** and link each to its roster entry.
 
-**Try the collaboration features:** open the app in two different browsers (or a normal and a private window) and sign in as the two schedulers. Open the same section on **Master Schedule**. Click **Edit section** in one window and the other shows *Locked by…*. Reassign the instructor and the change appears in the other window immediately. Comments, presence avatars and publish notifications are live too.
+**Try the collaboration features:** open the app in two different browsers (or a normal and a private window) and sign in as the two schedulers. Open the same section on **Term Schedule**. Click **Edit Section** in one window and the other shows *Locked by…*. Reassign the instructor and the change appears in the other window immediately. Comments, presence avatars and publish notifications are live too.
 
 ### Tests
 

@@ -117,7 +117,7 @@ export default function Demand() {
 
             <Panel flush title="Prerequisite Validation"
               description="1000-level: none · 3000-level: Principles · 4000-level: multiple prerequisites including theory. Each prerequisite must also be offered this term."
-              actions={<Badge tone={failedPrereqs ? "amber" : "green"}>{d.prerequisites.length - failedPrereqs} of {d.prerequisites.length} pass</Badge>}>
+              actions={<Badge tone={failedPrereqs ? "amber" : "green"}>{d.prerequisites.length - failedPrereqs} of {d.prerequisites.length} Passing</Badge>}>
               <Table maxH="max-h-96">
                 <thead><tr><th>Course</th><th>Title</th><th>Level</th><th>Prerequisites</th><th>Level Rule</th><th>Pathway Offered</th></tr></thead>
                 <tbody>{d.prerequisites.map((p) => (
