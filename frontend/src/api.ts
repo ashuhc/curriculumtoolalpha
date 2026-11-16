@@ -1,8 +1,13 @@
 // Typed REST client for the FastAPI backend.
 import { useAuth } from "./store/auth";
 
-/** API base URL. Empty string = same origin (Docker/nginx proxies /api and /ws). */
-export const API_URL: string = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000";
+/**
+ * API base URL. Empty (the default) = same origin: the Vite dev/preview proxy, nginx, or
+ * the single-container FastAPI build forward /api and /ws to the backend. Set VITE_API_URL
+ * only when the API lives on a different origin.
+ */
+export const API_URL: string = ((import.meta.env.VITE_API_URL as string | undefined) ?? "").trim().replace(/\/+$/, "");
+const API_LABEL = API_URL || "this site's /api";
 
 export function wsUrl(token: string | null): string {
   const base = API_URL || window.location.origin;
@@ -81,7 +86,20 @@ export interface Comment { id: number; term: string; section_id: string; parent_
 
 // ----------------------------------------------------------------- client ---
 export class ApiError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  /** status 0 = network failure; `unavailable` = the server answered with something other than API data. */
+  constructor(public status: number, message: string, public unavailable = false) { super(message); }
+}
+
+const isJson = (res: Response) => /\bjson\b/i.test(res.headers.get("Content-Type") ?? "");
+
+/** Message for a response that isn't JSON (an HTML error page, a proxy page, the SPA fallback...). */
+function nonJsonError(res: Response, path: string): ApiError {
+  const msg = res.status >= 500
+    ? `The scheduler API is temporarily unavailable (HTTP ${res.status}). It may be starting up or restarting; please try again in a moment.`
+    : res.ok
+      ? `Expected scheduler data from ${path} but received a web page instead. The app may be pointed at the wrong API address (${API_LABEL}).`
+      : `The scheduler API returned an unexpected response (HTTP ${res.status}) for ${path}.`;
+  return new ApiError(res.ok ? 502 : res.status, msg, true);
 }
 
 function errorMessage(body: unknown, status: number): string {
@@ -108,11 +126,18 @@ async function request<T>(path: string, opts: { method?: string; body?: unknown;
       body: opts.form ?? (opts.body !== undefined ? JSON.stringify(opts.body) : undefined),
     });
   } catch {
-    throw new ApiError(0, `Cannot reach the API at ${API_URL || window.location.origin}. Is the backend running?`);
+    throw new ApiError(0, `Can't reach the scheduler API at ${API_LABEL}. Check your connection or that the backend is running, then retry.`, true);
   }
   if (res.status === 204) return undefined as T;
-  const text = await res.text();
-  const body = text ? JSON.parse(text) : undefined;
+  const text = await res.text().catch(() => "");
+  let body: unknown;
+  if (text) {
+    // Never hand HTML (404/502 pages, the SPA's index.html) to JSON.parse
+    if (!isJson(res)) throw nonJsonError(res, path);
+    try { body = JSON.parse(text); } catch {
+      throw new ApiError(res.ok ? 502 : res.status, `The scheduler API sent a malformed response for ${path}. Please try again.`, true);
+    }
+  }
   if (!res.ok) {
     if (res.status === 401 && headers.Authorization && path !== "/api/auth/login") useAuth.getState().signOut(true);
     throw new ApiError(res.status, errorMessage(body, res.status));
@@ -124,10 +149,20 @@ async function request<T>(path: string, opts: { method?: string; body?: unknown;
 async function download(path: string, body?: unknown, fallbackName = "export.csv") {
   const headers = authHeaders();
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  const res = await fetch(API_URL + path, {
-    method: body !== undefined ? "POST" : "GET", headers, body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) throw new ApiError(res.status, errorMessage(await res.json().catch(() => ({})), res.status));
+  let res: Response;
+  try {
+    res = await fetch(API_URL + path, {
+      method: body !== undefined ? "POST" : "GET", headers, body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new ApiError(0, `Can't reach the scheduler API at ${API_LABEL}. Check your connection, then retry the export.`, true);
+  }
+  if (!res.ok) {
+    if (!isJson(res)) throw nonJsonError(res, path);
+    throw new ApiError(res.status, errorMessage(await res.json().catch(() => ({})), res.status));
+  }
+  // A 200 HTML page here means the request never reached the API; don't save it as the export
+  if (/text\/html/i.test(res.headers.get("Content-Type") ?? "")) throw nonJsonError(res, path);
   const name = /filename="?([^"]+)"?/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? fallbackName;
   const url = URL.createObjectURL(await res.blob());
   const a = document.createElement("a");

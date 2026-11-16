@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { api } from "./api";
 import { AppShell } from "./components/AppShell";
 import { ChatWidget } from "./components/assistant/ChatWidget";
-import { Alert } from "./components/ui";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { Alert, Button } from "./components/ui";
 import Admin from "./pages/Admin";
 import Conflicts from "./pages/Conflicts";
 import Demand from "./pages/Demand";
@@ -28,6 +29,15 @@ export default function App() {
   // Reference data (terms, sequences) reloads when the underlying data changes
   useEffect(() => { loadMeta(); }, [loadMeta, dataVersion]);
 
+  // Retry after the API was unreachable: reload reference data, and pages refetch via dataVersion
+  const [retrying, setRetrying] = useState(false);
+  const retry = async () => {
+    setRetrying(true);
+    await loadMeta();
+    if (!usePlan.getState().metaError) usePlan.getState().bumpData();
+    setRetrying(false);
+  };
+
   // Live collaboration channel + refresh the cached user (role may have changed)
   useEffect(() => {
     useCollab.getState().connect();
@@ -37,7 +47,13 @@ export default function App() {
 
   return (
     <AppShell>
-      {metaError && <div className="mb-6"><Alert tone="error" title="Can't Reach the Scheduler API">{metaError}</Alert></div>}
+      {metaError && (
+        <div className="mb-6">
+          <Alert tone="error" title="Can't Reach the Scheduler API"
+            action={<Button size="sm" loading={retrying} onClick={retry}>Retry</Button>}>{metaError}</Alert>
+        </div>
+      )}
+      <ErrorBoundary resetKey={location.pathname}>
       {gated ? <Navigate to="/login" replace state={{ from: location.pathname + location.search }} /> : <Routes>
         <Route path="/" element={<Overview />} />
         <Route path="/login" element={<Login />} />
@@ -48,6 +64,7 @@ export default function App() {
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>}
+      </ErrorBoundary>
       <ChatWidget />
     </AppShell>
   );

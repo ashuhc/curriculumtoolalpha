@@ -127,7 +127,8 @@ cd frontend && npm run build                                  # type-check + pro
 | `SEED_DEMO_USERS` | `true` | also seed the demo scheduler and faculty accounts |
 | `CORS_ORIGINS` | localhost dev origins | comma-separated allowed origins |
 | `SCHEDULER_DATA_DIR` | repo root | where `seed_db.py` reads the source files |
-| `VITE_API_URL` | `http://localhost:8000` | frontend → API URL; empty means same origin (Docker/nginx) |
+| `VITE_API_URL` | *(empty)* | frontend → API URL; empty means same origin (Vite dev proxy, nginx, or the single-container build). Set only when the API is on another origin |
+| `BACKEND_URL` | `http://localhost:8000` | where the Vite dev/preview proxy forwards `/api` and `/ws` |
 | `REQUIRE_LOGIN` | `false` | `true` = sign-in required to view anything (recommended for any public deployment) |
 | `STATIC_DIR` | unset | path to the built frontend; when set, the API also serves the website (single-container mode) |
 | `PORT` | `8000` | port the container listens on (Render sets this automatically) |
