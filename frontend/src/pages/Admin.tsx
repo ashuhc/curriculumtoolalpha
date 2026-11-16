@@ -154,7 +154,7 @@ function FacultyAdmin() {
             <Button size="sm" type="submit" icon={<Plus className="h-3.5 w-3.5" />} disabled={name.trim().length < 3}>Add</Button>
           </form>
         </>}>
-        <Table maxH="max-h-[640px]">
+        <Table>
           <thead><tr><th>Name</th><th>Faculty Group</th><th>Reduction per Year</th><th>Approved Overload</th><th className="text-right">History (UG / Grad per Year)</th><th className="text-right">Forms</th><th>Active</th><th /></tr></thead>
           <tbody>{shown.map((f) => (
             <tr key={f.id} className={`${f.active ? "" : "opacity-50"} ${flash(`faculty:${f.id}`)}`}>
@@ -265,7 +265,7 @@ function CourseAdmin() {
       <Panel flush title={`Catalog (${list.data!.length})`} description="Inactive courses are hidden from the form and excluded from planning. Titles save when the field loses focus."
         actions={<div className="relative"><Search className="absolute left-2.5 top-2 h-4 w-4 text-faint" />
           <input className={inputBase + " w-56 pl-8"} placeholder="Code, level or title" value={q} onChange={(e) => setQ(e.target.value)} /></div>}>
-        <Table maxH="max-h-[640px]">
+        <Table>
           <thead><tr><th>Code</th><th>Title</th><th>Category</th><th>Prerequisites</th><th className="text-right">Terms Offered</th><th>Active</th><th /></tr></thead>
           <tbody>{shown.map((c) => (
             <tr key={c.code} className={`${c.active ? "" : "opacity-50"} ${flash(`course:${c.code}`)}`}>

@@ -80,7 +80,7 @@ export default function Demand() {
                 <Switch checked={plannedOnly} onChange={setPlannedOnly} label="Planned Only" />
               </>}>
               {backtest && <div className="border-b border-line p-3"><Alert>Back-test: {settings.target_term} already has enrollment on file, so actual figures appear next to the forecast (which uses only earlier terms).</Alert></div>}
-              <Table maxH="max-h-[640px]">
+              <Table>
                 <thead><tr>
                   <th>Course</th><th>Title</th><th>Category</th><th>Modality</th><th className="text-right">Hist. Avg</th><th className="text-right">Trend per Year</th>
                   <th className="text-right">Projected</th><th className="text-right">Sections</th><th>Section Caps</th><th className="w-36">Seat Fill</th>

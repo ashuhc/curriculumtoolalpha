@@ -77,11 +77,11 @@ export function WeekCalendar({ rows, meta, flagged, locked, comments, onOpen }: 
         {CATEGORIES.map((k) => <span key={k} className="flex items-center gap-1.5"><CategoryDot category={k} />{k}</span>)}
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm ring-1 ring-nu" />Has a Critical or Warning Conflict</span>
       </div>
-      <div className="overflow-x-auto rounded-md border border-line">
+      <div className="max-h-[max(20rem,calc(100dvh-13rem))] overflow-auto overscroll-contain rounded-md border border-line">
         <div className="grid min-w-[860px]" style={{ gridTemplateColumns: "48px repeat(5, 1fr)" }}>
-          <div className="border-b border-line bg-subtle" />
+          <div className="sticky top-0 z-30 border-b border-line bg-subtle" />
           {DAYS.map(([d, name]) => (
-            <div key={d} className="border-b border-l border-line bg-subtle px-2 py-1.5 text-center text-[11px] font-medium text-muted">{name}</div>
+            <div key={d} className="sticky top-0 z-30 border-b border-l border-line bg-subtle px-2 py-1.5 text-center text-[11px] font-medium text-muted">{name}</div>
           ))}
           <div className="relative" style={{ height: (END - START) * PX }}>
             {hours.map((m) => (

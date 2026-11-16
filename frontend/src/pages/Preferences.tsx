@@ -3,6 +3,7 @@ import { ExternalLink, Search } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { api, type Course } from "../api";
+import { scrollContentToTop } from "../components/AppShell";
 import { CourseSelect, matchCourse } from "../components/CourseSelect";
 import { Alert, Badge, Button, CARD, ErrorState, Field, PageHeader, Panel, Spinner, cx, inputCls, textareaCls } from "../components/ui";
 import { fmtDate, useAsync } from "../lib/hooks";
@@ -68,7 +69,7 @@ export default function Preferences() {
         overload_semester: form.overload ? form.overload_semester : "None" });
       success("Preferences submitted", `Saved for ${res.faculty_name} · your latest submission is the one used`, "prefs-form");
       mine.reload();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      scrollContentToTop();
     } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
   }
 
@@ -184,7 +185,7 @@ function CatalogBrowser({ courses }: { courses: Course[] }) {
   const [open, setOpen] = useState<number | null>(null);
   const shown = useMemo(() => courses.filter((c) => matchCourse(c, q)), [courses, q]);
   return (
-    <aside className="xl:sticky xl:top-16 xl:self-start">
+    <aside className="xl:sticky xl:top-0 xl:self-start">
       <Panel title="Course Catalog" description="Search by code, level (e.g. 3000s), title or topic." flush>
         <div className="border-b border-line p-3">
           <div className="relative">
@@ -192,7 +193,7 @@ function CatalogBrowser({ courses }: { courses: Course[] }) {
             <input className={inputCls + " pl-8"} placeholder="labor, 4000s, 3424" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
         </div>
-        <div className="max-h-[60vh] divide-y divide-line overflow-auto">
+        <div className="max-h-[max(16rem,calc(100dvh-15rem))] divide-y divide-line overflow-y-auto overscroll-contain">
           {shown.map((c) => (
             <button key={c.code} type="button" onClick={() => setOpen(open === c.code ? null : c.code)} className="block w-full px-3 py-2 text-left hover:bg-hover">
               <div className="flex items-center justify-between gap-2 text-[13px]">

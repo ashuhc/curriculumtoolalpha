@@ -2,7 +2,7 @@
 import {
   AlertCircle, AlertTriangle, BarChart3, CheckCircle2, Info, CalendarRange, ClipboardList, LayoutDashboard, LogIn, LogOut, Menu, Moon, Settings2, Sun, X,
 } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, useIsAdmin } from "../store/auth";
 import { useCollab } from "../store/collab";
@@ -136,6 +136,12 @@ function Toaster() {
   );
 }
 
+export const CONTENT_SCROLL_ID = "app-content";
+/** Scroll the content pane (the window itself never scrolls). */
+export function scrollContentToTop() {
+  document.getElementById(CONTENT_SCROLL_ID)?.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { theme, toggleTheme, navOpen, setNavOpen } = useUI();
   const term = usePlan((s) => s.settings.target_term);
@@ -145,17 +151,21 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => { sendPresence({ page: pageName, term, section_id: null }); }, [pageName, term, sendPresence]);
 
+  // New page starts at the top of the content pane
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => { scroller.current?.scrollTo({ top: 0 }); }, [location.pathname]);
+
   return (
-    <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 border-r border-line bg-surface lg:block"><Sidebar /></aside>
+    <div className="relative flex h-dvh w-full overflow-hidden">
+      <aside className="hidden h-full w-60 shrink-0 border-r border-line bg-surface lg:block"><Sidebar /></aside>
       {navOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/30" onClick={() => setNavOpen(false)} />
           <aside className="animate-fade-up absolute inset-y-0 left-0 w-64 border-r border-line bg-surface"><Sidebar /></aside>
         </div>
       )}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex h-12 items-center gap-3 border-b border-line bg-surface/90 px-4 backdrop-blur md:px-6">
+      <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="z-40 flex h-12 shrink-0 items-center gap-3 border-b border-line bg-surface/90 px-4 backdrop-blur md:px-6">
           <IconButton label="Open Navigation" className="lg:hidden" onClick={() => setNavOpen(true)}><Menu className="h-4 w-4" /></IconButton>
           <div className="flex items-center gap-2 text-xs text-muted">
             <span className="hidden sm:inline">Term</span>
@@ -171,10 +181,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 md:px-8">{children}</main>
-        <footer className="border-t border-line px-8 py-4 text-xs text-faint">
-          Northeastern University · Department of Economics · Undergraduate Curriculum Planning
-        </footer>
+        {/* The only page-level scroller: sidebar and header stay anchored above/beside it */}
+        <div id={CONTENT_SCROLL_ID} ref={scroller} className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-gutter:stable]">
+          <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 md:px-8">{children}</main>
+          <footer className="border-t border-line px-8 py-4 text-xs text-faint">
+            Northeastern University · Department of Economics · Undergraduate Curriculum Planning
+          </footer>
+        </div>
       </div>
       <Toaster />
     </div>

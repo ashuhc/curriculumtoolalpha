@@ -87,7 +87,7 @@ export default function Conflicts() {
               <div className={cx("transition-opacity", loading && "opacity-60")}>
                 {tab === "conflicts" ? (
                   conflicts.length === 0 ? <div className="p-6 text-center text-[13px] text-muted">No conflicts match these filters.</div> : (
-                    <Table maxH="max-h-[640px]">
+                    <Table>
                       <thead><tr><th>Severity</th><th>Category</th><th>Course / Section</th><th>Faculty</th><th>Details</th><th>Suggested Action</th></tr></thead>
                       <tbody>{conflicts.map((c, i) => {
                         const sid = sectionOf(c);
@@ -105,7 +105,7 @@ export default function Conflicts() {
                     </Table>
                   )
                 ) : (
-                  <Table maxH="max-h-[640px]">
+                  <Table>
                     <thead><tr><th>Faculty</th><th>Group</th><th>Target From</th><th className="text-right">Term Target</th><th className="text-right">Assigned</th>
                       <th className="text-right">Other Semester</th><th className="text-right">Annual</th><th>Allowed</th><th>Overload (Approved / Requested)</th><th>Status</th></tr></thead>
                     <tbody>{workload.map((w) => (

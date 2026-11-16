@@ -61,6 +61,9 @@
 }
 
 html { font-size: 14px; }
+/* The window never scrolls: the app shell fills the viewport and scrolling happens
+   inside the content pane and data containers (see AppShell). */
+html, body, #root { height: 100%; overflow: hidden; overscroll-behavior: none; }
 body {
   background: var(--bg);
   transition: background-color 0.2s ease, color 0.2s ease;

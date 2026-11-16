@@ -117,7 +117,7 @@ export default function Schedule() {
               {view === "calendar" ? (
                 <div className="p-4"><WeekCalendar rows={rows} meta={meta} flagged={flagged} locked={locked} comments={data.comment_counts} onOpen={open} /></div>
               ) : (
-                <Table maxH="max-h-[680px]">
+                <Table>
                   <thead><tr>
                     <th>Section</th><th>Title</th><th>Instructor</th><th>Assignment</th><th>Seq.</th><th>Meeting Time</th>
                     <th className="text-right">Proj. / Cap</th><th>Modality</th><th className="w-20" />

@@ -173,7 +173,7 @@ export function Field({ label, hint, children, className }: { label: ReactNode; 
 
 export function Switch({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label?: ReactNode; disabled?: boolean }) {
   return (
-    <label className={cx("inline-flex cursor-pointer select-none items-center gap-2 text-[13px]", disabled && "pointer-events-none opacity-50")}>
+    <label className={cx("relative inline-flex cursor-pointer select-none items-center gap-2 text-[13px]", disabled && "pointer-events-none opacity-50")}>
       <span className={cx("relative h-[18px] w-8 shrink-0 rounded-full transition-colors", checked ? "bg-nu" : "bg-line-strong")}>
         <span className={cx("absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white transition-all", checked ? "left-[16px]" : "left-[2px]")} />
       </span>
@@ -213,7 +213,10 @@ export function Segmented<T extends string>({ options, value, onChange }: { opti
 }
 
 // ------------------------------------------------------------------ tables ---
-export function Table({ children, maxH = "max-h-[600px]", className }: { children: ReactNode; maxH?: string; className?: string }) {
+/** Height for primary data tables: fills the viewport below the header, scrolling internally. */
+export const DATA_MAX_H = "max-h-[max(18rem,calc(100dvh-11rem))]";
+
+export function Table({ children, maxH = DATA_MAX_H, className }: { children: ReactNode; maxH?: string; className?: string }) {
   return (
     <div className={cx("overflow-auto", maxH, className)}>
       <table className="w-full border-collapse text-[13px] [&_td]:border-b [&_td]:border-line [&_td]:px-3 [&_td]:py-2 [&_td]:align-middle [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:border-b [&_th]:border-line [&_th]:bg-subtle [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:text-[11px] [&_th]:font-medium [&_th]:whitespace-nowrap [&_th]:text-muted [&_tbody_tr:last-child_td]:border-b-0">
