@@ -37,8 +37,11 @@ export default function Login() {
     <div className="mx-auto mt-10 max-w-sm">
       <div className="mb-6">
         <div className="mb-4"><BrandMark size={36} /></div>
+        <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-nu-text">
+          <span className="h-1.5 w-1.5 rounded-full bg-nu" />Northeastern University · Department of Economics
+        </div>
         <h1 className="text-xl font-semibold tracking-tight">Sign In</h1>
-        <p className="mt-1 text-[13px] text-muted">Faculty submit teaching preferences; schedulers edit, lock and publish the master schedule.</p>
+        <p className="mt-1 text-[13px] text-muted">Sign in with your Northeastern credentials to manage teaching preferences and course schedules.</p>
       </div>
       {expired && <div className="mb-4"><Alert tone="warning">Your session expired. Please sign in again.</Alert></div>}
       <form onSubmit={submit} className={cx(CARD, "space-y-4 p-5")}>
