@@ -1510,8 +1510,7 @@ def detect_conflicts(master: pd.DataFrame, profiles: dict[str, FacultyProfile], 
         if u["code"] in manual_codes:
             continue
         label = f"ECON {u['code']}" + (" (Remote)" if u["virtual"] else "")
-        severity = "Warning" if is_core(u["code"]) else "Info"   # students can't take a required course
-        out.append(_conflict(severity, "Demand over capacity", label, "—",
+        out.append(_conflict("Warning", "Demand over capacity", label, "—",
                              f"{u['unseated']} projected {'student exceeds' if u['unseated'] == 1 else 'students exceed'} "
                              f"the {u['seats']} seats in {u['sections']} planned "
                              f"section{'s' if u['sections'] != 1 else ''}; another section would be under half full "
@@ -1566,6 +1565,59 @@ def apply_overrides(master: pd.DataFrame, overrides: dict[str, dict],
 
 
 MANUAL_BASIS = "Manual section"
+
+
+def suggest_time_blocks(master: pd.DataFrame, code: int, instructor: str | None, popularity: dict[str, float],
+                        exclude_id: str | None = None, limit: int = 3) -> list[dict]:
+    """
+    Rank lecture sequences (1–5, A–H) for one extra section of `code`, against the current
+    (edited) term schedule, using the solver's own soft costs:
+      Hard: never overlap the instructor's existing meetings (lectures or recitations).
+      Soft: avoid other sections of the same course (+10 each), core lectures (+3 each —
+            students need those), same-level electives (+1 each) and crowded blocks
+            (+1 per section); favour historically popular times (−2 × popularity).
+    """
+    m = master[master["Section ID"] != exclude_id] if exclude_id else master
+    live = m[(m["Modality"] == "In-Person") & m["Sequence"].isin(ALL_SLOTS)].copy()
+    live["_code"] = live["Course"].str.extract(r"(\d{4})")[0].astype(int)
+    busy = live.loc[live["Instructor"] == instructor, "Sequence"].tolist() if instructor else []
+    lectures = live[live["Component"] == "Lecture"]
+    level = course_level(code)
+    out = []
+    for seq in CLASS_SEQUENCES:
+        if any(slots_overlap(seq, b) for b in busy):
+            continue
+        hit = lectures[lectures["Sequence"].apply(lambda o: slots_overlap(seq, o))]
+        same = int((hit["_code"] == code).sum())
+        core = int(hit["_code"].apply(lambda c: c in MANDATORY_CORE and c != code).sum())
+        peers = int(hit["_code"].apply(lambda c: c != code and not is_core(c) and course_level(c) == level).sum())
+        usage = int((lectures["Sequence"] == seq).sum())
+        pop = float(popularity.get(seq, 0.5))
+        cost = 10 * same + 3 * core + 1 * peers + 1.0 * usage - 2.0 * pop
+        reasons = [f"No overlap with {instructor}'s {len(busy)} other meeting{'s' if len(busy) != 1 else ''}" if instructor
+                   else "No instructor yet — re-run after choosing one"]
+        reasons.append(f"{core} core lecture section{'s' if core != 1 else ''} at this time" if core else "No core lectures at this time")
+        if same:
+            reasons.append(f"Overlaps {same} other section{'s' if same != 1 else ''} of ECON {code}")
+        if peers:
+            reasons.append(f"{peers} other {level}-level elective{'s' if peers != 1 else ''} at this time")
+        out.append({"sequence": seq, "label": describe_slot(seq)[1],
+                    "cost": round(cost, 2), "core_overlaps": core, "same_course_overlaps": same,
+                    "level_overlaps": peers, "sections_in_block": usage, "reasons": reasons})
+    out.sort(key=lambda d: (d["cost"], d["sequence"]))
+    return out[:limit]
+
+
+def likely_volunteers(code: int, profiles: dict[str, FacultyProfile], master: pd.DataFrame) -> list[dict]:
+    """Faculty with a recorded interest in `code` (preference rank or teaching history), most willing first."""
+    counts = master["Instructor"].value_counts() if not master.empty else {}
+    out = []
+    for name, p in profiles.items():
+        if code in p.scores and p.ftype != "Recitation Leader":
+            score, basis = p.scores[code]
+            out.append({"name": name, "basis": basis, "score": round(float(score), 2),
+                        "assigned": int(counts.get(name, 0)), "term_target": p.term_target})
+    return sorted(out, key=lambda d: (-d["score"], d["name"]))
 
 
 def add_manual_sections(master: pd.DataFrame, manual: list[dict], profiles: dict[str, FacultyProfile]

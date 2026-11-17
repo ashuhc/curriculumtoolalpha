@@ -96,6 +96,11 @@ export interface ManualSectionIn {
   term: string; code: number; section_no: number; title: string; instructor: string | null;
   modality: "In-Person" | "Remote"; sequence: string | null; cap: number; settings?: PlanSettings;
 }
+export interface BlockSuggestion {
+  sequence: string; label: string; cost: number; core_overlaps: number; same_course_overlaps: number;
+  level_overlaps: number; sections_in_block: number; reasons: string[];
+}
+export interface Volunteer { name: string; basis: string; score: number; assigned: number; term_target: number }
 export interface Comment { id: number; term: string; section_id: string; parent_id: number | null; user_id: number | null; author_name: string; body: string; resolved: boolean; created_at: string }
 
 // ----------------------------------------------------------------- client ---
@@ -221,6 +226,9 @@ export const api = {
 
   demand: (settings: PlanSettings) => request<DemandResponse>("/api/plan/demand", { method: "POST", body: { settings } }),
   schedule: (settings: PlanSettings) => request<ScheduleResponse>("/api/plan/schedule", { method: "POST", body: { settings } }),
+  /** Ranked conflict-free lecture blocks for one more section of `code`, plus likely volunteers. */
+  suggestSection: (b: { settings: PlanSettings; code: number; instructor?: string | null; exclude_section_id?: string | null }) =>
+    request<{ blocks: BlockSuggestion[]; volunteers: Volunteer[] }>("/api/plan/suggest-section", { method: "POST", body: b }),
   addSection: (s: ManualSectionIn) => request<ManualSection>("/api/plan/sections", { method: "POST", body: s }),
   updateSection: (id: number, s: ManualSectionIn) => request<ManualSection>(`/api/plan/sections/${id}`, { method: "PUT", body: s }),
   overrides: (term: string) => request<{ section_id: string; instructor: string | null; sequence: string | null }[]>(`/api/plan/overrides?term=${q(term)}`),

@@ -15,7 +15,7 @@ from database import get_db
 from models import Course, Faculty, ManualSection, Publication, ScheduleOverride, SectionComment, SectionLock, User
 from realtime import hub
 from routers.collab import active_lock, assert_editable, lock_out, purge_expired
-from schemas import ManualSectionIn, ManualSectionOut, OverrideIn, OverrideOut, PlanRequest, PublishIn
+from schemas import ManualSectionIn, ManualSectionOut, OverrideIn, OverrideOut, PlanRequest, PublishIn, SuggestSectionIn
 
 router = APIRouter(prefix="/api", tags=["planning"])
 
@@ -209,6 +209,13 @@ def _validated_section(db: Session, body: ManualSectionIn, exclude_id: Optional[
     return {"term": body.term, "section_id": section_id, "code": body.code, "section": section,
             "title": body.title.strip() or course.title, "instructor": instructor, "virtual": virtual,
             "sequence": sequence, "cap": body.cap}
+
+
+@router.post("/plan/suggest-section")
+def suggest_section(body: SuggestSectionIn, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    """Auto-Assign Time Block: ranked conflict-free lecture sequences, plus faculty likely to volunteer."""
+    return _plan_or_400(lambda d, ps: svc.suggest_section(d, ps, body.code, body.instructor, body.exclude_section_id),
+                        db, body.settings)
 
 
 @router.post("/plan/sections", response_model=ManualSectionOut, status_code=201)

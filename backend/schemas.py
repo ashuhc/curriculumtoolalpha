@@ -68,6 +68,14 @@ class ManualSectionIn(BaseModel):
     settings: Optional["PlanSettings"] = None        # current plan, to check for ID collisions
 
 
+class SuggestSectionIn(BaseModel):
+    """Ask for conflict-free lecture blocks (and likely volunteers) for one extra section."""
+    settings: PlanSettings = PlanSettings()
+    code: int = Field(..., ge=1000, le=4999)
+    instructor: Optional[str] = None
+    exclude_section_id: Optional[str] = None     # the manual section being edited, if any
+
+
 class ManualSectionOut(BaseModel):
     id: int
     term: str

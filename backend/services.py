@@ -236,6 +236,15 @@ def schedule(db: Session, ps) -> dict:
             "overrides_stale": sorted((set(ovr) - set(applied)) | set(manual_stale))}
 
 
+def suggest_section(db: Session, ps, code: int, instructor: str | None, exclude_id: str | None) -> dict:
+    """Best lecture blocks for an extra section of `code`, judged against the current edited schedule."""
+    res = schedule(db, ps)
+    popularity = eng.slot_popularity(res["enrollment"])
+    name = instructor if instructor and instructor != eng.UNSTAFFED else None
+    return {"blocks": eng.suggest_time_blocks(res["master"], code, name, popularity, exclude_id),
+            "volunteers": eng.likely_volunteers(code, res["profiles"], res["master"])}
+
+
 # ----------------------------------------------------------- serialisation ---
 def snake(name: str) -> str:
     s = re.sub(r"\(if known\)", "", str(name))

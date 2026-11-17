@@ -235,3 +235,24 @@ def test_manual_sections(client, admin, admin2):
     assert gone["reverted"] == ["ECON 1000-07"]
     s = client.post("/api/plan/schedule", json={"settings": settings}).json()
     assert not any(m["section_id"] == "ECON 1000-07" for m in s["master"]) and s["manual_sections"] == []
+
+
+def test_suggest_section_avoids_instructor_and_core_conflicts(client, admin):
+    import engine as eng
+    settings = {"target_term": "Fall 2026"}
+    plan = client.post("/api/plan/schedule", json={"settings": settings}).json()
+    busy_name = next(r["instructor"] for r in plan["master"]
+                     if r["modality"] == "In-Person" and r["sequence"] in eng.CLASS_SEQUENCES and r["instructor"] != eng.UNSTAFFED)
+    busy = [r["sequence"] for r in plan["master"] if r["instructor"] == busy_name and r["sequence"] in eng.ALL_SLOTS]
+    r = client.post("/api/plan/suggest-section", json={"settings": settings, "code": 1230, "instructor": busy_name}, headers=admin)
+    assert r.status_code == 200
+    blocks = r.json()["blocks"]
+    assert blocks and all(b["sequence"] in eng.CLASS_SEQUENCES for b in blocks)
+    assert not any(eng.slots_overlap(b["sequence"], x) for b in blocks for x in busy)    # hard constraint
+    assert blocks == sorted(blocks, key=lambda b: (b["cost"], b["sequence"]))
+    assert blocks[0]["reasons"][0].startswith(f"No overlap with {busy_name}")
+    assert isinstance(r.json()["volunteers"], list)
+    assert client.post("/api/plan/suggest-section", json={"settings": settings, "code": 1230}).status_code == 401
+    # every over-capacity row is a Warning now
+    over = [c for c in plan["conflicts"] if c["category"] == "Demand over capacity"]
+    assert over and all(c["severity"] == "Warning" for c in over)
