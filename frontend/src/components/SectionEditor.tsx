@@ -9,8 +9,7 @@ import { useUI } from "../store/ui";
 import { CourseSelect } from "./CourseSelect";
 import { Alert, Button, Field, Modal, Segmented, inputCls } from "./ui";
 
-/** `auto`: Auto-Schedule Elective — pick a volunteer and let the time block be assigned automatically. */
-export interface SectionPrefill { code?: number; remote?: boolean; auto?: boolean }
+export interface SectionPrefill { code?: number; remote?: boolean }
 
 const REMOTE_CAP = 25;
 type Modality = "In-Person" | "Remote";
@@ -41,7 +40,6 @@ export function SectionEditor({ open, onClose, data, meta, prefill, editing, onS
   const setAutoBlock = (v: boolean) => { autoRef.current = v; setAutoBlockState(v); };
   const [suggesting, setSuggesting] = useState(false);
   const suggestSeq = useRef(0);
-  const auto = !!prefill?.auto && !editing;
 
   useEffect(() => { if (open && !courses.length) api.courses().then(setCourses).catch(() => undefined); }, [open, courses.length]);
 
@@ -68,7 +66,7 @@ export function SectionEditor({ open, onClose, data, meta, prefill, editing, onS
     } else {
       const c = prefill?.code ?? null;
       const remote = !!prefill?.remote;
-      setCode(c); setTitleTouched(false); setTitle(""); setInstructor(""); setSequence(""); setAutoBlock(!!prefill?.auto);
+      setCode(c); setTitleTouched(false); setTitle(""); setInstructor(""); setSequence(""); setAutoBlock(false);
       setModality(remote ? "Remote" : "In-Person");
       setSectionNo(c ? nextFree(c) : 1); setCap(c ? typicalCap(c, remote) : remote ? REMOTE_CAP : settings.small_section_cap);
     }
@@ -104,7 +102,7 @@ export function SectionEditor({ open, onClose, data, meta, prefill, editing, onS
       if (apply && !r.blocks.length) setError(`No conflict-free lecture block is available${instructor ? ` for ${instructor}` : ""}.`);
     } catch (e) { if (id === suggestSeq.current) setError((e as Error).message); } finally { if (id === suggestSeq.current) setSuggesting(false); }
   }
-  // Volunteers load with the course; in auto mode the block follows the course and instructor
+  // Volunteers load with the course; after Auto-Assign, the block follows course/instructor changes
   useEffect(() => {
     if (!open || code === null || modality === "Remote") return;
     suggest(autoRef.current);
@@ -136,14 +134,13 @@ export function SectionEditor({ open, onClose, data, meta, prefill, editing, onS
   const volunteerNames = new Set(volunteers.map((v) => v.name));
   const current = suggestions?.find((b) => b.sequence === sequence);
   return (
-    <Modal open={open} onClose={() => !busy && onClose()} size="lg" title={editing ? `Edit Manual Section ${editing.section_id}` : auto ? "Auto-Schedule Elective" : "Add Section"}
+    <Modal open={open} onClose={() => !busy && onClose()} size="lg" title={editing ? `Edit Manual Section ${editing.section_id}` : "Add Section"}
       footer={<>
         <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
-        <Button variant="primary" loading={busy} disabled={invalid || suggesting} onClick={save}>{editing ? "Save Changes" : auto ? "Schedule Section" : "Add Section"}</Button>
+        <Button variant="primary" loading={busy} disabled={invalid || suggesting} onClick={save}>{editing ? "Save Changes" : "Add Section"}</Button>
       </>}>
       <div className="space-y-4">
         <p className="text-[13px] text-muted">
-          {auto && <>Choose the faculty member who volunteered; a conflict-free lecture block is assigned automatically. </>}
           Hand-placed sections are tagged <span className="font-medium text-fg">Manual Edit</span> on the Term Schedule for {settings.target_term} and can be reverted at any time.
         </p>
         <Field label="Course">
@@ -157,7 +154,7 @@ export function SectionEditor({ open, onClose, data, meta, prefill, editing, onS
               onChange={(e) => setSectionNo(Math.round(Number(e.target.value)))} />
           </Field>
         </div>
-        <Field label={auto ? "Volunteering Instructor" : "Instructor"}
+        <Field label="Instructor"
           hint={code !== null && !volunteers.length && !suggesting ? "No one has ranked or taught this course yet; choose anyone on the roster." : "Faculty on the roster. Their workload and time conflicts update when you save."}>
           <select className={inputCls} value={instructor} onChange={(e) => setInstructor(e.target.value)}>
             <option value="">Unstaffed</option>

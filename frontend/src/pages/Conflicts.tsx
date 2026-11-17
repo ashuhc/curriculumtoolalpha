@@ -1,5 +1,5 @@
 // Unresolved conflicts report + faculty workload, with CSV export.
-import { AlertTriangle, ArrowUpWideNarrow, Download, Info, OctagonAlert, Plus, Search, Sparkles } from "lucide-react";
+import { AlertTriangle, ArrowUpWideNarrow, Download, Info, OctagonAlert, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type ConflictRow } from "../api";
@@ -119,10 +119,6 @@ export default function Conflicts() {
                               {c.suggested_action}
                               {isAdmin && prefill && meta && (
                                 <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                  {c.category === "Elective not offered" && (
-                                    <Button size="sm" icon={<Sparkles className="h-3.5 w-3.5" />} title="Schedule a Volunteered Section With an Automatic Time Block"
-                                      onClick={(e) => { e.stopPropagation(); setEditor({ ...prefill, auto: true }); }}>Auto-Schedule Elective</Button>
-                                  )}
                                   <Button size="sm" icon={<Plus className="h-3.5 w-3.5" />} onClick={(e) => { e.stopPropagation(); setEditor(prefill); }}>Add Section</Button>
                                   {c.category === "Demand over capacity" && prefill.code && (
                                     <Button size="sm" icon={<ArrowUpWideNarrow className="h-3.5 w-3.5" />} title="Raise Seat Limits on Existing Sections"
