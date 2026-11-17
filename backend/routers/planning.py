@@ -12,10 +12,10 @@ import engine as eng
 import services as svc
 from auth import login_required, require_admin
 from database import get_db
-from models import Publication, ScheduleOverride, SectionComment, SectionLock, User
+from models import Course, Faculty, ManualSection, Publication, ScheduleOverride, SectionComment, SectionLock, User
 from realtime import hub
 from routers.collab import active_lock, assert_editable, lock_out, purge_expired
-from schemas import OverrideIn, OverrideOut, PlanRequest, PublishIn
+from schemas import ManualSectionIn, ManualSectionOut, OverrideIn, OverrideOut, PlanRequest, PublishIn
 
 router = APIRouter(prefix="/api", tags=["planning"])
 
@@ -99,6 +99,7 @@ def _schedule_payload(db: Session, body: PlanRequest) -> dict:
         "workload": svc.records(svc.workload_frame(res["workload"], sem)),
         "instructors": sorted(res["profiles"]),
         "overridden": res["overrides_applied"],
+        "manual_sections": [svc.manual_out(ms) for ms in svc.manual_sections_for(db, term)],
         "locks": [lock_out(lk) for lk in db.query(SectionLock).filter(SectionLock.term == term).all()],
         "comment_counts": comment_counts,
         "publication": _pub_meta(latest) if latest else None,
@@ -153,18 +154,88 @@ def reset_overrides(term: str, section_id: Optional[str] = None, db: Session = D
     if section_id:
         assert_editable(db, term, section_id, user)
         q = q.filter(ScheduleOverride.section_id == section_id)
+    mq = db.query(ManualSection).filter(ManualSection.term == term)
+    if section_id:
+        mq = mq.filter(ManualSection.section_id == section_id)
     reverted, skipped = [], []
-    for o in q.all():
+    for o in [*q.all(), *mq.all()]:                    # manual overrides and hand-added sections
         lk = active_lock(db, term, o.section_id)
         if not section_id and lk and lk.user_id != user.id:
-            skipped.append({"section_id": o.section_id, "locked_by": lk.user_name})
+            if o.section_id not in {x["section_id"] for x in skipped}:
+                skipped.append({"section_id": o.section_id, "locked_by": lk.user_name})
             continue
-        reverted.append(o.section_id)
+        if o.section_id not in reverted:
+            reverted.append(o.section_id)
         db.delete(o)
     db.commit()
     if reverted:
         hub.publish({"type": "schedule", "term": term, "section_id": section_id, "by": user.name})
     return {"reverted": reverted, "skipped": skipped}
+
+
+# ---------------------------------------------------------- manual sections ---
+def _validated_section(db: Session, body: ManualSectionIn, exclude_id: Optional[int] = None) -> dict:
+    """Validate a hand-added section; returns the column values. Raises 404/409/422."""
+    course = db.get(Course, body.code)
+    if not course or not course.active:
+        raise HTTPException(404, f"ECON {body.code} is not an active course in the catalog")
+    if body.code in eng.RECITATION_FOR:
+        raise HTTPException(422, "Recitations are generated from large lectures; add the lecture section instead")
+    virtual = body.modality == "Remote"
+    if virtual and body.cap > eng.VIRTUAL_CAP_LIMIT:
+        raise HTTPException(422, f"Remote sections are capped at {eng.VIRTUAL_CAP_LIMIT} students")
+    sequence = None
+    if not virtual and body.sequence and body.sequence != eng.UNSCHEDULED:
+        if body.sequence not in eng.CLASS_SEQUENCES:
+            raise HTTPException(422, f"{body.sequence} is not a lecture time block (1–5, A–H)")
+        sequence = body.sequence
+    instructor = (body.instructor or "").strip() or None
+    if instructor and instructor != eng.UNSTAFFED:
+        if not db.query(Faculty).filter(Faculty.name == instructor, Faculty.active.is_(True)).first():
+            raise HTTPException(422, f"{instructor} is not an active faculty member on the roster")
+    else:
+        instructor = None
+    section = f"{body.section_no:02d}"
+    section_id = f"ECON {body.code}-{section}"
+    clash = db.query(ManualSection).filter(ManualSection.term == body.term, ManualSection.section_id == section_id)
+    if exclude_id is not None:
+        clash = clash.filter(ManualSection.id != exclude_id)
+    if clash.first():
+        raise HTTPException(409, f"{section_id} has already been added. Choose another section number.")
+    if body.settings is not None:
+        plan = _plan_or_400(svc.run_plan, db, body.settings.model_copy(update={"target_term": body.term}))
+        if not plan["master"].empty and section_id in set(plan["master"]["Section ID"]):
+            raise HTTPException(409, f"{section_id} already exists in the generated schedule. Choose another section number.")
+    return {"term": body.term, "section_id": section_id, "code": body.code, "section": section,
+            "title": body.title.strip() or course.title, "instructor": instructor, "virtual": virtual,
+            "sequence": sequence, "cap": body.cap}
+
+
+@router.post("/plan/sections", response_model=ManualSectionOut, status_code=201)
+def add_section(body: ManualSectionIn, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    """Add a section by hand (e.g. an unoffered elective, or demand over capacity)."""
+    ms = ManualSection(**_validated_section(db, body), created_by=user.name)
+    db.add(ms)
+    db.commit()
+    hub.publish({"type": "schedule", "term": ms.term, "section_id": ms.section_id, "by": user.name})
+    return svc.manual_out(ms)
+
+
+@router.put("/plan/sections/{mid}", response_model=ManualSectionOut)
+def update_section(mid: int, body: ManualSectionIn, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    ms = db.get(ManualSection, mid)
+    if not ms:
+        raise HTTPException(404, "Manual section not found")
+    assert_editable(db, ms.term, ms.section_id, user)
+    values = _validated_section(db, body, exclude_id=mid)
+    if values["section_id"] != ms.section_id:      # renumbered: carry its drawer edits along
+        db.query(ScheduleOverride).filter(ScheduleOverride.term == ms.term,
+                                          ScheduleOverride.section_id == ms.section_id).update({"section_id": values["section_id"]})
+    for k, v in values.items():
+        setattr(ms, k, v)
+    db.commit()
+    hub.publish({"type": "schedule", "term": ms.term, "section_id": ms.section_id, "by": user.name})
+    return svc.manual_out(ms)
 
 
 # --------------------------------------------------------------- publishing ---

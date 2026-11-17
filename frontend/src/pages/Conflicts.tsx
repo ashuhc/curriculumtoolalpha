@@ -1,11 +1,13 @@
 // Unresolved conflicts report + faculty workload, with CSV export.
-import { AlertTriangle, Download, Info, OctagonAlert, Search } from "lucide-react";
+import { AlertTriangle, Download, Info, OctagonAlert, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type ConflictRow } from "../api";
+import { SectionEditor, type SectionPrefill } from "../components/SectionEditor";
 import { Alert, Badge, Button, ErrorState, PageHeader, Panel, SEVERITY_TONE, Spinner, Stat, StatGrid, Table, Tabs, cx, inputBase } from "../components/ui";
 import { useDebounced } from "../lib/hooks";
 import { titleCase } from "../lib/text";
+import { useIsAdmin } from "../store/auth";
 import { usePlan } from "../store/plan";
 import { useSchedule } from "../store/schedule";
 import { useUI } from "../store/ui";
@@ -46,12 +48,24 @@ export default function Conflicts() {
     .then(() => success(k === "conflicts" ? "Conflicts report exported" : "Workload report exported", settings.target_term))
     .catch((e) => toast({ title: "Export failed", body: e.message, tone: "error" }));
   const sectionOf = (c: ConflictRow) => /ECON \d{4}-\d{2}/.exec(c.course_section)?.[0];
+  const isAdmin = useIsAdmin();
+  const [editor, setEditor] = useState<SectionPrefill | null>(null);
+  // Audit items a hand-added section resolves: prefill the course (and Remote) from the row
+  const ADDABLE = new Set(["Elective not offered", "Demand over capacity", "Missing core course"]);
+  const prefillOf = (c: ConflictRow): SectionPrefill | null => {
+    if (!ADDABLE.has(c.category)) return null;
+    const code = Number(/ECON (\d{4})/.exec(c.course_section)?.[1]);
+    return code ? { code, remote: /Remote/.test(c.course_section) } : null;
+  };
 
   return (
     <>
       <PageHeader eyebrow="Planning" title="Conflicts & Audits"
         description={<>Review time-block overlaps, prerequisite coverage, and faculty workload limits prior to publishing <span className="font-medium text-fg">{settings.target_term}</span>.</>}
-        actions={<Button icon={<Download className="h-3.5 w-3.5" />} onClick={() => exp(tab)}>Export {tab === "conflicts" ? "Conflicts" : "Workload"} CSV</Button>} />
+        actions={<>
+          {isAdmin && d && meta && <Button variant="primary" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setEditor({})}>Add Section</Button>}
+          <Button icon={<Download className="h-3.5 w-3.5" />} onClick={() => exp(tab)}>Export {tab === "conflicts" ? "Conflicts" : "Workload"} CSV</Button>
+        </>} />
       {error && <ErrorState error={error} onRetry={() => fetch(settings)} />}
       {!d && loading && <Spinner />}
       {d && (
@@ -60,7 +74,7 @@ export default function Conflicts() {
             {(["Critical", "Warning", "Info"] as Sev[]).map((v) => (
               <Stat key={v} icon={v === "Critical" ? OctagonAlert : v === "Warning" ? AlertTriangle : Info} iconTone={v === "Info" ? "neutral" : "warning"} label={v === "Info" ? "Informational" : v === "Warning" ? "Warnings" : "Critical"} active={sev.has(v)} onClick={() => toggle(v)}
                 value={d.summary[v.toLowerCase() as "critical" | "warning" | "info"]} tone={v === "Critical" && d.summary.critical ? "danger" : v === "Warning" && d.summary.warning ? "warning" : undefined}
-                sub={sev.has(v) ? "Shown · click to hide" : "Hidden · click to show"} />
+                sub={sev.has(v) ? "Shown · Click to Hide" : "Hidden · Click to Show"} />
             ))}
           </StatGrid>
           {d.summary.critical === 0 && <Alert tone="success" title="No Critical Conflicts">This term is ready to publish once warnings have been reviewed.</Alert>}
@@ -90,7 +104,8 @@ export default function Conflicts() {
                     <Table>
                       <thead><tr><th>Severity</th><th>Category</th><th>Course / Section</th><th>Faculty</th><th>Details</th><th>Suggested Action</th></tr></thead>
                       <tbody>{conflicts.map((c, i) => {
-                        const sid = sectionOf(c);
+                        const prefill = prefillOf(c);
+                        const sid = prefill ? undefined : sectionOf(c);   // unoffered sections aren't on the schedule yet
                         return (
                           <tr key={i} className={cx(sid && "cursor-pointer hover:bg-hover")} onClick={() => sid && navigate(`/schedule?section=${encodeURIComponent(sid)}`)}>
                             <td><Badge tone={SEVERITY_TONE[c.severity]}>{c.severity}</Badge></td>
@@ -98,7 +113,14 @@ export default function Conflicts() {
                             <td className="whitespace-nowrap tabular-nums">{c.course_section}</td>
                             <td className="whitespace-nowrap text-muted">{c.faculty}</td>
                             <td className="min-w-64">{c.details}</td>
-                            <td className="min-w-56 text-muted">{c.suggested_action}</td>
+                            <td className="min-w-56 text-muted">
+                              {c.suggested_action}
+                              {isAdmin && prefill && meta && (
+                                <div className="mt-1.5">
+                                  <Button size="sm" icon={<Plus className="h-3.5 w-3.5" />} onClick={(e) => { e.stopPropagation(); setEditor(prefill); }}>Add Section</Button>
+                                </div>
+                              )}
+                            </td>
                           </tr>
                         );
                       })}</tbody>
@@ -124,6 +146,9 @@ export default function Conflicts() {
             </Panel>
           </div>
         </div>
+      )}
+      {d && meta && (
+        <SectionEditor open={!!editor} onClose={() => setEditor(null)} data={d} meta={meta} prefill={editor ?? undefined} />
       )}
     </>
   );

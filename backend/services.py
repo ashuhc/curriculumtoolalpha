@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 import engine as eng
 from realtime import hub
-from models import Course, EnrollmentRecord, Faculty, Overload, PreferenceSubmission, ScheduleOverride
+from models import Course, EnrollmentRecord, Faculty, ManualSection, Overload, PreferenceSubmission, ScheduleOverride
 
 _lock = threading.Lock()
 _version = 0
@@ -195,17 +195,45 @@ def overrides_for(db: Session, term: str) -> dict[str, dict]:
             for o in db.query(ScheduleOverride).filter(ScheduleOverride.term == term).all()}
 
 
+def manual_sections_for(db: Session, term: str) -> list[ManualSection]:
+    return db.query(ManualSection).filter(ManualSection.term == term).order_by(ManualSection.section_id).all()
+
+
+def manual_out(ms: ManualSection) -> dict:
+    return {"id": ms.id, "term": ms.term, "section_id": ms.section_id, "code": ms.code, "section_no": int(ms.section),
+            "title": ms.title, "instructor": ms.instructor, "modality": "Remote" if ms.virtual else "In-Person",
+            "sequence": ms.sequence, "cap": ms.cap, "created_by": ms.created_by or ""}
+
+
+def _manual_projection(res: dict, code: int, virtual: bool) -> int:
+    """Students a hand-added section can expect: the unoffered elective's demand, else the unseated overflow."""
+    for sec in res.get("dropped", []):
+        if sec["code"] == code and bool(sec["virtual"]) == virtual:
+            return int(sec["projected"])
+    for u in res.get("unseated", []):
+        if u["code"] == code and u["virtual"] == virtual:
+            return int(u["unseated"])
+    return 0
+
+
 def schedule(db: Session, ps) -> dict:
-    """Base plan + manual overrides, with conflicts & workload recomputed on the edited table."""
+    """Base plan + hand-added sections + manual overrides, with conflicts & workload recomputed."""
     res = run_plan(db, ps)
     settings = to_settings(ps)
-    ovr = overrides_for(db, settings.target_term)
-    master, applied = eng.apply_overrides(res["master"], ovr, res["profiles"])
+    term = settings.target_term
+    manual = [{**manual_out(ms), "section": ms.section, "virtual": ms.virtual,
+               "projected": _manual_projection(res, ms.code, ms.virtual)} for ms in manual_sections_for(db, term)]
+    master, added, manual_stale = eng.add_manual_sections(res["master"], manual, res["profiles"])
+    ovr = overrides_for(db, term)
+    master, applied = eng.apply_overrides(master, ovr, res["profiles"])
+    manual_codes = {m["code"] for m in manual if m["section_id"] in added}
     conflicts = eng.detect_conflicts(master, res["profiles"], settings, res["prereq"], res["dropped"],
-                                     res["pref_warnings"])
+                                     res["pref_warnings"], res.get("unseated"), manual_codes)
     workload = eng.workload_summary(master, res["profiles"], settings)
+    edited = list(dict.fromkeys(applied + added))      # Manual Edit badge: overrides and hand-added sections
     return {**res, "master": master, "conflicts": conflicts, "workload": workload,
-            "overrides_applied": applied, "overrides_stale": sorted(set(ovr) - set(applied))}
+            "overrides_applied": edited, "manual_sections": added,
+            "overrides_stale": sorted((set(ovr) - set(applied)) | set(manual_stale))}
 
 
 # ----------------------------------------------------------- serialisation ---

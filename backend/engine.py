@@ -531,21 +531,60 @@ def _large_lecture_count(code: int, virtual: bool, projected: int, s: Settings) 
     return n
 
 
-def _section_caps_for(code: int, virtual: bool, projected: int, hist_cap: float, s: Settings) -> list[int]:
-    """Return the list of section capacities needed to seat `projected` students."""
+HALF_FULL = 0.5        # an additional section opens only if it would be at least half full
+OVER_CAP_TOLERANCE = 0.10
+
+
+def _sections_needed(students: int, cap: int) -> int:
+    """Full sections, plus one more only if the overflow fills at least half of it."""
+    if students <= 0 or cap <= 0:
+        return 0
+    full, rem = divmod(students, cap)
+    return full + (1 if rem >= HALF_FULL * cap else 0)
+
+
+def _uniform_sections(students: int, cap: int, tolerance: float = OVER_CAP_TOLERANCE, at_least_one=True) -> tuple[int, int]:
+    """
+    (sections, cap) for `students` in sections of a standard `cap`. A small overflow is first
+    absorbed by raising caps up to `tolerance`; an extra section is added only when the
+    overflow can't be absorbed AND would leave that section at least half full.
+    """
+    if students <= 0:
+        return 0, cap
+    n_absorb = math.ceil(students / (cap * (1 + tolerance)))      # fewest sections within tolerance
+    n = min(n_absorb, _sections_needed(students, cap))
+    n = max(1, n) if at_least_one else n
+    if n and students > n * cap:
+        cap = min(math.ceil(students / n), int(math.floor(cap * (1 + tolerance))))
+    return n, cap
+
+
+def _section_caps_for(code: int, virtual: bool, projected: int, hist_cap: float, s: Settings) -> tuple[list[int], int]:
+    """
+    Section capacities for `projected` students, and how many students they can't seat.
+
+    Half-full rule: the first section of a course is planned whenever the course runs
+    (electives also need min_elective_demand), but every *additional* section needs at
+    least 50% of a standard section's seats. Smaller overflows are absorbed up to 10%
+    over cap (in-person) and otherwise reported as unseated demand instead of opening
+    a sparse section. Large Principles lectures keep their own 75%-full rule. This never
+    plans more sections than the plain 10%-tolerance rule would.
+    """
     if projected <= 0:
-        return []
+        return [], 0
     if virtual:
         cap = int(min(hist_cap or s.virtual_cap, s.virtual_cap, VIRTUAL_CAP_LIMIT))
-        return [cap] * max(1, math.ceil(projected / cap))
+        n, cap = _uniform_sections(projected, cap, tolerance=0.0)   # remote caps are hard limits
+        return [cap] * n, max(0, projected - n * cap)
     if code in LARGE_LECTURE_COURSES:
         # Large lectures (100-200+) while demand supports them, rest in small sections
         n_large = _large_lecture_count(code, virtual, projected, s)
         caps = [s.large_lecture_cap] * n_large
         remaining = projected - n_large * s.large_lecture_cap
         if remaining > 0:
-            caps += [s.small_section_cap] * math.ceil(remaining / s.small_section_cap)
-        return caps
+            n_small, small_cap = _uniform_sections(remaining, s.small_section_cap, at_least_one=(n_large == 0))
+            caps += [small_cap] * n_small
+        return caps, max(0, projected - sum(caps))
     if hist_cap and not math.isnan(hist_cap):
         cap = int(round(hist_cap))
     elif code in CAPSTONES:
@@ -553,11 +592,10 @@ def _section_caps_for(code: int, virtual: bool, projected: int, hist_cap: float,
     else:
         cap = s.small_section_cap
     cap = int(min(max(cap, 15), s.large_lecture_cap))
-    # Allow up to 10% over the historical cap before opening another section
-    # (e.g. 44 students -> one 44-seat section, not two 43-seat sections).
-    n = max(1, math.ceil(projected / (cap * 1.10)))
-    cap = max(cap, math.ceil(projected / n))
-    return [cap] * n
+    # e.g. 44 students & a 40-seat cap -> one 44-seat section; 60 & 45 -> one 49-seat section
+    # (11 unseated) because a second section would hold fewer than 23 students.
+    n, cap = _uniform_sections(projected, cap)
+    return [cap] * n, max(0, projected - n * cap)
 
 
 def estimate_demand(enr: pd.DataFrame, settings: Settings, catalog: dict[int, str],
@@ -637,11 +675,16 @@ def estimate_demand(enr: pd.DataFrame, settings: Settings, catalog: dict[int, st
         projected = int(round(wavg * (1 + trend) ** years_ahead * settings.growth_multiplier))
 
         core = code in MANDATORY_CORE
+        unseated = 0
         if not core and not virt and projected < settings.min_elective_demand:
             notes.append(f"Below {settings.min_elective_demand}-student elective threshold")
             caps = []
         else:
-            caps = _section_caps_for(code, virt, projected, hist_cap.get((code, virt), np.nan), settings)
+            caps, unseated = _section_caps_for(code, virt, projected, hist_cap.get((code, virt), np.nan), settings)
+            if unseated:
+                std = min(caps) if caps else settings.small_section_cap
+                notes.append(f"{unseated} student{'s' if unseated != 1 else ''} over capacity — another section would be under half full "
+                             f"(needs {math.ceil(HALF_FULL * std)}+ students)")
 
         act = actual[(actual["course"] == code) & (actual["virtual"] == virt)]
         rows.append({
@@ -649,6 +692,7 @@ def estimate_demand(enr: pd.DataFrame, settings: Settings, catalog: dict[int, st
             "_virtual": virt,
             "_caps": caps,
             "_n_large": _large_lecture_count(code, virt, projected, settings) if caps else 0,
+            "_unseated": unseated,
             "Course": f"ECON {code}",
             "Title": catalog.get(code, ""),
             "Category": course_category(code),
@@ -679,7 +723,7 @@ def estimate_demand(enr: pd.DataFrame, settings: Settings, catalog: dict[int, st
         n = math.ceil(total / settings.recitation_cap) if total else 0
         act = enr[(enr["course"] == rec_code) & (enr["ordinal"] == target_ord)]
         rec_rows.append({
-            "_code": rec_code, "_virtual": False, "_caps": [settings.recitation_cap] * n, "_n_large": 0,
+            "_code": rec_code, "_virtual": False, "_caps": [settings.recitation_cap] * n, "_n_large": 0, "_unseated": 0,
             "Course": f"ECON {rec_code}", "Title": catalog.get(rec_code, f"Recitation for ECON {lecture}"),
             "Category": "Recitation", "Level": 1000, "Modality": "In-Person",
             "History Terms Used": 0, "Hist. Weighted Avg": None, "Annual Trend": 0.0,
@@ -1326,10 +1370,29 @@ def workload_summary(master: pd.DataFrame, profiles: dict[str, FacultyProfile], 
     return pd.DataFrame(rows).sort_values(["Status", "Faculty"]).reset_index(drop=True) if rows else pd.DataFrame()
 
 
+def unseated_demand(demand: pd.DataFrame) -> list[dict]:
+    """Courses whose projected students exceed planned seats because of the half-full rule."""
+    out = []
+    if demand is None or demand.empty or "_unseated" not in demand:
+        return out
+    for _, r in demand[demand["_unseated"].fillna(0) > 0].iterrows():
+        caps = r["_caps"] or []
+        out.append({"code": int(r["_code"]), "virtual": bool(r["_virtual"]), "unseated": int(r["_unseated"]),
+                    "sections": len(caps), "seats": int(sum(caps)),
+                    "half": math.ceil(HALF_FULL * (min(caps) if caps else 0))})
+    return out
+
+
 def detect_conflicts(master: pd.DataFrame, profiles: dict[str, FacultyProfile], settings: Settings,
                      prereq_df: pd.DataFrame | None = None, dropped: list[dict] | None = None,
-                     pref_warnings: list[str] | None = None) -> pd.DataFrame:
-    """Build the Unresolved Conflicts Report from the (possibly hand-edited) master table."""
+                     pref_warnings: list[str] | None = None, unseated: list[dict] | None = None,
+                     manual_codes: set | None = None) -> pd.DataFrame:
+    """
+    Build the Unresolved Conflicts Report from the (possibly hand-edited) master table.
+    `manual_codes`: courses a scheduler added sections for by hand; their "Elective not
+    offered" and "Demand over capacity" items are treated as resolved.
+    """
+    manual_codes = manual_codes or set()
     sem, _ = settings.target
     out = []
     m = master.copy()
@@ -1420,11 +1483,11 @@ def detect_conflicts(master: pd.DataFrame, profiles: dict[str, FacultyProfile], 
         if status.startswith("❌"):
             out.append(_conflict("Warning", "Over-allocation", "—", p.name,
                                  f"{p.ftype}: projected {r['Projected Annual']}/yr exceeds allowed {r['Allowed Annual']}.",
-                                 "Remove a section or approve an overload in faculty_overloads.json."))
+                                 "Remove a section, or approve an overload under Administration → Faculty & Overloads."))
         elif status.startswith("⚠️"):
             out.append(_conflict("Warning", "Under-allocation", "—", p.name,
                                  f"{p.ftype}: projected {r['Projected Annual']}/yr below required {r['Allowed Annual']}.",
-                                 "Assign another section or record a reduction/buyout in the roster."))
+                                 "Assign another section, or set a lower Fall/Spring Courseload under Administration → Faculty & Overloads."))
         elif status.startswith("💲"):
             out.append(_conflict("Info", "Overload compensation", "—", p.name,
                                  "Load exceeds base contract using an approved overload.",
@@ -1443,10 +1506,23 @@ def detect_conflicts(master: pd.DataFrame, profiles: dict[str, FacultyProfile], 
                                  "Review manually before finalising."))
 
     # --- Electives not offered, prerequisites, data warnings -------------------
+    for u in unseated or []:
+        if u["code"] in manual_codes:
+            continue
+        label = f"ECON {u['code']}" + (" (Remote)" if u["virtual"] else "")
+        severity = "Warning" if is_core(u["code"]) else "Info"   # students can't take a required course
+        out.append(_conflict(severity, "Demand over capacity", label, "—",
+                             f"{u['unseated']} projected {'student exceeds' if u['unseated'] == 1 else 'students exceed'} "
+                             f"the {u['seats']} seats in {u['sections']} planned "
+                             f"section{'s' if u['sections'] != 1 else ''}; another section would be under half full "
+                             f"(needs {u['half']}+ students).",
+                             "Add a section manually if needed, or raise a section cap."))
     for sec in dropped or []:
+        if sec["code"] in manual_codes:
+            continue
         out.append(_conflict("Info", "Elective not offered", sec["id"], "—",
                              f"{sec['title']}: demand exists but no willing faculty with remaining capacity.",
-                             "Offer only if a faculty member volunteers."))
+                             "Add a section manually if a faculty member volunteers."))
     if prereq_df is not None and not prereq_df.empty:
         for _, r in prereq_df[~prereq_df["_ok"]].iterrows():
             out.append(_conflict("Warning", "Prerequisite issue", r["Course"], "—",
@@ -1487,6 +1563,42 @@ def apply_overrides(master: pd.DataFrame, overrides: dict[str, dict],
         m.at[idx, "Match Basis"] = "Manual override"
         applied.append(row["Section ID"])
     return finalize_master(m, profiles), applied
+
+
+MANUAL_BASIS = "Manual section"
+
+
+def add_manual_sections(master: pd.DataFrame, manual: list[dict], profiles: dict[str, FacultyProfile]
+                        ) -> tuple[pd.DataFrame, list[str], list[str]]:
+    """
+    Append scheduler-created sections to the master table. Each dict has: section_id, code,
+    title, section, instructor (None = unstaffed), virtual, sequence, cap, projected.
+    Returns (master, ids_added, ids_skipped); a section whose ID now collides with a
+    generated section is skipped (reported as stale) rather than silently replacing it.
+    """
+    if not manual:
+        return master, [], []
+    existing = set(master["Section ID"]) if not master.empty else set()
+    rows, added, skipped = [], [], []
+    for ms in manual:
+        if ms["section_id"] in existing:
+            skipped.append(ms["section_id"])
+            continue
+        code = int(ms["code"])
+        rows.append({
+            "Section ID": ms["section_id"], "Course": f"ECON {code}", "Section": ms["section"],
+            "Title": ms["title"], "Category": course_category(code), "Level": course_level(code),
+            "Component": "Lecture", "Modality": "Online (Async)" if ms["virtual"] else "In-Person",
+            "Section Cap": int(ms["cap"]), "Projected Enrollment": int(min(ms.get("projected", 0), ms["cap"])),
+            "Instructor": ms.get("instructor") or UNSTAFFED, "Match Basis": MANUAL_BASIS,
+            "Sequence": ASYNC_SLOT if ms["virtual"] else (ms.get("sequence") or UNSCHEDULED),
+            "Linked Lecture": "", "Prerequisites": format_prereqs(get_prerequisites(code)),
+        })
+        added.append(ms["section_id"])
+    if not rows:
+        return master, [], skipped
+    combined = pd.concat([master, pd.DataFrame(rows)], ignore_index=True) if not master.empty else pd.DataFrame(rows)
+    return finalize_master(combined, profiles), added, skipped
 
 
 def run_pipeline(raw_enrollment: pd.DataFrame, settings: Settings,
@@ -1536,10 +1648,12 @@ def run_pipeline(raw_enrollment: pd.DataFrame, settings: Settings,
     master = sections_to_master(sections, profiles)
     offered = set(master["Course"].str.extract(r"(\d{4})")[0].astype(int)) if not master.empty else set()
     prereq = validate_prerequisites(offered, catalog)
-    conflicts = detect_conflicts(master, profiles, settings, prereq, dropped, pref_warnings)
+    unseated = unseated_demand(demand)
+    conflicts = detect_conflicts(master, profiles, settings, prereq, dropped, pref_warnings, unseated)
     workload = workload_summary(master, profiles, settings)
 
     return {
+        "unseated": unseated,
         "enrollment": enr, "catalog": catalog, "prefs": prefs, "pref_warnings": pref_warnings,
         "roster": roster, "overloads": overloads, "demand": demand, "profiles": profiles,
         "master": master, "dropped": dropped, "prereq": prereq,

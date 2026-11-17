@@ -34,9 +34,10 @@ def test_demand(client):
         caps = [int(c) for c in row["section_caps"].split(", ")]
         large = sum(min(c, round(row["projected_enrollment"] * c / sum(caps))) for c in caps if c == 200)
         assert rec[rec_code]["planned_sections"] == -(-large // 30)  # ceil(large-lecture students / 30)
-    # Spring 2027 ECON 1116 mixes 200- and 45-seat sections: the 45s add no recitations
+    # Spring 2027 ECON 1116 mixes 200-seat lectures with small sections: the small ones add no recitations
     row = next(r for r in d["demand"] if r["code"] == 1116 and not r["virtual"])
-    assert "45" in row["section_caps"] and rec[1126]["planned_sections"] < -(-row["projected_enrollment"] // 30)
+    assert any(int(c) < 100 for c in row["section_caps"].split(", "))
+    assert rec[1126]["planned_sections"] < -(-row["projected_enrollment"] // 30)
     assert all(int(c) <= 25 for r in d["demand"] if r["virtual"] for c in r["section_caps"].split(", "))
 
 
@@ -177,3 +178,60 @@ def test_faculty_reset_to_default(client, admin):
     r = client.post("/api/faculty/reset", headers=admin).json()
     assert g["name"] in r["faculty"]
     assert all(x["customized"] == [] for x in client.get("/api/faculty").json())
+
+
+def test_half_full_rule_for_additional_sections():
+    import engine as eng
+    st = eng.Settings(target_term=TERM)
+    # 60 students, 45-seat cap: a 2nd section would hold 15 (< 23) -> one 49-seat section, 11 unseated
+    assert eng._section_caps_for(3424, False, 60, 45, st) == ([49], 11)
+    # 70 students: overflow of 25 fills a 2nd section past half -> two sections
+    assert eng._section_caps_for(3424, False, 70, 45, st) == ([45, 45], 0)
+    # small overflow is still absorbed by the 10% tolerance
+    assert eng._section_caps_for(3424, False, 44, 40, st) == ([44], 0)
+    assert eng._section_caps_for(2316, False, 240, 32, st) == ([35] * 7, 0)
+    # the first section always runs (electives also need min_elective_demand)
+    assert eng._section_caps_for(3424, False, 16, 45, st) == ([45], 0)
+    # remote caps are hard: 27 students -> one 25-seat section, 2 unseated
+    assert eng._section_caps_for(1115, True, 27, 25, st) == ([25], 2)
+    # Principles: 466 -> 2 large lectures; the 66 left fit one 49-seat section, not two 45s
+    assert eng._section_caps_for(1116, False, 466, 45, st) == ([200, 200, 49], 17)
+
+
+def test_demand_over_capacity_is_reported(client):
+    s = client.post("/api/plan/schedule", json={"settings": {"target_term": "Fall 2026"}}).json()
+    over = [c for c in s["conflicts"] if c["category"] == "Demand over capacity"]
+    assert any(c["course_section"] == "ECON 1000" and c["severity"] == "Warning" for c in over)    # core
+    assert all(c["severity"] in ("Info", "Warning") for c in over)
+
+
+def test_manual_sections(client, admin, admin2):
+    plan = client.post("/api/plan/schedule", json={"settings": {"target_term": "Fall 2026"}}).json()
+    fac = client.get("/api/faculty").json()[3]["name"]
+    term, settings = "Fall 2026", {"target_term": "Fall 2026"}
+    body = {"term": term, "code": 1000, "section_no": 2, "instructor": fac, "modality": "In-Person",
+            "sequence": "B", "cap": 30, "settings": settings}
+    taken = next(r for r in plan["master"] if r["course"] == "ECON 1000")["section"]
+    assert client.post("/api/plan/sections", json={**body, "section_no": int(taken)}, headers=admin).status_code == 409
+    assert client.post("/api/plan/sections", json={**body, "sequence": "L"}, headers=admin).status_code == 422
+    assert client.post("/api/plan/sections", json={**body, "modality": "Remote", "cap": 40}, headers=admin).status_code == 422
+    assert client.post("/api/plan/sections", json={**body, "code": 1125}, headers=admin).status_code == 422
+    assert client.post("/api/plan/sections", json={**body, "instructor": "Nobody, Real"}, headers=admin).status_code == 422
+    assert client.post("/api/plan/sections", json=body).status_code == 401
+    r = client.post("/api/plan/sections", json=body, headers=admin)
+    assert r.status_code == 201 and r.json()["section_id"] == "ECON 1000-02"
+    assert client.post("/api/plan/sections", json=body, headers=admin).status_code == 409
+    s = client.post("/api/plan/schedule", json={"settings": settings}).json()
+    row = next(m for m in s["master"] if m["section_id"] == "ECON 1000-02")
+    assert row["instructor"] == fac and row["sequence"] == "B" and row["section_cap"] == 30 and row["match_basis"] == "Manual section"
+    assert row["projected_enrollment"] == 15                      # the unseated overflow it absorbs
+    assert "ECON 1000-02" in s["overridden"] and s["summary"]["overrides_applied"] >= 1
+    assert not any(c["category"] == "Demand over capacity" and c["course_section"] == "ECON 1000" for c in s["conflicts"])
+    # edit (renumber) then revert via the overrides endpoint
+    mid = r.json()["id"]
+    u = client.put(f"/api/plan/sections/{mid}", json={**body, "section_no": 7, "cap": 25}, headers=admin)
+    assert u.status_code == 200 and u.json()["section_id"] == "ECON 1000-07"
+    gone = client.delete(f"/api/plan/overrides?term={term}&section_id=ECON 1000-07", headers=admin).json()
+    assert gone["reverted"] == ["ECON 1000-07"]
+    s = client.post("/api/plan/schedule", json={"settings": settings}).json()
+    assert not any(m["section_id"] == "ECON 1000-07" for m in s["master"]) and s["manual_sections"] == []

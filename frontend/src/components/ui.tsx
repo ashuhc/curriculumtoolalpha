@@ -95,7 +95,8 @@ export function Stat({ label, value, sub, tone, icon, iconTone = "primary", onCl
   const cls = cx(CARD, "block px-4 py-3.5", interactive && CARD_INTERACTIVE, interactive && "cursor-pointer",
     active && "ring-1 ring-nu/40 dark:ring-nu/50");
   if (to) return <Link to={to} className={cls}>{body}</Link>;
-  return <div onClick={onClick} className={cls}>{body}</div>;
+  if (onClick) return <button type="button" onClick={onClick} aria-pressed={active} className={cx(cls, "w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-fg/20")}>{body}</button>;
+  return <div className={cls}>{body}</div>;
 }
 
 // ---------------------------------------------------------------- controls ---
@@ -304,18 +305,18 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, width
   );
 }
 
-export function Modal({ open, onClose, title, children, footer }: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; footer?: ReactNode }) {
+export function Modal({ open, onClose, title, children, footer, size = "md" }: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; footer?: ReactNode; size?: "md" | "lg" }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="animate-fade-up relative w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-900">
+      <div className={cx("animate-fade-up relative flex max-h-[calc(100dvh-2rem)] w-full flex-col rounded-lg border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-900", size === "lg" ? "max-w-xl" : "max-w-md")}>
         <header className="flex items-center justify-between border-b border-line px-5 py-3">
           <div className="text-[15px] font-semibold">{title}</div>
           <IconButton label="Close" onClick={onClose}><X className="h-4 w-4" /></IconButton>
         </header>
-        <div className="px-5 py-4">{children}</div>
-        {footer && <footer className="flex justify-end gap-2 border-t border-line px-5 py-3">{footer}</footer>}
+        <div className="min-h-0 overflow-y-auto px-5 py-4">{children}</div>
+        {footer && <footer className="flex shrink-0 justify-end gap-2 border-t border-line px-5 py-3">{footer}</footer>}
       </div>
     </div>
   );

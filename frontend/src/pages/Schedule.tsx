@@ -1,9 +1,10 @@
 // Term Schedule: grid + weekly calendar with live collaboration, section drawer, publishing.
-import { AlertTriangle, BookOpen, CalendarRange, Download, FileCheck2, LayoutList, Lock, MessageSquare, PencilLine, RotateCcw, Search, Send, ShieldCheck, Target, TriangleAlert } from "lucide-react";
+import { AlertTriangle, BookOpen, CalendarRange, Download, FileCheck2, LayoutList, Lock, MessageSquare, PencilLine, Plus, RotateCcw, Search, Send, ShieldCheck, Target, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api, type ScheduleResponse } from "../api";
+import { api, type ManualSection, type ScheduleResponse } from "../api";
 import { SectionDrawer } from "../components/SectionDrawer";
+import { SectionEditor, type SectionPrefill } from "../components/SectionEditor";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { WeekCalendar } from "../components/WeekCalendar";
 import {
@@ -46,12 +47,14 @@ export default function Schedule() {
   const [reverting, setReverting] = useState<Set<string>>(new Set());
   const [revertAllOpen, setRevertAllOpen] = useState(false);
   const [revertAllBusy, setRevertAllBusy] = useState(false);
+  const [editor, setEditor] = useState<{ prefill?: SectionPrefill; editing?: ManualSection | null } | null>(null);
 
   useEffect(() => { fetch(s); }, [s, dataVersion, fetch]);
 
   const flagged = useMemo(() => flaggedSections(data), [data]);
   const locked = useMemo(() => new Map((data?.locks ?? []).map((l) => [l.section_id, l.user_name])), [data]);
   const overridden = useMemo(() => new Set(data?.overridden ?? []), [data]);
+  const manualById = useMemo(() => new Map((data?.manual_sections ?? []).map((m) => [m.section_id, m])), [data]);
   const lockOwner = useMemo(() => new Map((data?.locks ?? []).map((l) => [l.section_id, l])), [data]);
   const lockedByOther = (id: string) => { const l = lockOwner.get(id); return l && l.user_id !== me?.id ? l.user_name : null; };
 
@@ -143,6 +146,10 @@ export default function Schedule() {
                   <option value="">All Instructors</option>{[...new Set(data.master.map((r) => r.instructor))].sort().map((n) => <option key={n}>{n}</option>)}
                 </select>
                 <Switch checked={onlyFlagged} onChange={setOnlyFlagged} label="Conflicts Only" />
+                {isAdmin && (
+                  <Button size="sm" variant="primary" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setEditor({})}
+                    title="Add a Section by Hand">Add Section</Button>
+                )}
                 {isAdmin && sm.overrides_applied > 0 && (
                   <Button size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => setRevertAllOpen(true)}
                     title="Revert Every Manual Edit for This Term">Revert All Edits</Button>
@@ -182,6 +189,14 @@ export default function Schedule() {
                                     </button>
                                   );
                                 })()}
+                                {isAdmin && manualById.has(r.section_id) && (
+                                  <button type="button" aria-label={`Edit ${r.section_id}`} title="Edit Manual Section"
+                                    disabled={!!lockedByOther(r.section_id)}
+                                    onClick={(e) => { e.stopPropagation(); setEditor({ editing: manualById.get(r.section_id)! }); }}
+                                    className="inline-flex h-6 items-center gap-1 rounded px-1.5 text-[11px] font-medium text-muted outline-none transition-colors hover:bg-hover hover:text-fg focus-visible:ring-2 focus-visible:ring-fg/20 disabled:cursor-not-allowed disabled:opacity-40">
+                                    <PencilLine className="h-3 w-3" />Edit
+                                  </button>
+                                )}
                               </span>
                             ) : <span className="text-muted">{titleCase(r.match_basis)}</span>}
                         </td>
@@ -210,11 +225,15 @@ export default function Schedule() {
       {data && meta && openRow && (
         <SectionDrawer row={openRow} data={data} meta={meta} onClose={() => open(null)} onChanged={() => fetch(settings, { silent: true })} />
       )}
+      {data && meta && (
+        <SectionEditor open={!!editor} onClose={() => setEditor(null)} data={data} meta={meta}
+          prefill={editor?.prefill} editing={editor?.editing ?? null} />
+      )}
       {data && <PublishModal open={publishOpen} onClose={() => setPublishOpen(false)} critical={data.summary.critical} />}
       {data && (
         <ConfirmDialog open={revertAllOpen} title="Revert All Edits?" confirmLabel="Revert All Edits" tone="danger" busy={revertAllBusy}
           onConfirm={revertAll} onCancel={() => setRevertAllOpen(false)}>
-          <p>This restores the generated instructor and time block for all <span className="font-medium text-fg">{data.summary.overrides_applied}</span> manually edited section{data.summary.overrides_applied === 1 ? "" : "s"} in <span className="font-medium text-fg">{settings.target_term}</span>.</p>
+          <p>This reverts all <span className="font-medium text-fg">{data.summary.overrides_applied}</span> manual edit{data.summary.overrides_applied === 1 ? "" : "s"} in <span className="font-medium text-fg">{settings.target_term}</span>: edited sections go back to their generated instructor and time block{data.manual_sections.length ? <>, and the <span className="font-medium text-fg">{data.manual_sections.length}</span> section{data.manual_sections.length === 1 ? "" : "s"} added by hand {data.manual_sections.length === 1 ? "is" : "are"} removed</> : null}.</p>
           <p>Sections another scheduler is editing right now are skipped. This can't be undone.</p>
         </ConfirmDialog>
       )}

@@ -55,6 +55,33 @@ class OverrideIn(BaseModel):
     sequence: Optional[str] = None
 
 
+class ManualSectionIn(BaseModel):
+    """A hand-added section. Remote sections are asynchronous and capped at 25."""
+    term: str
+    code: int = Field(..., ge=1000, le=4999, description="Undergraduate only")
+    section_no: int = Field(..., ge=1, le=99)
+    title: str = Field("", max_length=200)
+    instructor: Optional[str] = None                 # roster name; None/"" = unstaffed
+    modality: Literal["In-Person", "Remote"] = "In-Person"
+    sequence: Optional[str] = None                   # lecture block (1–5, A–H); ignored for remote
+    cap: int = Field(..., ge=1, le=300)
+    settings: Optional["PlanSettings"] = None        # current plan, to check for ID collisions
+
+
+class ManualSectionOut(BaseModel):
+    id: int
+    term: str
+    section_id: str
+    code: int
+    section_no: int
+    title: str
+    instructor: Optional[str]
+    modality: str
+    sequence: Optional[str]
+    cap: int
+    created_by: str
+
+
 class OverrideOut(OverrideIn):
     model_config = ConfigDict(from_attributes=True)
     id: int

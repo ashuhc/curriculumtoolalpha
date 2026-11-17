@@ -137,7 +137,8 @@ const CONFLICT_EXPLAIN: Record<string, string> = {
   "overload record mismatch": "The scheduler-approved overload and the faculty member's form disagree.",
   "below requested load": "The faculty member asked for more sections than they were assigned this term.",
   "unique circumstances": "The faculty member noted something on their form (sabbatical, buyout, joint appointment) that needs a manual look.",
-  "elective not offered": "There's demand for the elective, but no willing faculty member had capacity, so it isn't running.",
+  "elective not offered": "There's demand for the elective, but no willing faculty member had capacity, so it isn't running. A scheduler can place it by hand with **Add Section** (Conflicts & Audits or Term Schedule), which clears this item.",
+  "demand over capacity": "Projected students exceed the planned seats, but another section would be under half full, so the planner didn't open one (the half-full rule). It's a Warning for core courses and informational for electives. Use **Add Section** to place one by hand, which clears the item, or raise a section cap.",
   "prerequisite issue": "A course breaks a level rule, or one of its prerequisites isn't offered that term.",
   "assignment outside preferences": "A core section was force-assigned to someone who didn't request it.",
   "unknown instructor": "The instructor isn't on the active faculty roster.",
@@ -197,7 +198,7 @@ const TOPICS: Topic[] = [
     answer: (ctx) => {
       const s = ctx.settings;
       return {
-        text: withExample(`**Sections** and **Section Caps** come from projected enrollment:\n• **Principles (1115/1116), in person:** ${s.large_lecture_cap}-seat large lectures while at least ${Math.round(0.75 * s.large_lecture_cap)} students remain, then ${s.small_section_cap}-seat small sections.\n• **Remote:** at most **${s.virtual_cap}** per section.\n• **Recitations:** only for the large lectures: **${s.recitation_cap}** per section, ⌈large-lecture students ÷ ${s.recitation_cap}⌉. Small sections have none.\n• **Everything else:** the course's typical historical cap (usually 40–45; capstones about 20). A new section opens only when demand is more than 10% over a full one.\n• Electives under ${s.min_elective_demand} students get 0 sections.\n\n**Proj. / Cap** on the Term Schedule shows each section's share of students vs. its cap.`, ctx, "sections"),
+        text: withExample(`**Sections** and **Section Caps** come from projected enrollment:\n• **Principles (1115/1116), in person:** ${s.large_lecture_cap}-seat large lectures while at least ${Math.round(0.75 * s.large_lecture_cap)} students remain, then ${s.small_section_cap}-seat small sections.\n• **Remote:** at most **${s.virtual_cap}** per section.\n• **Recitations:** only for the large lectures: **${s.recitation_cap}** per section, ⌈large-lecture students ÷ ${s.recitation_cap}⌉. Small sections have none.\n• **Everything else:** the course's typical historical cap (usually 40–45; capstones about 20). A section may run up to 10% over cap; beyond that, an **additional section opens only if it would be at least half full** (e.g. ≥23 students for a 45-seat section). Smaller overflows are reported as **Demand Over Capacity** on Conflicts & Audits instead of creating a sparse section.\n• Electives under ${s.min_elective_demand} students get 0 sections.\n\n**Proj. / Cap** on the Term Schedule shows each section's share of students vs. its cap.`, ctx, "sections"),
         links: [LINK_DEMAND], chips: ["What does seat fill mean?", "How are recitations calculated?"],
       };
     },

@@ -87,7 +87,15 @@ export const usePlan = create<PlanState>()(
       dataVersion: 0,
       bumpData: () => set({ dataVersion: get().dataVersion + 1 }),
     }),
-    { name: "econ-plan-settings", partialize: (s) => ({ settings: { ...DEFAULT_SETTINGS, ...s.settings } }) },
+    {
+      name: "econ-plan-settings",
+      partialize: (s) => ({ settings: { ...DEFAULT_SETTINGS, ...s.settings } }),
+      // Saved settings from an older version may lack newer fields: fill them from the defaults
+      merge: (persisted, current) => ({
+        ...current,
+        settings: { ...DEFAULT_SETTINGS, ...((persisted as { settings?: Partial<PlanSettings> } | undefined)?.settings ?? {}) },
+      }),
+    },
   ),
 );
 

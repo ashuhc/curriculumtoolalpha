@@ -85,6 +85,16 @@ export interface ScheduleResponse {
              critical: number; warning: number; info: number; submissions: number; overrides_applied: number; overrides_stale: string[] };
   master: MasterRow[]; conflicts: ConflictRow[]; workload: WorkloadRow[]; instructors: string[]; overridden: string[];
   locks: Lock[]; comment_counts: Record<string, number>; publication: Publication | null;
+  /** Sections a scheduler added by hand for this term (also listed in `overridden`). */
+  manual_sections: ManualSection[];
+}
+export interface ManualSection {
+  id: number; term: string; section_id: string; code: number; section_no: number; title: string;
+  instructor: string | null; modality: "In-Person" | "Remote"; sequence: string | null; cap: number; created_by: string;
+}
+export interface ManualSectionIn {
+  term: string; code: number; section_no: number; title: string; instructor: string | null;
+  modality: "In-Person" | "Remote"; sequence: string | null; cap: number; settings?: PlanSettings;
 }
 export interface Comment { id: number; term: string; section_id: string; parent_id: number | null; user_id: number | null; author_name: string; body: string; resolved: boolean; created_at: string }
 
@@ -211,6 +221,8 @@ export const api = {
 
   demand: (settings: PlanSettings) => request<DemandResponse>("/api/plan/demand", { method: "POST", body: { settings } }),
   schedule: (settings: PlanSettings) => request<ScheduleResponse>("/api/plan/schedule", { method: "POST", body: { settings } }),
+  addSection: (s: ManualSectionIn) => request<ManualSection>("/api/plan/sections", { method: "POST", body: s }),
+  updateSection: (id: number, s: ManualSectionIn) => request<ManualSection>(`/api/plan/sections/${id}`, { method: "PUT", body: s }),
   overrides: (term: string) => request<{ section_id: string; instructor: string | null; sequence: string | null }[]>(`/api/plan/overrides?term=${q(term)}`),
   setOverride: (o: { term: string; section_id: string; instructor?: string | null; sequence?: string | null }) => request("/api/plan/overrides", { method: "PUT", body: o }),
   /** Revert manual edits (one section, or the whole term). Bulk reverts skip sections another scheduler has locked. */

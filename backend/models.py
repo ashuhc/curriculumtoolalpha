@@ -90,6 +90,25 @@ class EnrollmentRecord(Base):
     ug_enrollment: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
 
+class ManualSection(Base):
+    """A section a scheduler added by hand (e.g. an elective the solver didn't offer) for one term."""
+    __tablename__ = "manual_sections"
+    __table_args__ = (UniqueConstraint("term", "section_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    term: Mapped[str] = mapped_column(String(20), index=True)
+    section_id: Mapped[str] = mapped_column(String(30))                    # "ECON 3424-02"
+    code: Mapped[int] = mapped_column(Integer)
+    section: Mapped[str] = mapped_column(String(4))                        # "02"
+    title: Mapped[str] = mapped_column(String(200))
+    instructor: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)   # None = unstaffed
+    virtual: Mapped[bool] = mapped_column(Boolean, default=False)
+    sequence: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)      # lecture block; None = unscheduled
+    cap: Mapped[int] = mapped_column(Integer)
+    created_by: Mapped[str] = mapped_column(String(120), default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class ScheduleOverride(Base):
     """Manual instructor / sequence edit to a generated section for one term."""
     __tablename__ = "schedule_overrides"
