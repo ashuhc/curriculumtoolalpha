@@ -160,14 +160,14 @@ export default function Preferences() {
             </div>
           </Section>
 
-          <Section n={4} title="Teaching Load" description="Courses per semester, including any overload (e.g. teaching 3 plus 1 overload → 4).">
+          <Section n={4} title="Teaching Load" description="Total sections you plan to teach each term, including any overload course (e.g., if your standard load is 2 and you add 1 overload, enter 3).">
             <CourseloadNote f={matched} />
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Fall Courses"><input type="number" min={0} max={6} className={inputCls} value={form.fall_target}
                 onChange={(e) => set("fall_target", Math.max(0, Math.min(6, Number(e.target.value))))} /></Field>
               <Field label="Spring Courses"><input type="number" min={0} max={6} className={inputCls} value={form.spring_target}
                 onChange={(e) => set("spring_target", Math.max(0, Math.min(6, Number(e.target.value))))} /></Field>
-              <Field label="Overload for Additional Compensation">
+              <Field label="Overload for Additional Compensation" hint="Select Yes only if you are teaching above your standard contract load for extra pay.">
                 <select className={inputCls} value={form.overload ? "yes" : "no"}
                   onChange={(e) => setForm((f) => ({ ...f, overload: e.target.value === "yes", overload_semester: e.target.value === "yes" ? (f.overload_semester === "None" ? "Fall" : f.overload_semester) : "None" }))}>
                   <option value="no">No</option><option value="yes">Yes</option>
