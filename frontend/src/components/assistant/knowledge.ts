@@ -138,7 +138,7 @@ const CONFLICT_EXPLAIN: Record<string, string> = {
   "below requested load": "The faculty member asked for more sections than they were assigned this term.",
   "unique circumstances": "The faculty member noted something on their form (sabbatical, buyout, joint appointment) that needs a manual look.",
   "elective not offered": "There's demand for the elective, but no willing faculty member had capacity, so it isn't running. If a faculty member volunteers, **Auto-Schedule Elective** pre-fills the course, lists likely volunteers and picks a conflict-free lecture block automatically; **Add Section** places it fully by hand. Either clears this item.",
-  "demand over capacity": "Projected students exceed the planned seats, but another section would be under half full, so the planner didn't open one (the half-full rule). It's always a Warning. Use **Add Section** to place one by hand, which clears the item, or raise a section cap.",
+  "demand over capacity": "Projected students exceed the planned seats, but another section would be under half full, so the planner didn't open one (the half-full rule). It's always a Warning. Resolve it with **Add Section** (place a section by hand) or **Raise Section Cap** (type new seat limits for existing sections). Both are Manual Edits you can revert, and the warning updates or clears as soon as everyone is seated.",
   "prerequisite issue": "A course breaks a level rule, or one of its prerequisites isn't offered that term.",
   "assignment outside preferences": "A core section was force-assigned to someone who didn't request it.",
   "unknown instructor": "The instructor isn't on the active faculty roster.",

@@ -87,7 +87,10 @@ export interface ScheduleResponse {
   locks: Lock[]; comment_counts: Record<string, number>; publication: Publication | null;
   /** Sections a scheduler added by hand for this term (also listed in `overridden`). */
   manual_sections: ManualSection[];
+  /** Courses whose projected students still exceed their seats (after caps raised / sections added). */
+  capacity_gaps: CapacityGap[];
 }
+export interface CapacityGap { code: number; virtual: boolean; projected: number; seats: number; unseated: number; sections: number; half: number }
 export interface ManualSection {
   id: number; term: string; section_id: string; code: number; section_no: number; title: string;
   instructor: string | null; modality: "In-Person" | "Remote"; sequence: string | null; cap: number; created_by: string;
@@ -231,8 +234,9 @@ export const api = {
     request<{ blocks: BlockSuggestion[]; volunteers: Volunteer[] }>("/api/plan/suggest-section", { method: "POST", body: b }),
   addSection: (s: ManualSectionIn) => request<ManualSection>("/api/plan/sections", { method: "POST", body: s }),
   updateSection: (id: number, s: ManualSectionIn) => request<ManualSection>(`/api/plan/sections/${id}`, { method: "PUT", body: s }),
-  overrides: (term: string) => request<{ section_id: string; instructor: string | null; sequence: string | null }[]>(`/api/plan/overrides?term=${q(term)}`),
-  setOverride: (o: { term: string; section_id: string; instructor?: string | null; sequence?: string | null }) => request("/api/plan/overrides", { method: "PUT", body: o }),
+  overrides: (term: string) => request<{ section_id: string; instructor: string | null; sequence: string | null; cap: number | null }[]>(`/api/plan/overrides?term=${q(term)}`),
+  /** Manual edit of a section; only the fields sent change (e.g. `{cap}` keeps instructor/time edits). */
+  setOverride: (o: { term: string; section_id: string; instructor?: string | null; sequence?: string | null; cap?: number | null }) => request("/api/plan/overrides", { method: "PUT", body: o }),
   /** Revert manual edits (one section, or the whole term). Bulk reverts skip sections another scheduler has locked. */
   resetOverrides: (term: string, sectionId?: string) =>
     request<{ reverted: string[]; skipped: { section_id: string; locked_by: string }[] }>(

@@ -1,8 +1,9 @@
 // Unresolved conflicts report + faculty workload, with CSV export.
-import { AlertTriangle, Download, Info, OctagonAlert, Plus, Search, Sparkles } from "lucide-react";
+import { AlertTriangle, ArrowUpWideNarrow, Download, Info, OctagonAlert, Plus, Search, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type ConflictRow } from "../api";
+import { RaiseCapModal } from "../components/RaiseCap";
 import { SectionEditor, type SectionPrefill } from "../components/SectionEditor";
 import { Alert, Badge, Button, ErrorState, PageHeader, Panel, SEVERITY_TONE, Spinner, Stat, StatGrid, Table, Tabs, cx, inputBase } from "../components/ui";
 import { useDebounced } from "../lib/hooks";
@@ -50,6 +51,7 @@ export default function Conflicts() {
   const sectionOf = (c: ConflictRow) => /ECON \d{4}-\d{2}/.exec(c.course_section)?.[0];
   const isAdmin = useIsAdmin();
   const [editor, setEditor] = useState<SectionPrefill | null>(null);
+  const [raiseCap, setRaiseCap] = useState<{ code: number; remote: boolean } | null>(null);
   // Audit items a hand-added section resolves: prefill the course (and Remote) from the row
   const ADDABLE = new Set(["Elective not offered", "Demand over capacity", "Missing core course"]);
   const prefillOf = (c: ConflictRow): SectionPrefill | null => {
@@ -122,6 +124,10 @@ export default function Conflicts() {
                                       onClick={(e) => { e.stopPropagation(); setEditor({ ...prefill, auto: true }); }}>Auto-Schedule Elective</Button>
                                   )}
                                   <Button size="sm" icon={<Plus className="h-3.5 w-3.5" />} onClick={(e) => { e.stopPropagation(); setEditor(prefill); }}>Add Section</Button>
+                                  {c.category === "Demand over capacity" && prefill.code && (
+                                    <Button size="sm" icon={<ArrowUpWideNarrow className="h-3.5 w-3.5" />} title="Raise Seat Limits on Existing Sections"
+                                      onClick={(e) => { e.stopPropagation(); setRaiseCap({ code: prefill.code!, remote: !!prefill.remote }); }}>Raise Section Cap</Button>
+                                  )}
                                 </div>
                               )}
                             </td>
@@ -150,6 +156,9 @@ export default function Conflicts() {
             </Panel>
           </div>
         </div>
+      )}
+      {d && (
+        <RaiseCapModal open={!!raiseCap} onClose={() => setRaiseCap(null)} data={d} code={raiseCap?.code ?? null} remote={!!raiseCap?.remote} />
       )}
       {d && meta && (
         <SectionEditor open={!!editor} onClose={() => setEditor(null)} data={d} meta={meta} prefill={editor ?? undefined} />

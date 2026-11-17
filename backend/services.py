@@ -191,7 +191,7 @@ def run_plan(db: Session, ps) -> dict:
 
 
 def overrides_for(db: Session, term: str) -> dict[str, dict]:
-    return {o.section_id: {"instructor": o.instructor, "sequence": o.sequence}
+    return {o.section_id: {"instructor": o.instructor, "sequence": o.sequence, "cap": o.cap}
             for o in db.query(ScheduleOverride).filter(ScheduleOverride.term == term).all()}
 
 
@@ -227,12 +227,20 @@ def schedule(db: Session, ps) -> dict:
     ovr = overrides_for(db, term)
     master, applied = eng.apply_overrides(master, ovr, res["profiles"])
     manual_codes = {m["code"] for m in manual if m["section_id"] in added}
+    # Courses whose seats changed (raised caps or hand-added sections): re-spread their projected
+    # students and re-check the half-full overflow against the seats now on the schedule
+    changed_ids = set(added) | {sid for sid in applied if ovr[sid].get("cap")}
+    rows = master[master["Section ID"].isin(changed_ids)] if not master.empty else master
+    edited_groups = {(int(c.split()[1]), str(mod).startswith("Online")) for c, mod in zip(rows.get("Course", []), rows.get("Modality", []))}
+    master = eng.rebalance_projection(master, res["demand"], edited_groups)
+    gaps = eng.capacity_gaps(master, res.get("unseated"))
     conflicts = eng.detect_conflicts(master, res["profiles"], settings, res["prereq"], res["dropped"],
-                                     res["pref_warnings"], res.get("unseated"), manual_codes)
+                                     res["pref_warnings"], gaps, manual_codes)
     workload = eng.workload_summary(master, res["profiles"], settings)
     edited = list(dict.fromkeys(applied + added))      # Manual Edit badge: overrides and hand-added sections
     return {**res, "master": master, "conflicts": conflicts, "workload": workload,
             "overrides_applied": edited, "manual_sections": added,
+            "capacity_gaps": gaps, "edited_groups": edited_groups,
             "overrides_stale": sorted((set(ovr) - set(applied)) | set(manual_stale))}
 
 
@@ -243,6 +251,34 @@ def suggest_section(db: Session, ps, code: int, instructor: str | None, exclude_
     name = instructor if instructor and instructor != eng.UNSTAFFED else None
     return {"blocks": eng.suggest_time_blocks(res["master"], code, name, popularity, exclude_id),
             "volunteers": eng.likely_volunteers(code, res["profiles"], res["master"])}
+
+
+def demand_with_edits(db: Session, ps) -> tuple[dict, pd.DataFrame]:
+    """The forecast, with section caps / seats / seat fill updated for courses edited on the schedule."""
+    res = run_plan(db, ps)
+    sch = schedule(db, ps)
+    d, m = res["demand"].copy(), sch["master"]
+    d["_caps"] = d["_caps"].astype(object)
+    for code, virtual in sch["edited_groups"]:
+        idx = d.index[(d["_code"] == code) & (d["_virtual"] == virtual)]
+        if not len(idx):
+            continue
+        i = idx[0]
+        caps = m.loc[eng._group_mask(m, code, virtual), "Section Cap"].astype(int).tolist()
+        proj, seats = int(d.at[i, "Projected Enrollment"]), int(sum(caps))
+        remaining = max(0, proj - seats)
+        d.at[i, "_caps"] = caps
+        d.at[i, "_unseated"] = remaining
+        d.at[i, "Planned Sections"] = len(caps)
+        d.at[i, "Section Caps"] = ", ".join(str(c) for c in caps) if caps else "—"
+        d.at[i, "Seats Offered"] = seats
+        d.at[i, "Seat Fill %"] = proj / seats if seats else 0.0
+        notes = [n for n in str(d.at[i, "Notes"] or "").split("; ") if n and "over capacity" not in n]
+        notes.append("Includes manual schedule edits")
+        if remaining:
+            notes.append(f"{remaining} student{'s' if remaining != 1 else ''} over capacity")
+        d.at[i, "Notes"] = "; ".join(notes)
+    return res, d
 
 
 # ----------------------------------------------------------- serialisation ---

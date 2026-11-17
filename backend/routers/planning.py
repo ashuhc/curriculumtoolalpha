@@ -48,8 +48,7 @@ def meta(db: Session = Depends(get_db)):
 
 @router.post("/plan/demand")
 def plan_demand(body: PlanRequest, db: Session = Depends(get_db)):
-    res = _plan_or_400(svc.run_plan, db, body.settings)
-    d = res["demand"]
+    res, d = _plan_or_400(svc.demand_with_edits, db, body.settings)   # reflects raised caps / added sections
     planned = d[d["Planned Sections"] > 0]
     lec = planned[planned["Category"] != "Recitation"]
     rec = planned[planned["Category"] == "Recitation"]
@@ -99,6 +98,7 @@ def _schedule_payload(db: Session, body: PlanRequest) -> dict:
         "workload": svc.records(svc.workload_frame(res["workload"], sem)),
         "instructors": sorted(res["profiles"]),
         "overridden": res["overrides_applied"],
+        "capacity_gaps": res["capacity_gaps"],
         "manual_sections": [svc.manual_out(ms) for ms in svc.manual_sections_for(db, term)],
         "locks": [lock_out(lk) for lk in db.query(SectionLock).filter(SectionLock.term == term).all()],
         "comment_counts": comment_counts,
@@ -130,7 +130,13 @@ def upsert_override(body: OverrideIn, db: Session = Depends(get_db), user: User 
             raise HTTPException(422, f"'{body.instructor}' is not an active faculty member")
     assert_editable(db, body.term, body.section_id, user)
     o = db.query(ScheduleOverride).filter_by(term=body.term, section_id=body.section_id).first()
-    if not body.instructor and not body.sequence:
+    sent = body.model_fields_set            # partial update: e.g. a cap change keeps instructor/time edits
+    values = {"instructor": o.instructor if o else None, "sequence": o.sequence if o else None, "cap": o.cap if o else None}
+    for k in ("instructor", "sequence", "cap"):
+        if k in sent:
+            v = getattr(body, k)
+            values[k] = v if (v or k == "cap") else None
+    if not any(v is not None for v in values.values()):
         if o:
             db.delete(o)
         db.commit()
@@ -139,10 +145,11 @@ def upsert_override(body: OverrideIn, db: Session = Depends(get_db), user: User 
     if not o:
         o = ScheduleOverride(term=body.term, section_id=body.section_id)
         db.add(o)
-    o.instructor, o.sequence = body.instructor or None, body.sequence or None
+    o.instructor, o.sequence, o.cap = values["instructor"], values["sequence"], values["cap"]
     db.commit()
     hub.publish({"type": "schedule", "term": body.term, "section_id": body.section_id, "by": user.name})
-    return {"id": o.id, "term": o.term, "section_id": o.section_id, "instructor": o.instructor, "sequence": o.sequence}
+    return {"id": o.id, "term": o.term, "section_id": o.section_id, "instructor": o.instructor,
+            "sequence": o.sequence, "cap": o.cap}
 
 
 @router.delete("/plan/overrides")

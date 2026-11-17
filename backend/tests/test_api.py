@@ -224,7 +224,8 @@ def test_manual_sections(client, admin, admin2):
     s = client.post("/api/plan/schedule", json={"settings": settings}).json()
     row = next(m for m in s["master"] if m["section_id"] == "ECON 1000-02")
     assert row["instructor"] == fac and row["sequence"] == "B" and row["section_cap"] == 30 and row["match_basis"] == "Manual section"
-    assert row["projected_enrollment"] == 15                      # the unseated overflow it absorbs
+    group = [m for m in s["master"] if m["course"] == "ECON 1000" and m["modality"] == "In-Person"]
+    assert sum(m["projected_enrollment"] for m in group) == 104     # demand re-spread over all seats (89 + 30)
     assert "ECON 1000-02" in s["overridden"] and s["summary"]["overrides_applied"] >= 1
     assert not any(c["category"] == "Demand over capacity" and c["course_section"] == "ECON 1000" for c in s["conflicts"])
     # edit (renumber) then revert via the overrides endpoint
@@ -256,3 +257,40 @@ def test_suggest_section_avoids_instructor_and_core_conflicts(client, admin):
     # every over-capacity row is a Warning now
     over = [c for c in plan["conflicts"] if c["category"] == "Demand over capacity"]
     assert over and all(c["severity"] == "Warning" for c in over)
+
+
+def test_raise_section_cap(client, admin):
+    term, settings = "Fall 2026", {"target_term": "Fall 2026"}
+    s = client.post("/api/plan/schedule", json={"settings": settings}).json()
+    gap = next(g for g in s["capacity_gaps"] if g["code"] == 4997 and not g["virtual"])
+    sec = next(m for m in s["master"] if m["course"] == "ECON 4997" and m["component"] == "Lecture")
+    old_cap, instr = sec["section_cap"], sec["instructor"]
+    # partial raise first: gap shrinks but stays a Warning with updated numbers
+    assert client.put("/api/plan/overrides", json={"term": term, "section_id": sec["section_id"], "cap": old_cap + 2}, headers=admin).status_code == 200
+    s = client.post("/api/plan/schedule", json={"settings": settings}).json()
+    g = next(g for g in s["capacity_gaps"] if g["code"] == 4997)
+    assert g["unseated"] == gap["unseated"] - 2 and sec["section_id"] in s["overridden"]
+    assert any(c["category"] == "Demand over capacity" and c["course_section"] == "ECON 4997" and f"{g['unseated']} projected" in c["details"]
+               for c in s["conflicts"])
+    # raise enough to seat everyone: warning cleared, projection re-spread, instructor untouched
+    new_cap = old_cap + gap["unseated"]
+    client.put("/api/plan/overrides", json={"term": term, "section_id": sec["section_id"], "cap": new_cap}, headers=admin)
+    s = client.post("/api/plan/schedule", json={"settings": settings}).json()
+    row = next(m for m in s["master"] if m["section_id"] == sec["section_id"])
+    assert row["section_cap"] == new_cap and row["projected_enrollment"] == gap["projected"] and row["instructor"] == instr
+    assert not any(g["code"] == 4997 for g in s["capacity_gaps"])
+    assert not any(c["category"] == "Demand over capacity" and c["course_section"] == "ECON 4997" for c in s["conflicts"])
+    # Enrollment Projections reflects the new seats
+    d = client.post("/api/plan/demand", json={"settings": settings}).json()
+    r = next(x for x in d["demand"] if x["code"] == 4997 and not x["virtual"])
+    assert r["section_caps"] == str(new_cap) and r["seats_offered"] == new_cap and abs(r["seat_fill"] - 1.0) < 1e-9
+    assert "over capacity" not in r["notes"] and "manual" in r["notes"]
+    # a later instructor edit keeps the cap (partial update), and Revert restores the default
+    client.put("/api/plan/overrides", json={"term": term, "section_id": sec["section_id"], "sequence": "E"}, headers=admin)
+    o = next(o for o in client.get(f"/api/plan/overrides?term={term}").json() if o["section_id"] == sec["section_id"])
+    assert o["cap"] == new_cap and o["sequence"] == "E"
+    client.delete(f"/api/plan/overrides?term={term}&section_id={sec['section_id']}", headers=admin)
+    s = client.post("/api/plan/schedule", json={"settings": settings}).json()
+    assert next(m for m in s["master"] if m["section_id"] == sec["section_id"])["section_cap"] == old_cap
+    assert any(g["code"] == 4997 for g in s["capacity_gaps"])
+    assert client.put("/api/plan/overrides", json={"term": term, "section_id": sec["section_id"], "cap": 0}, headers=admin).status_code == 422

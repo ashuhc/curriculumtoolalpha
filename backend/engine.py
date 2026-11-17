@@ -1378,6 +1378,7 @@ def unseated_demand(demand: pd.DataFrame) -> list[dict]:
     for _, r in demand[demand["_unseated"].fillna(0) > 0].iterrows():
         caps = r["_caps"] or []
         out.append({"code": int(r["_code"]), "virtual": bool(r["_virtual"]), "unseated": int(r["_unseated"]),
+                    "projected": int(r["Projected Enrollment"]),
                     "sections": len(caps), "seats": int(sum(caps)),
                     "half": math.ceil(HALF_FULL * (min(caps) if caps else 0))})
     return out
@@ -1506,9 +1507,7 @@ def detect_conflicts(master: pd.DataFrame, profiles: dict[str, FacultyProfile], 
                                  "Review manually before finalising."))
 
     # --- Electives not offered, prerequisites, data warnings -------------------
-    for u in unseated or []:
-        if u["code"] in manual_codes:
-            continue
+    for u in unseated or []:          # already re-checked against edited seats (capacity_gaps)
         label = f"ECON {u['code']}" + (" (Remote)" if u["virtual"] else "")
         out.append(_conflict("Warning", "Demand over capacity", label, "—",
                              f"{u['unseated']} projected {'student exceeds' if u['unseated'] == 1 else 'students exceed'} "
@@ -1559,12 +1558,54 @@ def apply_overrides(master: pd.DataFrame, overrides: dict[str, dict],
             m.at[idx, "Instructor"] = ov["instructor"]
         if ov.get("sequence"):
             m.at[idx, "Sequence"] = ov["sequence"]
+        if ov.get("cap"):
+            m.at[idx, "Section Cap"] = int(ov["cap"])
         m.at[idx, "Match Basis"] = "Manual override"
         applied.append(row["Section ID"])
     return finalize_master(m, profiles), applied
 
 
 MANUAL_BASIS = "Manual section"
+
+
+def _group_mask(master: pd.DataFrame, code: int, virtual: bool) -> pd.Series:
+    """Lecture sections of one course in one modality (remote vs. in-person)."""
+    return ((master["Course"] == f"ECON {code}") & (master["Component"] == "Lecture")
+            & (master["Modality"].str.startswith("Online") == virtual))
+
+
+def rebalance_projection(master: pd.DataFrame, demand: pd.DataFrame, groups: set) -> pd.DataFrame:
+    """
+    After caps change or sections are added by hand, spread each affected course's projected
+    students over its actual sections in proportion to capacity (same split as plan_sections).
+    """
+    if not groups or master.empty:
+        return master
+    m = master.copy()
+    proj = {(int(r["_code"]), bool(r["_virtual"])): int(r["Projected Enrollment"]) for _, r in demand.iterrows()}
+    for code, virtual in groups:
+        if (code, virtual) not in proj:
+            continue
+        mask = _group_mask(m, code, virtual)
+        caps = m.loc[mask, "Section Cap"].astype(int)
+        total_cap = int(caps.sum())
+        if total_cap <= 0:
+            continue
+        m.loc[mask, "Projected Enrollment"] = [int(min(c, round(proj[(code, virtual)] * c / total_cap))) for c in caps]
+    return m
+
+
+def capacity_gaps(master: pd.DataFrame, unseated: list[dict]) -> list[dict]:
+    """Re-check half-full overflow against the seats now on the (edited) schedule; drop gaps that are closed."""
+    out = []
+    for u in unseated or []:
+        mask = _group_mask(master, u["code"], u["virtual"]) if not master.empty else None
+        seats = int(master.loc[mask, "Section Cap"].sum()) if mask is not None else 0
+        n = int(mask.sum()) if mask is not None else 0
+        remaining = u["projected"] - seats
+        if remaining > 0:
+            out.append({**u, "unseated": remaining, "seats": seats, "sections": n})
+    return out
 
 
 def suggest_time_blocks(master: pd.DataFrame, code: int, instructor: str | None, popularity: dict[str, float],

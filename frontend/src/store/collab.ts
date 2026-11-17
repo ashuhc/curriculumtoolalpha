@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { wsUrl, type Comment, type Lock, type Publication } from "../api";
 import { useAuth } from "./auth";
+import { useDemand } from "./demand";
 import { usePlan } from "./plan";
 import { useSchedule } from "./schedule";
 import { useUI } from "./ui";
@@ -29,7 +30,10 @@ const commentListeners = new Set<CommentListener>();
 /** Coalesce bursts of edits into one silent refetch. */
 function refetchSoon() {
   clearTimeout(refetchTimer);
-  refetchTimer = setTimeout(() => useSchedule.getState().fetch(usePlan.getState().settings, { silent: true }), 250);
+  refetchTimer = setTimeout(() => {
+    useSchedule.getState().fetch(usePlan.getState().settings, { silent: true });
+    useDemand.getState().refresh();          // raised caps / added sections change seats and seat fill
+  }, 250);
 }
 
 function handle(msg: Record<string, unknown>) {

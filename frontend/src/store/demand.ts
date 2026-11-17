@@ -11,6 +11,8 @@ interface DemandState {
   error: string | null;
   /** Fetch (or reuse) the forecast for these settings; resolves with the data. */
   fetch: (settings: PlanSettings, opts?: { force?: boolean }) => Promise<DemandResponse | null>;
+  /** Schedule edits change seats and seat fill: drop the cache and refetch if a forecast is loaded. */
+  refresh: () => void;
 }
 
 let seq = 0;
@@ -21,6 +23,11 @@ export const useDemand = create<DemandState>()((set, get) => ({
   data: null,
   loading: false,
   error: null,
+  refresh: () => {
+    const had = !!get().data;
+    set({ key: null });
+    if (had) get().fetch(usePlan.getState().settings, { force: true });
+  },
   fetch: async (settings, opts = {}) => {
     if (!settings.target_term) return null;
     const key = cacheKey(settings);

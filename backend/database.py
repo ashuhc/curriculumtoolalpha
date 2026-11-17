@@ -50,6 +50,7 @@ def get_db():
 _ADDED_COLUMNS = {
     "faculty": {"fall_courseload": "INTEGER", "spring_courseload": "INTEGER"},
     "preference_submissions": {"submitted_by": "VARCHAR(200)"},
+    "schedule_overrides": {"cap": "INTEGER"},
 }
 # Renamed faculty-group labels stored in older databases
 _RENAMED_FACULTY_TYPES = {"Tenured": "Tenured Track / Tenured"}

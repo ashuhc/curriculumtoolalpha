@@ -49,10 +49,12 @@ class PlanRequest(BaseModel):
 
 
 class OverrideIn(BaseModel):
+    """Manual edit of a generated section. Only the fields sent are changed; send null to clear one."""
     term: str
     section_id: str
     instructor: Optional[str] = None
     sequence: Optional[str] = None
+    cap: Optional[int] = Field(None, ge=1, le=300)      # Raise Section Cap
 
 
 class ManualSectionIn(BaseModel):
