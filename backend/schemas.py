@@ -95,7 +95,45 @@ class ManualSectionOut(BaseModel):
 class OverrideOut(OverrideIn):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    removed: bool = False
     updated_at: datetime
+
+
+# ------------------------------------------------------- undo / redo history ---
+class OverrideState(BaseModel):
+    instructor: Optional[str] = None
+    sequence: Optional[str] = None
+    cap: Optional[int] = Field(None, ge=1, le=300)
+    removed: bool = False
+
+
+class ManualState(BaseModel):
+    code: int = Field(..., ge=1000, le=4999)
+    section: str = Field(..., min_length=1, max_length=4)
+    title: str = Field("", max_length=200)
+    instructor: Optional[str] = None
+    virtual: bool = False
+    sequence: Optional[str] = None
+    cap: int = Field(..., ge=1, le=300)
+    created_by: str = ""
+
+
+class SectionState(BaseModel):
+    """Everything a scheduler has changed about one section ID in a term (None = untouched)."""
+    section_id: str
+    override: Optional[OverrideState] = None
+    manual: Optional[ManualState] = None
+
+
+class RestoreItem(BaseModel):
+    state: SectionState
+    expect: Optional[SectionState] = None      # refuse if the section no longer looks like this
+
+
+class RestoreIn(BaseModel):
+    """Undo / Redo: put sections back exactly as they were before (or after) an edit."""
+    term: str
+    items: List[RestoreItem] = Field(..., min_length=1, max_length=400)
 
 
 # ------------------------------------------------------------------ catalog ---

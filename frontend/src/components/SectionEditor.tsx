@@ -1,8 +1,10 @@
 // Add Section / Edit Manual Section: lets schedulers hand-place a section (an elective the solver
 // didn't offer, overflow demand, a missing core course) with its own instructor, block and cap.
-import { Sparkles } from "lucide-react";
+import { Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type BlockSuggestion, type Course, type ManualSection, type Meta, type ScheduleResponse, type Volunteer } from "../api";
+import { useDemand } from "../store/demand";
+import { useHistory } from "../store/history";
 import { usePlan } from "../store/plan";
 import { useSchedule } from "../store/schedule";
 import { useUI } from "../store/ui";
@@ -14,9 +16,11 @@ export interface SectionPrefill { code?: number; remote?: boolean }
 const REMOTE_CAP = 25;
 type Modality = "In-Person" | "Remote";
 
-export function SectionEditor({ open, onClose, data, meta, prefill, editing, onSaved }: {
+export function SectionEditor({ open, onClose, data, meta, prefill, editing, onSaved, onDelete }: {
   open: boolean; onClose: () => void; data: ScheduleResponse; meta: Meta;
   prefill?: SectionPrefill; editing?: ManualSection | null; onSaved?: (sectionId: string) => void;
+  /** Offered while editing: hands the section to the page's Delete Section confirmation. */
+  onDelete?: (sectionId: string) => void;
 }) {
   const settings = usePlan((s) => s.settings);
   const success = useUI((s) => s.success);
@@ -120,8 +124,12 @@ export function SectionEditor({ open, onClose, data, meta, prefill, editing, onS
     const body = { term: settings.target_term, code, section_no: sectionNo, title: title.trim(), instructor: instructor || null,
       modality, sequence: modality === "Remote" ? null : sequence || null, cap, settings };
     try {
-      const saved = editing ? await api.updateSection(editing.id, body) : await api.addSection(body);
+      // Recorded for Undo / Redo; a renumbered section touches both its old and new ID
+      const ids = editing ? [editing.section_id, sectionId] : [sectionId];
+      const saved = await useHistory.getState().record(editing ? "Edit Manual Section" : "Add Section", settings.target_term, ids,
+        () => (editing ? api.updateSection(editing.id, body) : api.addSection(body)), editing && editing.section_id !== sectionId ? `${editing.section_id} → ${sectionId}` : sectionId);
       await useSchedule.getState().fetch(settings, { silent: true });
+      useDemand.getState().refresh();
       success(editing ? "Section updated" : "Section added",
         `${saved.section_id} · ${saved.instructor ?? "Unstaffed"} · ${saved.modality === "Remote" ? "Remote (Async)" : saved.sequence ? `Block ${saved.sequence}` : "Unscheduled"}`,
         `section:${saved.section_id}`);
@@ -136,6 +144,10 @@ export function SectionEditor({ open, onClose, data, meta, prefill, editing, onS
   return (
     <Modal open={open} onClose={() => !busy && onClose()} size="lg" title={editing ? `Edit Manual Section ${editing.section_id}` : "Add Section"}
       footer={<>
+        {editing && onDelete && (
+          <Button variant="danger" className="mr-auto" disabled={busy} icon={<Trash2 className="h-3.5 w-3.5" />}
+            onClick={() => onDelete(editing.section_id)} title="Remove This Section From the Term Schedule">Remove Section</Button>
+        )}
         <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
         <Button variant="primary" loading={busy} disabled={invalid || suggesting} onClick={save}>{editing ? "Save Changes" : "Add Section"}</Button>
       </>}>

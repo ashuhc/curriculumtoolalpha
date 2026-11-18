@@ -138,7 +138,7 @@ const CONFLICT_EXPLAIN: Record<string, string> = {
   "below requested load": "The faculty member asked for more sections than they were assigned this term.",
   "unique circumstances": "The faculty member noted something on their form (sabbatical, buyout, joint appointment) that needs a manual look.",
   "elective not offered": "There's demand for the elective, but no willing faculty member had capacity, so it isn't running. If a faculty member volunteers, use **Add Section**: the course is pre-filled, likely volunteers are listed first, and **Auto-Assign Time Block** picks a conflict-free lecture block. Saving clears this item.",
-  "demand over capacity": "Projected students exceed the planned seats, but another section would be under half full, so the planner didn't open one (the half-full rule). It's always a Warning. Resolve it with **Add Section** (place a section by hand) or **Raise Section Cap** (type new seat limits for existing sections). Both are Manual Edits you can revert, and the warning updates or clears as soon as everyone is seated.",
+  "demand over capacity": "Projected students exceed the planned seats, but another section would be under half full, so the planner didn't open one (the half-full rule). It's always a Warning. Resolve it with **Add Section** (place a section by hand) or **Raise Section Cap** (type new seat limits for existing sections). Both are Manual Edits you can revert, and the warning updates or clears as soon as everyone is seated. Deleting a section can also cause it; **Undo** (Ctrl+Z / ⌘Z) or **Restore** brings the section back.",
   "prerequisite issue": "A course breaks a level rule, or one of its prerequisites isn't offered that term.",
   "assignment outside preferences": "A core section was force-assigned to someone who didn't request it.",
   "unknown instructor": "The instructor isn't on the active faculty roster.",
@@ -365,7 +365,15 @@ Use them to reflect course buyouts, releases, joint appointments or sabbaticals.
     id: "collab",
     aliases: ["lock", "locked", "locking", "comment", "comments", "publish", "published", "publishing", "export", "csv", "catalog csv", "live", "presence", "real-time", "realtime", "manual edit", "manual edits"],
     answer: () => ({
-      text: `**Collaboration:**\n• **Edit Section** locks a section to you; others see "Locked by …". Locks release on **Done Editing**, when you close your last tab, or after 15 idle minutes.\n• **Comments** are threaded on each section, with replies and resolve.\n• **Manual Edits** override the generated assignment until reverted.\n• **Publish** (schedulers) freezes a numbered version; it's blocked while critical conflicts remain unless you confirm.\n• **Catalog CSV** gives one row per meeting pattern for registrar import.`,
+      text: `**Collaboration:**\n• **Edit Section** locks a section to you; others see "Locked by …". Locks release on **Done Editing**, when you close your last tab, or after 15 idle minutes.\n• **Comments** are threaded on each section, with replies and resolve.\n• **Manual Edits** override the generated assignment until reverted, and **Undo / Redo** (Ctrl+Z / Ctrl+Y) steps through them.\n• **Publish** (schedulers) freezes a numbered version; it's blocked while critical conflicts remain unless you confirm.\n• **Catalog CSV** gives one row per meeting pattern for registrar import.`,
+      links: [LINK_SCHEDULE],
+    }),
+  },
+  {
+    id: "undo-delete",
+    aliases: ["undo", "redo", "ctrl+z", "cmd+z", "history", "delete", "delete section", "remove section", "remove", "restore", "deleted"],
+    answer: () => ({
+      text: `**Delete, Undo & Redo** (schedulers, on the Term Schedule):\n• **Delete Section**: the trash icon on a row, **Delete Section** in the section drawer, or **Remove Section** when editing a hand-added section. Deleting a large lecture removes its linked recitations too. The confirmation shows whether it pushes projected students over the remaining seats; if so, Conflicts & Audits adds a **Demand Over Capacity** Warning.\n• Deleted sections are listed under the grid with **Restore**.\n• **Undo** (↶) and **Redo** (↷) in the toolbar step through added, edited, cap-raised, deleted and reverted sections, including Revert All Edits. Shortcuts: **Ctrl+Z / ⌘Z** undo, **Ctrl+Y / ⇧⌘Z** redo (not while typing in a field).\n• History is per term and survives a refresh in the same tab. If another scheduler changed a section after your edit, Undo leaves their work alone and tells you.`,
       links: [LINK_SCHEDULE],
     }),
   },

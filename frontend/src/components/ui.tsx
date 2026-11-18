@@ -310,7 +310,7 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className={cx("animate-fade-up relative flex max-h-[calc(100dvh-2rem)] w-full flex-col rounded-lg border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-900", size === "lg" ? "max-w-xl" : "max-w-md")}>
+      <div role="dialog" aria-modal="true" className={cx("animate-fade-up relative flex max-h-[calc(100dvh-2rem)] w-full flex-col rounded-lg border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-900", size === "lg" ? "max-w-xl" : "max-w-md")}>
         <header className="flex items-center justify-between border-b border-line px-5 py-3">
           <div className="text-[15px] font-semibold">{title}</div>
           <IconButton label="Close" onClick={onClose}><X className="h-4 w-4" /></IconButton>

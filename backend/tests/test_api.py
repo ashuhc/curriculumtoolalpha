@@ -294,3 +294,90 @@ def test_raise_section_cap(client, admin):
     assert next(m for m in s["master"] if m["section_id"] == sec["section_id"])["section_cap"] == old_cap
     assert any(g["code"] == 4997 for g in s["capacity_gaps"])
     assert client.put("/api/plan/overrides", json={"term": term, "section_id": sec["section_id"], "cap": 0}, headers=admin).status_code == 422
+
+
+def test_delete_section_undo_redo(client, admin, admin2):
+    term, settings = "Fall 2026", {"target_term": "Fall 2026"}
+    sched = lambda: client.post("/api/plan/schedule", json={"settings": settings}).json()
+    s0 = sched()
+    gapped = {(g["code"], g["virtual"]) for g in s0["capacity_gaps"]}
+    lectures = [m for m in s0["master"] if m["component"] == "Lecture" and m["modality"] == "In-Person"]
+    by_course: dict[str, list] = {}
+    for m in lectures:
+        by_course.setdefault(m["course"], []).append(m)
+    course, group = next((c, g) for c, g in by_course.items()
+                         if len(g) >= 2 and (int(c.split()[1]), False) not in gapped
+                         and not any(r["linked_lecture"] in {x["section_id"] for x in g} for r in s0["master"]))
+    victim = group[-1]["section_id"]
+    assert client.delete(f"/api/plan/section?term={term}&section_id={victim}").status_code == 401
+    r = client.delete(f"/api/plan/section?term={term}&section_id={victim}", headers=admin)
+    assert r.status_code == 200 and r.json()["kind"] == "generated"
+    before, after = r.json()["before"], r.json()["after"]
+    assert before["override"] is None and after["override"]["removed"] is True
+    s1 = sched()
+    assert victim not in {m["section_id"] for m in s1["master"]} and len(s1["master"]) == len(s0["master"]) - 1
+    assert [x["section_id"] for x in s1["removed_sections"]] == [victim] and victim in s1["overridden"]
+    assert victim not in s1["summary"]["overrides_stale"]
+    code = int(course.split()[1])
+    left = [m for m in s1["master"] if m["course"] == course and m["modality"] == "In-Person" and m["component"] == "Lecture"]
+    projected = sum(m["projected_enrollment"] for m in group)
+    seats = sum(m["section_cap"] for m in left)
+    assert all(m["projected_enrollment"] <= m["section_cap"] for m in left)
+    assert sum(m["projected_enrollment"] for m in left) >= min(projected, seats) - len(left)   # re-spread (rounding)
+    if projected > seats:      # deletion pushed demand over the remaining seats → Warning with updated counts
+        gap = next(g for g in s1["capacity_gaps"] if g["code"] == code and not g["virtual"])
+        assert gap["unseated"] == gap["projected"] - seats and gap["removed"] == 1 and gap["sections"] == len(left)
+        c = next(c for c in s1["conflicts"] if c["category"] == "Demand over capacity" and c["course_section"] == course)
+        assert c["severity"] == "Warning" and "deleted" in c["details"] and s1["summary"]["warning"] > s0["summary"]["warning"]
+    # Undo: restore the "before" snapshot, guarded by the "after" snapshot
+    body = lambda state, expect: {"term": term, "items": [{"state": state, "expect": expect}]}
+    u = client.put("/api/plan/section-state", json=body(before, after), headers=admin)
+    assert u.status_code == 200 and u.json()[0]["override"] is None
+    s2 = sched()
+    assert victim in {m["section_id"] for m in s2["master"]} and s2["removed_sections"] == []
+    assert s2["summary"]["warning"] == s0["summary"]["warning"]
+    # a stale snapshot is refused instead of overwriting someone else's work
+    assert client.put("/api/plan/section-state", json=body(before, after), headers=admin).status_code == 409
+    # Redo
+    assert client.put("/api/plan/section-state", json=body(after, before), headers=admin).status_code == 200
+    assert victim not in {m["section_id"] for m in sched()["master"]}
+    # Revert also restores a deleted section
+    client.delete(f"/api/plan/overrides?term={term}&section_id={victim}", headers=admin)
+    assert victim in {m["section_id"] for m in sched()["master"]}
+    # locks: another scheduler can't delete a section someone is editing
+    assert client.post("/api/locks", json={"term": term, "section_id": victim}, headers=admin2).status_code in (200, 201)
+    assert client.delete(f"/api/plan/section?term={term}&section_id={victim}", headers=admin).status_code == 423
+    client.delete(f"/api/locks?term={term}&section_id={victim}", headers=admin2)
+
+
+def test_delete_manual_section_and_lecture_cascade(client, admin):
+    term, settings = "Fall 2026", {"target_term": "Fall 2026"}
+    sched = lambda: client.post("/api/plan/schedule", json={"settings": settings}).json()
+    body = {"term": term, "code": 3424, "section_no": 9, "modality": "In-Person", "sequence": "C", "cap": 30, "settings": settings}
+    assert client.post("/api/plan/sections", json=body, headers=admin).status_code == 201
+    sid = "ECON 3424-09"
+    client.put("/api/plan/overrides", json={"term": term, "section_id": sid, "sequence": "D"}, headers=admin)
+    r = client.delete(f"/api/plan/section?term={term}&section_id={sid}", headers=admin).json()
+    assert r["kind"] == "manual" and r["after"] == {"section_id": sid, "override": None, "manual": None}
+    assert r["before"]["manual"]["cap"] == 30 and r["before"]["override"]["sequence"] == "D"
+    s = sched()
+    assert sid not in {m["section_id"] for m in s["master"]} and s["manual_sections"] == [] and s["removed_sections"] == []
+    # Undo re-creates it with the same ID and its drawer edit
+    client.put("/api/plan/section-state", json={"term": term, "items": [{"state": r["before"], "expect": r["after"]}]}, headers=admin)
+    row = next(m for m in sched()["master"] if m["section_id"] == sid)
+    assert row["sequence"] == "D" and row["section_cap"] == 30 and row["match_basis"] == "Manual override"
+    bad = {**r["before"], "section_id": "ECON 3424-55"}
+    assert client.put("/api/plan/section-state", json={"term": term, "items": [{"state": bad}]}, headers=admin).status_code == 422
+    client.delete(f"/api/plan/overrides?term={term}", headers=admin)
+    # deleting a large lecture takes its linked recitations with it
+    s = sched()
+    rec = next((m for m in s["master"] if m["component"] == "Recitation" and m["linked_lecture"]), None)
+    if rec:
+        lec = rec["linked_lecture"]
+        linked = {m["section_id"] for m in s["master"] if m["linked_lecture"] == lec}
+        client.delete(f"/api/plan/section?term={term}&section_id={lec}", headers=admin)
+        s2 = sched()
+        assert not ({lec} | linked) & {m["section_id"] for m in s2["master"]}
+        assert {x["section_id"] for x in s2["removed_sections"]} == {lec} | linked
+        client.delete(f"/api/plan/overrides?term={term}&section_id={lec}", headers=admin)
+        assert linked <= {m["section_id"] for m in sched()["master"]}

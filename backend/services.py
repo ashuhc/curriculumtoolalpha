@@ -191,8 +191,66 @@ def run_plan(db: Session, ps) -> dict:
 
 
 def overrides_for(db: Session, term: str) -> dict[str, dict]:
-    return {o.section_id: {"instructor": o.instructor, "sequence": o.sequence, "cap": o.cap}
+    return {o.section_id: {"instructor": o.instructor, "sequence": o.sequence, "cap": o.cap, "removed": bool(o.removed)}
             for o in db.query(ScheduleOverride).filter(ScheduleOverride.term == term).all()}
+
+
+# ------------------------------------------------- undo / redo section state ---
+def section_state(db: Session, term: str, section_id: str) -> dict:
+    """Snapshot of a section's scheduler edits: its override row and/or hand-added section row."""
+    o = db.query(ScheduleOverride).filter_by(term=term, section_id=section_id).first()
+    ms = db.query(ManualSection).filter_by(term=term, section_id=section_id).first()
+    return {
+        "section_id": section_id,
+        "override": {"instructor": o.instructor, "sequence": o.sequence, "cap": o.cap, "removed": bool(o.removed)} if o else None,
+        "manual": {"code": ms.code, "section": ms.section, "title": ms.title, "instructor": ms.instructor,
+                   "virtual": bool(ms.virtual), "sequence": ms.sequence, "cap": ms.cap,
+                   "created_by": ms.created_by or ""} if ms else None,
+    }
+
+
+def _state_key(state: dict) -> tuple:
+    """Comparable form of a snapshot (who created a manual section doesn't matter)."""
+    o, m = state.get("override"), state.get("manual")
+    ok = None if not o else (o.get("instructor") or None, o.get("sequence") or None, o.get("cap"), bool(o.get("removed")))
+    mk = None if not m else (int(m["code"]), str(m["section"]), m.get("title") or "", m.get("instructor") or None,
+                             bool(m.get("virtual")), m.get("sequence") or None, int(m["cap"]))
+    if ok == (None, None, None, False):
+        ok = None
+    return ok, mk
+
+
+def same_state(a: dict, b: dict) -> bool:
+    return _state_key(a) == _state_key(b)
+
+
+def write_section_state(db: Session, term: str, state: dict) -> None:
+    """Make the section's edit rows match `state` exactly (caller commits)."""
+    sid = state["section_id"]
+    o = db.query(ScheduleOverride).filter_by(term=term, section_id=sid).first()
+    ms = db.query(ManualSection).filter_by(term=term, section_id=sid).first()
+    want_o, want_m = state.get("override"), state.get("manual")
+    if want_o and _state_key({"override": want_o})[0] is None:
+        want_o = None
+    if want_o is None:
+        if o:
+            db.delete(o)
+    else:
+        if not o:
+            o = ScheduleOverride(term=term, section_id=sid)
+            db.add(o)
+        o.instructor, o.sequence = want_o.get("instructor") or None, want_o.get("sequence") or None
+        o.cap, o.removed = want_o.get("cap"), bool(want_o.get("removed"))
+    if want_m is None:
+        if ms:
+            db.delete(ms)
+    else:
+        if not ms:
+            ms = ManualSection(term=term, section_id=sid)
+            db.add(ms)
+        for k in ("code", "section", "title", "instructor", "virtual", "sequence", "cap"):
+            setattr(ms, k, want_m.get(k))
+        ms.created_by = want_m.get("created_by") or ms.created_by or ""
 
 
 def manual_sections_for(db: Session, term: str) -> list[ManualSection]:
@@ -226,21 +284,29 @@ def schedule(db: Session, ps) -> dict:
     master, added, manual_stale = eng.add_manual_sections(res["master"], manual, res["profiles"])
     ovr = overrides_for(db, term)
     master, applied = eng.apply_overrides(master, ovr, res["profiles"])
+    # Deleted sections (and recitations tied to a deleted lecture) leave the schedule
+    master, removed_rows = eng.remove_sections(master, [sid for sid in applied if ovr[sid].get("removed")])
+    removed_groups: dict[tuple[int, bool], int] = {}
+    for r in removed_rows:
+        if r["component"] == "Lecture":
+            g = (r["code"], r["virtual"])
+            removed_groups[g] = removed_groups.get(g, 0) + 1
     manual_codes = {m["code"] for m in manual if m["section_id"] in added}
     # Courses whose seats changed (raised caps or hand-added sections): re-spread their projected
     # students and re-check the half-full overflow against the seats now on the schedule
     changed_ids = set(added) | {sid for sid in applied if ovr[sid].get("cap")}
     rows = master[master["Section ID"].isin(changed_ids)] if not master.empty else master
     edited_groups = {(int(c.split()[1]), str(mod).startswith("Online")) for c, mod in zip(rows.get("Course", []), rows.get("Modality", []))}
+    edited_groups |= set(removed_groups)
     master = eng.rebalance_projection(master, res["demand"], edited_groups)
-    gaps = eng.capacity_gaps(master, res.get("unseated"))
+    gaps = eng.capacity_gaps(master, res.get("unseated"), res["demand"], removed_groups)
     conflicts = eng.detect_conflicts(master, res["profiles"], settings, res["prereq"], res["dropped"],
                                      res["pref_warnings"], gaps, manual_codes)
     workload = eng.workload_summary(master, res["profiles"], settings)
     edited = list(dict.fromkeys(applied + added))      # Manual Edit badge: overrides and hand-added sections
     return {**res, "master": master, "conflicts": conflicts, "workload": workload,
             "overrides_applied": edited, "manual_sections": added,
-            "capacity_gaps": gaps, "edited_groups": edited_groups,
+            "capacity_gaps": gaps, "edited_groups": edited_groups, "removed_sections": removed_rows,
             "overrides_stale": sorted((set(ovr) - set(applied)) | set(manual_stale))}
 
 

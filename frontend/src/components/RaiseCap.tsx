@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, type ScheduleResponse } from "../api";
 import { useAuth } from "../store/auth";
 import { useDemand } from "../store/demand";
+import { useHistory } from "../store/history";
 import { usePlan } from "../store/plan";
 import { useSchedule } from "../store/schedule";
 import { useUI } from "../store/ui";
@@ -48,10 +49,13 @@ export function RaiseCapModal({ open, onClose, data, code, remote }: {
     setBusy(true); setError(null);
     const done: string[] = [];
     try {
-      for (const p of changed) {
-        await api.setOverride({ term: settings.target_term, section_id: p.row.section_id, cap: p.value });
-        done.push(`${p.row.section_id}: ${p.row.section_cap} → ${p.value}`);
-      }
+      // One Undo step for the whole dialog, even when several caps change
+      await useHistory.getState().record("Raise Section Cap", settings.target_term, changed.map((p) => p.row.section_id), async () => {
+        for (const p of changed) {
+          await api.setOverride({ term: settings.target_term, section_id: p.row.section_id, cap: p.value });
+          done.push(`${p.row.section_id}: ${p.row.section_cap} → ${p.value}`);
+        }
+      }, `ECON ${code}${remote ? " (Remote)" : ""} · ${changed.map((p) => `${p.row.section_id} → ${p.value}`).join(", ")}`);
       await useSchedule.getState().fetch(settings, { silent: true });
       useDemand.getState().refresh();
       success(excess ? "Section caps raised" : "Section caps raised · demand fully seated", done.join(" · "), changed.map((p) => `section:${p.row.section_id}`));

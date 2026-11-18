@@ -7,6 +7,7 @@ import { fmtDate } from "../lib/hooks";
 import { titleCase } from "../lib/text";
 import { useAuth, useIsAdmin } from "../store/auth";
 import { useCollab } from "../store/collab";
+import { useHistory } from "../store/history";
 import { usePlan } from "../store/plan";
 import { useFlash, useUI } from "../store/ui";
 import { Alert, Avatar, Badge, Button, CategoryDot, Drawer, Field, SEVERITY_TONE, cx, inputCls, textareaCls } from "./ui";
@@ -19,8 +20,10 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-export function SectionDrawer({ row, data, meta, onClose, onChanged }: {
+export function SectionDrawer({ row, data, meta, onClose, onChanged, onDelete }: {
   row: MasterRow | null; data: ScheduleResponse; meta: Meta; onClose: () => void; onChanged: () => void;
+  /** Opens the page's Delete Section confirmation for this section. */
+  onDelete?: (sectionId: string) => void;
 }) {
   const term = usePlan((s) => s.settings.target_term);
   const me = useAuth((s) => s.user);
@@ -78,7 +81,8 @@ export function SectionDrawer({ row, data, meta, onClose, onChanged }: {
   };
   const edit = (field: "instructor" | "sequence", value: string) => run(async () => {
     const next = { instructor: override?.instructor ?? null, sequence: override?.sequence ?? null, [field]: value };
-    await api.setOverride({ term, section_id: row.section_id, ...next });
+    await useHistory.getState().record(field === "instructor" ? "Change Instructor" : "Change Time Block", term, [row.section_id],
+      () => api.setOverride({ term, section_id: row.section_id, ...next }), row.section_id);
     setOverride(next);
     onChanged();
     const seq = Object.values({ ...meta.sequences.class, ...meta.sequences.lab, ...meta.sequences.recitation }).find((x) => x.code === value);
@@ -159,11 +163,18 @@ export function SectionDrawer({ row, data, meta, onClose, onChanged }: {
             {isOverridden && (
               <Button size="sm" variant="ghost" icon={<RotateCcw className="h-3.5 w-3.5" />} loading={busy}
                 onClick={() => run(async () => {
-                  await api.resetOverrides(term, row.section_id); setOverride({ instructor: null, sequence: null }); onChanged();
+                  await useHistory.getState().record("Revert Section", term, [row.section_id], () => api.resetOverrides(term, row.section_id));
+                  setOverride({ instructor: null, sequence: null }); onChanged();
                   success("Reverted to generated assignment", row.section_id, [`section:${row.section_id}`, `drawer:${row.section_id}`]);
                 })}>
                 Revert to Generated Assignment
               </Button>
+            )}
+            {onDelete && (
+              <div className="border-t border-line pt-3">
+                <Button size="sm" variant="danger" icon={<Trash2 className="h-3.5 w-3.5" />} disabled={busy}
+                  onClick={() => onDelete(row.section_id)} title="Remove This Section From the Term Schedule">Delete Section</Button>
+              </div>
             )}
           </div>
         )}

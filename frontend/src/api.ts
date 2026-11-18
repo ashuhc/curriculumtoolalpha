@@ -89,8 +89,17 @@ export interface ScheduleResponse {
   manual_sections: ManualSection[];
   /** Courses whose projected students still exceed their seats (after caps raised / sections added). */
   capacity_gaps: CapacityGap[];
+  /** Sections deleted from this term (plus recitations that went with a deleted lecture). */
+  removed_sections: RemovedSection[];
 }
-export interface CapacityGap { code: number; virtual: boolean; projected: number; seats: number; unseated: number; sections: number; half: number }
+export interface CapacityGap { code: number; virtual: boolean; projected: number; seats: number; unseated: number; sections: number; half: number | null; removed?: number }
+export interface RemovedSection { section_id: string; course: string; code: number; title: string; component: string; instructor: string; virtual: boolean; section_cap: number; linked_lecture: string }
+/** Snapshot of everything a scheduler changed about one section ID (null = untouched); used by Undo / Redo. */
+export interface SectionState {
+  section_id: string;
+  override: { instructor: string | null; sequence: string | null; cap: number | null; removed: boolean } | null;
+  manual: { code: number; section: string; title: string; instructor: string | null; virtual: boolean; sequence: string | null; cap: number; created_by: string } | null;
+}
 export interface ManualSection {
   id: number; term: string; section_id: string; code: number; section_no: number; title: string;
   instructor: string | null; modality: "In-Person" | "Remote"; sequence: string | null; cap: number; created_by: string;
@@ -238,6 +247,11 @@ export const api = {
   /** Manual edit of a section; only the fields sent change (e.g. `{cap}` keeps instructor/time edits). */
   setOverride: (o: { term: string; section_id: string; instructor?: string | null; sequence?: string | null; cap?: number | null }) => request("/api/plan/overrides", { method: "PUT", body: o }),
   /** Revert manual edits (one section, or the whole term). Bulk reverts skip sections another scheduler has locked. */
+  deleteSection: (term: string, sectionId: string) => request<{ section_id: string; kind: "manual" | "generated"; before: SectionState; after: SectionState }>(
+    `/api/plan/section?term=${q(term)}&section_id=${q(sectionId)}`, { method: "DELETE" }),
+  sectionState: (term: string, ids: string[]) => request<SectionState[]>(`/api/plan/section-state?term=${q(term)}&ids=${q(ids.join(","))}`),
+  restoreSectionState: (term: string, items: { state: SectionState; expect?: SectionState | null }[]) =>
+    request<SectionState[]>("/api/plan/section-state", { method: "PUT", body: { term, items } }),
   resetOverrides: (term: string, sectionId?: string) =>
     request<{ reverted: string[]; skipped: { section_id: string; locked_by: string }[] }>(
       `/api/plan/overrides?term=${q(term)}${sectionId ? `&section_id=${q(sectionId)}` : ""}`, { method: "DELETE" }),

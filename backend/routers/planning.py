@@ -15,7 +15,7 @@ from database import get_db
 from models import Course, Faculty, ManualSection, Publication, ScheduleOverride, SectionComment, SectionLock, User
 from realtime import hub
 from routers.collab import active_lock, assert_editable, lock_out, purge_expired
-from schemas import ManualSectionIn, ManualSectionOut, OverrideIn, OverrideOut, PlanRequest, PublishIn, SuggestSectionIn
+from schemas import ManualSectionIn, ManualSectionOut, OverrideIn, OverrideOut, PlanRequest, PublishIn, RestoreIn, SuggestSectionIn
 
 router = APIRouter(prefix="/api", tags=["planning"])
 
@@ -100,6 +100,7 @@ def _schedule_payload(db: Session, body: PlanRequest) -> dict:
         "overridden": res["overrides_applied"],
         "capacity_gaps": res["capacity_gaps"],
         "manual_sections": [svc.manual_out(ms) for ms in svc.manual_sections_for(db, term)],
+        "removed_sections": res["removed_sections"],
         "locks": [lock_out(lk) for lk in db.query(SectionLock).filter(SectionLock.term == term).all()],
         "comment_counts": comment_counts,
         "publication": _pub_meta(latest) if latest else None,
@@ -136,7 +137,7 @@ def upsert_override(body: OverrideIn, db: Session = Depends(get_db), user: User 
         if k in sent:
             v = getattr(body, k)
             values[k] = v if (v or k == "cap") else None
-    if not any(v is not None for v in values.values()):
+    if not any(v is not None for v in values.values()) and not (o and o.removed):
         if o:
             db.delete(o)
         db.commit()
@@ -250,6 +251,56 @@ def update_section(mid: int, body: ManualSectionIn, db: Session = Depends(get_db
     db.commit()
     hub.publish({"type": "schedule", "term": ms.term, "section_id": ms.section_id, "by": user.name})
     return svc.manual_out(ms)
+
+
+@router.delete("/plan/section")
+def delete_section(term: str, section_id: str, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    """Remove a section from the term schedule. A hand-added section is deleted outright; a generated
+    section is marked removed (Revert or Undo brings it back). Returns the before/after snapshots."""
+    assert_editable(db, term, section_id, user)
+    before = svc.section_state(db, term, section_id)
+    ms = db.query(ManualSection).filter_by(term=term, section_id=section_id).first()
+    if ms:
+        svc.write_section_state(db, term, {"section_id": section_id, "override": None, "manual": None})
+        kind = "manual"
+    else:
+        o = db.query(ScheduleOverride).filter_by(term=term, section_id=section_id).first()
+        if not o:
+            o = ScheduleOverride(term=term, section_id=section_id)
+            db.add(o)
+        o.removed = True
+        kind = "generated"
+    db.commit()
+    hub.publish({"type": "schedule", "term": term, "section_id": section_id, "by": user.name})
+    return {"section_id": section_id, "kind": kind, "before": before, "after": svc.section_state(db, term, section_id)}
+
+
+@router.get("/plan/section-state")
+def get_section_state(term: str, ids: str, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    """Snapshots of the given sections' edits (comma-separated IDs), for the Undo / Redo history."""
+    wanted = list(dict.fromkeys(i.strip() for i in ids.split(",") if i.strip()))[:400]
+    return [svc.section_state(db, term, sid) for sid in wanted]
+
+
+@router.put("/plan/section-state")
+def restore_section_state(body: RestoreIn, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    """Undo / Redo: restore section snapshots atomically. Refuses (409) if any section changed since
+    the snapshot was taken, e.g. another scheduler edited it, so their work is never overwritten."""
+    term = body.term
+    for item in body.items:
+        sid = item.state.section_id
+        assert_editable(db, term, sid, user)
+        if item.expect is not None and not svc.same_state(svc.section_state(db, term, sid), item.expect.model_dump()):
+            raise HTTPException(409, f"{sid} has changed since this edit (another scheduler may have edited it), so it was left as is.")
+        m = item.state.manual
+        if m is not None and f"ECON {m.code}-{m.section}" != sid:
+            raise HTTPException(422, f"{sid} doesn't match course ECON {m.code} section {m.section}")
+    for item in body.items:
+        svc.write_section_state(db, term, item.state.model_dump())
+    db.commit()
+    ids = [i.state.section_id for i in body.items]
+    hub.publish({"type": "schedule", "term": term, "section_id": ids[0] if len(ids) == 1 else None, "by": user.name})
+    return [svc.section_state(db, term, sid) for sid in ids]
 
 
 # --------------------------------------------------------------- publishing ---

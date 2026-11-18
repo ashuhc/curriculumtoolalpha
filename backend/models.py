@@ -120,6 +120,7 @@ class ScheduleOverride(Base):
     instructor: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     sequence: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     cap: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)                   # raised/lowered seat cap
+    removed: Mapped[bool] = mapped_column(Boolean, default=False)                        # deleted from the term schedule
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 

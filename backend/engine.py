@@ -1509,12 +1509,20 @@ def detect_conflicts(master: pd.DataFrame, profiles: dict[str, FacultyProfile], 
     # --- Electives not offered, prerequisites, data warnings -------------------
     for u in unseated or []:          # already re-checked against edited seats (capacity_gaps)
         label = f"ECON {u['code']}" + (" (Remote)" if u["virtual"] else "")
-        out.append(_conflict("Warning", "Demand over capacity", label, "—",
-                             f"{u['unseated']} projected {'student exceeds' if u['unseated'] == 1 else 'students exceed'} "
-                             f"the {u['seats']} seats in {u['sections']} planned "
-                             f"section{'s' if u['sections'] != 1 else ''}; another section would be under half full "
-                             f"(needs {u['half']}+ students).",
-                             "Add a section manually if needed, or raise a section cap."))
+        n, gone = u["unseated"], u.get("removed", 0)
+        students = f"{n} projected {'student' if n == 1 else 'students'}"
+        if gone and not u["sections"]:
+            detail = f"Every section was deleted, so {students} {'has' if n == 1 else 'have'} no seats."
+        elif gone:
+            detail = (f"{students} {'exceeds' if n == 1 else 'exceed'} the {u['seats']} seats in the {u['sections']} remaining "
+                      f"section{'s' if u['sections'] != 1 else ''} after {gone} section{'s were' if gone != 1 else ' was'} deleted.")
+        else:
+            detail = (f"{students} {'exceeds' if n == 1 else 'exceed'} the {u['seats']} seats in {u['sections']} planned "
+                      f"section{'s' if u['sections'] != 1 else ''}; another section would be under half full "
+                      f"(needs {u['half']}+ students).")
+        action = ("Undo the deletion, add a section, or raise a section cap." if gone
+                  else "Add a section manually if needed, or raise a section cap.")
+        out.append(_conflict("Warning", "Demand over capacity", label, "—", detail, action))
     for sec in dropped or []:
         if sec["code"] in manual_codes:
             continue
@@ -1565,6 +1573,23 @@ def apply_overrides(master: pd.DataFrame, overrides: dict[str, dict],
     return finalize_master(m, profiles), applied
 
 
+def remove_sections(master: pd.DataFrame, ids: list[str]) -> tuple[pd.DataFrame, list[dict]]:
+    """
+    Drop sections a scheduler deleted. Recitations linked to a deleted lecture go with it
+    (they only exist to serve that lecture's students). Returns (master, removed rows).
+    """
+    if not ids or master.empty:
+        return master, []
+    gone = set(ids)
+    mask = master["Section ID"].isin(gone) | master["Linked Lecture"].isin(gone)
+    removed = [{"section_id": r["Section ID"], "course": r["Course"], "code": int(str(r["Course"]).split()[1]),
+                "title": r["Title"], "component": r["Component"], "instructor": r["Instructor"],
+                "virtual": str(r["Modality"]).startswith("Online"), "section_cap": int(r["Section Cap"]),
+                "linked_lecture": r["Linked Lecture"] if r["Section ID"] not in gone else ""}
+               for _, r in master[mask].iterrows()]
+    return master[~mask].reset_index(drop=True), removed
+
+
 MANUAL_BASIS = "Manual section"
 
 
@@ -1595,16 +1620,32 @@ def rebalance_projection(master: pd.DataFrame, demand: pd.DataFrame, groups: set
     return m
 
 
-def capacity_gaps(master: pd.DataFrame, unseated: list[dict]) -> list[dict]:
-    """Re-check half-full overflow against the seats now on the (edited) schedule; drop gaps that are closed."""
+def capacity_gaps(master: pd.DataFrame, unseated: list[dict], demand: pd.DataFrame | None = None,
+                  removed: dict[tuple[int, bool], int] | None = None) -> list[dict]:
+    """
+    Re-check projected students against the seats now on the (edited) schedule; drop gaps that
+    are closed. `removed` = {(code, virtual): sections deleted by hand}: those courses are
+    re-checked too, since deleting a section can push demand over the remaining capacity.
+    """
+    removed = removed or {}
+    base = {(u["code"], u["virtual"]): u for u in unseated or []}
+    if demand is not None and not demand.empty:
+        for (code, virtual) in removed:
+            if (code, virtual) in base:
+                continue
+            row = demand[(demand["_code"] == code) & (demand["_virtual"] == virtual)]
+            if len(row):
+                base[(code, virtual)] = {"code": code, "virtual": virtual, "unseated": 0,
+                                         "projected": int(row.iloc[0]["Projected Enrollment"]),
+                                         "sections": 0, "seats": 0, "half": None}
     out = []
-    for u in unseated or []:
+    for key, u in base.items():
         mask = _group_mask(master, u["code"], u["virtual"]) if not master.empty else None
         seats = int(master.loc[mask, "Section Cap"].sum()) if mask is not None else 0
         n = int(mask.sum()) if mask is not None else 0
         remaining = u["projected"] - seats
         if remaining > 0:
-            out.append({**u, "unseated": remaining, "seats": seats, "sections": n})
+            out.append({**u, "unseated": remaining, "seats": seats, "sections": n, "removed": removed.get(key, 0)})
     return out
 
 
